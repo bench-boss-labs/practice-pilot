@@ -1,0 +1,41 @@
+[
+  {
+    "version": "1.0.0",
+    "date": "2026-11-04",
+    "title": "First release of the Bench Boss Labs kit",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Brand colours, type and spacing in light and dark themes, from the Bench Boss Labs design system (bbl-tokens.css)."
+      },
+      {
+        "type": "new",
+        "text": "Shared components: app header, buttons, cards, fields, pills, chips, update banner, toasts, dialogs and the What's new list (bbl-components.css)."
+      },
+      {
+        "type": "new",
+        "text": "Update banner, What's new and App history, read from each app's release-notes.json (bbl-updates.js)."
+      },
+      {
+        "type": "new",
+        "text": "The standard Help screen (bbl-help.js)."
+      },
+      {
+        "type": "new",
+        "text": "The standard Install section for Settings › This device: installed, an Install button, or the steps for this device (bbl-install.js)."
+      },
+      {
+        "type": "new",
+        "text": "Opens with no internet, with a 4-second fallback to the saved copy; a rink Wi-Fi sign-in page can't break it (bbl-sw.js, bbl-offline.js)."
+      },
+      {
+        "type": "new",
+        "text": "On-device storage with schema versions, automatic upgrades with a backup first, and Backup and Restore files (bbl-store.js)."
+      },
+      {
+        "type": "new",
+        "text": "The stamp script writes the version into every file and builds CHANGELOG.md (scripts/stamp.mjs)."
+      }
+    ]
+  }
+]

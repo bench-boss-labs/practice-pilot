@@ -1,0 +1,13 @@
+{
+  "name": "practice-pilot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Practice Pilot by Bench Boss Labs: practice plans and animated drills for youth hockey coaches.",
+  "scripts": {
+    "test": "node --test tests/unit/*.test.js",
+    "test:e2e": "node --test --test-concurrency=1 tests/e2e/*.test.mjs",
+    "stamp": "node vendor/bbl-kit/1.0.0/scripts/stamp.mjs ."
+  },
+  "devDependencies": { "fake-indexeddb": "6.0.0", "axe-core": "4.10.2" }
+}

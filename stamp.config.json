@@ -1,0 +1,1 @@
+{ "name": "Practice Pilot", "files": ["index.html", "sw.js", "app/version.js", "app/main.js", "app/schema.js", "app/ui.js", "app/screens/library.js", "app/screens/help.js", "app/screens/settings.js", "guide/index.html"] }

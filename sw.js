@@ -1,0 +1,40 @@
+/* Practice Pilot service worker. The version below is written by the stamp script. */
+const CACHE = 'practice-pilot-1.0.0';
+const V = CACHE.slice('practice-pilot-'.length);
+const KIT = 'vendor/bbl-kit/1.0.0/';
+importScripts(KIT + 'bbl-sw.js');
+
+BBLsw.start({
+  cache: CACHE,
+  prefix: 'practice-pilot-',
+  marker: 'practice-pilot',
+  timeoutMs: 4000,
+  offlinePage: '<!doctype html><html lang="en-CA"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Practice Pilot</title><body style="margin:0;background:#0B1B31;color:#EEF3FA;font:16px/1.5 system-ui,sans-serif;padding:32px"><h1 style="font-size:22px">Practice Pilot needs the internet once to install.</h1><p>Connect to Wi-Fi or mobile data, then reload this page. After that it works with no signal.</p></body></html>',
+  files: [
+    './',
+    `manifest.webmanifest?v=${V}`,
+    `release-notes.json?v=${V}`,
+    `app/app.css?v=${V}`,
+    `app/main.js?v=${V}`,
+    `app/version.js?v=${V}`,
+    `app/schema.js?v=${V}`,
+    `app/ui.js?v=${V}`,
+    `app/screens/library.js?v=${V}`,
+    `app/screens/help.js?v=${V}`,
+    `app/screens/settings.js?v=${V}`,
+    `icons/icon.svg?v=${V}`,
+    `icons/icon-180.png?v=${V}`,
+    `icons/icon-192.png`,
+    `icons/icon-512.png`,
+    `icons/icon-maskable-512.png`,
+    KIT + 'bbl-tokens.css',
+    KIT + 'bbl-components.css',
+    KIT + 'bbl-updates.js',
+    KIT + 'bbl-help.js',
+    KIT + 'bbl-store.js',
+    KIT + 'bbl-offline.js',
+    KIT + 'bbl-install.js',
+    KIT + 'brand/bbl-symbol.svg',
+    'guide/',
+  ],
+});

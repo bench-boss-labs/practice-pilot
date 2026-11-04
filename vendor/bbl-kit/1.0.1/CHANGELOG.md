@@ -1,5 +1,11 @@
 # Bench Boss Labs kit — changelog
 
+## 1.0.1 — 2026-11-04 (Install button fix)
+
+- **Fixed:** The Install button no longer shows once an app is installed: bbl-install.js adds isStandalone() and detectInstalled(), which asks the browser whether the app is already on the device.
+- **Fixed:** Anything marked hidden now stays hidden even when it has a button style (it showed the Install button after installing).
+- **Fixed:** Light theme: the Fixed and Improved labels and success text are darker, for 4.5:1 contrast on their pill backgrounds.
+
 ## 1.0.0 — 2026-11-04 (First release of the Bench Boss Labs kit)
 
 - **New:** Brand colours, type and spacing in light and dark themes, from the Bench Boss Labs design system (bbl-tokens.css).

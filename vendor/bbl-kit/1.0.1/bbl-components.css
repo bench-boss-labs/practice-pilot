@@ -1,6 +1,7 @@
 /* Bench Boss Labs components — class names match Watch Party so apps can adopt them as is.
    Every value comes from tokens.css; nothing here declares a colour of its own. */
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.45 var(--font-sans); }
 a { color: var(--accent-text); }
 button, input, select, textarea { font: inherit; color: inherit; }

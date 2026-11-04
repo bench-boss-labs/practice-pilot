@@ -56,6 +56,6 @@ export function makeVersion(version, { quiet = false, upgradesData = false, titl
   const notes = JSON.parse(readFileSync(join(dir, 'release-notes.json'), 'utf8'));
   notes.unshift({ version, date: '2026-11-05', title, quiet, upgradesData, notes: [{ type: 'fixed', text: `Fixes in ${version}.` }] });
   writeFileSync(join(dir, 'release-notes.json'), JSON.stringify(notes, null, 1));
-  execFileSync('node', [join(dir, 'vendor/bbl-kit/1.0.0/scripts/stamp.mjs'), dir]);
+  execFileSync('node', [join(dir, 'vendor/bbl-kit/1.0.1/scripts/stamp.mjs'), dir]);
   return dir;
 }

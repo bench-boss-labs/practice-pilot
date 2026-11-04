@@ -1,5 +1,5 @@
 /* Library: empty until R1 brings the drill editor. */
-import { el } from '../ui.js?v=1.0.0';
+import { el } from '../ui.js?v=1.0.1';
 
 export function renderLibrary(app) {
   const welcomeSlot = el('div');
@@ -18,7 +18,7 @@ export function renderLibrary(app) {
     welcomeSlot,
     el('section', { class: 'card empty', id: 'library-empty', 'aria-labelledby': 'empty-title' },
       el('h2', { class: 't-section', id: 'empty-title' }, 'No drills yet'),
-      el('p', {}, 'The drill editor and library arrive in the next update. Your app is installed and works offline.'),
+      el('p', {}, 'The drill editor and library arrive in the next update. Practice Pilot already works offline.'),
       el('a', { class: 'btn outline', href: '#help' }, 'Open Help')),
   ];
 }

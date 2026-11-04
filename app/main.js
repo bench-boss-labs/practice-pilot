@@ -1,13 +1,14 @@
 /* Practice Pilot — start-up, screens, updates, offline status. */
-import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.0.0';
-import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.0.0';
-import { openStore, newId, requestPersistence, storageStatus } from '../vendor/bbl-kit/1.0.0/bbl-store.js';
-import { checkForUpdate, showUpdateBanner, pendingWhatsNew, renderReleases, normalizeReleases } from '../vendor/bbl-kit/1.0.0/bbl-updates.js';
-import { registerOffline, applyUpdate, watchOnline, singleTab } from '../vendor/bbl-kit/1.0.0/bbl-offline.js';
-import { el, toast, dialog, blocker } from './ui.js?v=1.0.0';
-import { renderLibrary } from './screens/library.js?v=1.0.0';
-import { renderHelpScreen } from './screens/help.js?v=1.0.0';
-import { renderSettings } from './screens/settings.js?v=1.0.0';
+import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.0.1';
+import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.0.1';
+import { openStore, newId, requestPersistence, storageStatus } from '../vendor/bbl-kit/1.0.1/bbl-store.js';
+import { checkForUpdate, showUpdateBanner, pendingWhatsNew, renderReleases, normalizeReleases } from '../vendor/bbl-kit/1.0.1/bbl-updates.js';
+import { registerOffline, applyUpdate, watchOnline, singleTab } from '../vendor/bbl-kit/1.0.1/bbl-offline.js';
+import { isStandalone, detectInstalled } from '../vendor/bbl-kit/1.0.1/bbl-install.js';
+import { el, toast, dialog, blocker } from './ui.js?v=1.0.1';
+import { renderLibrary } from './screens/library.js?v=1.0.1';
+import { renderHelpScreen } from './screens/help.js?v=1.0.1';
+import { renderSettings } from './screens/settings.js?v=1.0.1';
 
 const app = {
   store: null, team: null, reg: null, notes: [], busy: false, online: true,
@@ -80,8 +81,11 @@ function whatsNewAfterUpdate() {
 /* ---------- start ---------- */
 async function start() {
   document.getElementById('app-version').textContent = `v${APP_VERSION}`;
+  app.installed = isStandalone();
   addEventListener('beforeinstallprompt', e => {
-    e.preventDefault(); app.installPrompt = e;
+    e.preventDefault();
+    if (app.installed || isStandalone()) return; // already installed: Chrome sometimes still offers
+    app.installPrompt = e;
     const b = document.getElementById('install-btn'); b.hidden = false;
     if (app.store && /^#(settings\/device|library|$)/.test(location.hash || '#')) route();
   });
@@ -122,7 +126,8 @@ async function start() {
   if (app.store.upgradeFailed) toast('The update couldn’t upgrade your drills. Nothing was lost.', { error: true, ms: 15000 });
   if (!(await app.store.count('teams'))) await app.store.save('teams', newTeam(newId('t')));
   await app.refreshTeam();
-  app.installed = !!(await app.store.get('meta', 'installed'));
+  app.installed = app.installed || !!(await app.store.get('meta', 'installed')) || await detectInstalled();
+  if (app.installed) { app.installPrompt = null; document.getElementById('install-btn').hidden = true; }
 
   const st = await storageStatus();
   app.privateLikely = st.privateLikely;

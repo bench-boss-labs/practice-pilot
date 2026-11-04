@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* Bench Boss Labs kit — stamp a release.
-   Usage: node vendor/bbl-kit/1.0.0/scripts/stamp.mjs [appDir]
+   Usage: node vendor/bbl-kit/1.0.1/scripts/stamp.mjs [appDir]
    Reads version.json and release-notes.json, then in every file listed in stamp.config.json:
      ?v=1.2.3            file links (so phones never mix old and new files)
      APP_VERSION = '…'   the version the app reports

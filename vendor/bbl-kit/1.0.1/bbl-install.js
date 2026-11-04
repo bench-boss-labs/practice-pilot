@@ -29,10 +29,27 @@ export function installSteps(state, appName) {
   }
 }
 
+/** True when the app is running from its home-screen icon (not in a browser tab). */
+export function isStandalone() {
+  return !!((globalThis.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: window-controls-overlay)').matches || matchMedia('(display-mode: minimal-ui)').matches)) || (globalThis.navigator && navigator.standalone));
+}
+
+/**
+ * Ask the browser whether this app is already installed on the device, even from a normal tab.
+ * Needs "related_applications" in the manifest pointing at the manifest itself (Chrome on Android).
+ * Resolves true / false; false when the browser can't tell.
+ */
+export async function detectInstalled() {
+  if (isStandalone()) return true;
+  try {
+    if (globalThis.navigator && navigator.getInstalledRelatedApps) return (await navigator.getInstalledRelatedApps()).length > 0;
+  } catch { /* not allowed here */ }
+  return false;
+}
+
 /** Read the live state from the browser. */
 export function currentInstallState(prompt, installed = false) {
-  const standalone = !!((globalThis.matchMedia && matchMedia('(display-mode: standalone)').matches) || (globalThis.navigator && navigator.standalone));
-  return installState({ standalone, installed, prompt, ua: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints || 0 });
+  return installState({ standalone: isStandalone(), installed, prompt, ua: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints || 0 });
 }
 
 /**

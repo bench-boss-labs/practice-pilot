@@ -4,7 +4,7 @@
    Offline: the saved copy. A rink Wi-Fi sign-in page can never replace a saved file.
 
    Usage in an app's sw.js:
-     importScripts('vendor/bbl-kit/1.0.0/bbl-sw.js');
+     importScripts('vendor/bbl-kit/1.0.1/bbl-sw.js');
      BBLsw.start({ cache: 'practice-pilot-1.0.0', marker: 'practice-pilot', files: [...], timeoutMs: 4000 });
 */
 (function () {

@@ -1,5 +1,5 @@
 /* Small UI helpers: toasts and in-app dialogs (never browser pop-ups). */
-import { el } from '../vendor/bbl-kit/1.0.0/bbl-updates.js';
+import { el } from '../vendor/bbl-kit/1.0.1/bbl-updates.js';
 export { el };
 
 /** toast('Saved', { action: ['Undo', fn], error: true }) */

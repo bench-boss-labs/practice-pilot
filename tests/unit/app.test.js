@@ -6,8 +6,8 @@ import vm from 'node:vm';
 import 'fake-indexeddb/auto';
 import { validateRecord, newDrill, newTeam, describeCounts, daysSince, STORES, DATA_STORES } from '../../app/schema.js';
 import { APP_VERSION, KIT_VERSION, SCHEMA_VERSION } from '../../app/version.js';
-import { openStore, newId, makeBackup, validateBackup } from '../../vendor/bbl-kit/1.0.0/bbl-store.js';
-import { normalizeReleases } from '../../vendor/bbl-kit/1.0.0/bbl-updates.js';
+import { openStore, newId, makeBackup, validateBackup } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
+import { normalizeReleases } from '../../vendor/bbl-kit/1.0.1/bbl-updates.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const read = f => readFileSync(join(ROOT, f), 'utf8');

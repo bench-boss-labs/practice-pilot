@@ -9,12 +9,12 @@ The shared pieces every Bench Boss Labs app is built from: brand styles, the upd
 Apps **copy** a fixed version of the kit; they never load it from this repo live. Changing the kit therefore changes no app until that app is deliberately upgraded.
 
 1. Copy this repo's files (without `tests/`, `node_modules/`) into the app at `vendor/bbl-kit/<version>/`.
-2. Record the version in the app's `bbl-kit.json`: `{ "version": "1.0.0" }`.
+2. Record the version in the app's `bbl-kit.json`: `{ "version": "1.0.1" }`.
 3. Upgrading: copy the new version beside the old one, point the app at it, run the app's tests, mention "Updated to Bench Boss Labs kit 1.1.0" in its release notes, then delete the old folder.
 
 **Before changing the kit**, list every app and the kit version it uses (the App portfolio table in the Product Standards), say what the change would mean for each, and get Cristian's OK.
 
-## What's inside (1.0.0)
+## What's inside (1.0.1)
 
 | File | Gives an app |
 | --- | --- |
@@ -39,4 +39,4 @@ Google sign-in and Drive helpers (`bbl-google.js`) arrive in 1.1.0.
 
 | App | Kit version |
 | --- | --- |
-| Practice Pilot | 1.0.0 |
+| Practice Pilot | 1.0.1 |

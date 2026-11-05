@@ -1,6 +1,6 @@
 /* A drill's details for reading: used by the library preview and the phone view of the editor. */
-import { el } from '../ui.js?v=1.1.0';
-import { lengthLabel, videoLink } from '../drills.js?v=1.1.0';
+import { el } from '../ui.js?v=1.1.1';
+import { lengthLabel, videoLink } from '../drills.js?v=1.1.1';
 
 export function pills(d) {
   return el('div', { class: 'pp-pills' },
@@ -14,11 +14,13 @@ export function pills(d) {
 /** Description, tags, coaching points, goalie notes and video links. */
 export function drillInfo(d) {
   const points = (d.coachingPoints || []).filter(p => p.trim());
+  const setup = (d.setupNotes || []).filter(p => p.trim());
   const links = (d.videoLinks || []).map(l => (typeof l === 'string' ? videoLink(l) : l)).filter(Boolean);
   return el('div', { class: 'stack pp-info' },
     el('p', { class: 'muted pp-length' }, lengthLabel(d)),
     d.description ? el('p', { class: 'pp-desc' }, d.description) : null,
     pills(d),
+    setup.length ? el('section', { id: 'setup-notes' }, el('h3', { class: 't-label' }, 'Setup'), el('ol', { class: 'pp-points' }, ...setup.map(p => el('li', {}, p)))) : null,
     points.length ? el('section', {}, el('h3', { class: 't-label' }, 'Coaching points'), el('ol', { class: 'pp-points' }, ...points.map(p => el('li', {}, p)))) : null,
     d.goalieNotes ? el('section', {}, el('h3', { class: 't-label' }, 'Goalie notes'), el('p', {}, d.goalieNotes)) : null,
     links.length ? el('section', {}, el('h3', { class: 't-label' }, 'Videos'),

@@ -1,15 +1,15 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.1.0';
+import { el, fill, toast, dialog } from '../ui.js?v=1.1.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.1.0';
-import { Player } from '../engine/player.js?v=1.1.0';
-import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.1.0';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.1.0';
-import { VIEWS } from '../engine/rink.js?v=1.1.0';
-import { at } from '../engine/geometry.js?v=1.1.0';
-import * as D from '../drills.js?v=1.1.0';
-import { drillInfo } from './drillview.js?v=1.1.0';
+import { SCHEMA_VERSION } from '../version.js?v=1.1.1';
+import { Player } from '../engine/player.js?v=1.1.1';
+import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.1.1';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.1.1';
+import { VIEWS } from '../engine/rink.js?v=1.1.1';
+import { at } from '../engine/geometry.js?v=1.1.1';
+import * as D from '../drills.js?v=1.1.1';
+import { drillInfo } from './drillview.js?v=1.1.1';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
@@ -69,7 +69,7 @@ class Editor {
   constructor(app, rec, root) {
     this.app = app; this.rec = rec; this.root = root;
     this.d = D.content(rec);
-    for (const [k, v] of Object.entries({ view: { rink: 'full', flip: false }, start: {}, markup: [], steps: [], pieces: [], tags: [], ageGroups: [], coachingPoints: [], videoLinks: [], autoHighlight: true })) if (this.d[k] == null) this.d[k] = v;
+    for (const [k, v] of Object.entries({ view: { rink: 'full', flip: false }, start: {}, markup: [], steps: [], pieces: [], tags: [], ageGroups: [], coachingPoints: [], setupNotes: [], videoLinks: [], autoHighlight: true })) if (this.d[k] == null) this.d[k] = v;
     this.past = []; this.future = []; this.coalesceKey = null; this.coalesceAt = 0;
     this.sel = null; this.tool = 'move'; this.place = null; this.team = 'red';
     this.markColour = 'orange'; this.markAll = false; this.tab = 'piece';
@@ -252,6 +252,7 @@ class Editor {
   stepPanel() {
     const k = this.k;
     if (!k) return [el('p', {}, 'Setup is where every piece starts. Drag pieces here to set their starting spots.'),
+      this.listField('setupNotes', { label: 'Setup', item: 'Setup line', add: '+ Setup line', id: 'setup', hint: 'How to prep the ice for other coaches, e.g. “Pucks on both blue lines”, “Pylons on the dots”.' }),
       el('button', { type: 'button', class: 'btn primary', id: 'panel-add-step', onclick: () => this.addStep() }, this.d.steps.length ? '+ Step after Setup' : '+ Step 1')];
     const s = this.d.steps[k - 1], n = this.d.steps.length;
     return [
@@ -288,23 +289,17 @@ class Editor {
       if (!l) { linkErr.textContent = 'That doesn’t look like a link.'; return; }
       set({ videoLinks: [...d.videoLinks, l] });
     };
-    const points = d.coachingPoints || [];
     return [
       field('Title', el('input', { id: 'title', value: d.title, maxlength: 100, required: true,
         oninput: e => { this.commit(D.setDetails(this.d, { title: e.target.value }), { quiet: true, coalesce: 'title' }); this.titleEl.textContent = e.target.value || 'New drill'; },
         onblur: e => { if (!e.target.value.trim()) { e.target.value = 'New drill'; this.commit(D.setDetails(this.d, { title: 'New drill' }), { quiet: true, coalesce: 'title' }); } } })),
       field('Description', el('textarea', { id: 'description', rows: 2, maxlength: 400, placeholder: 'What the drill is for', oninput: e => set({ description: e.target.value }, { quiet: true, coalesce: 'desc' }) }, d.description || '')),
+      this.listField('setupNotes', { label: 'Setup', item: 'Setup line', add: '+ Setup line', id: 'setup', hint: 'How to prep the ice for other coaches, e.g. “Pucks on both blue lines”, “Pylons on the dots”.' }),
       field('Tags', el('div', { class: 'pp-chipwrap' }, ...tags.map(t => chip(t, d.tags.includes(t), () => set({ tags: toggle(d.tags, t) }))))),
       el('div', { class: 'row' }, tagInput, el('button', { type: 'button', class: 'btn', id: 'add-tag', onclick: addTag }, '+ Tag')),
       field('Age groups', el('div', { class: 'pp-chipwrap' }, ...D.AGES.map(a => chip(a, d.ageGroups.includes(a), () => set({ ageGroups: D.AGES.filter(x => x === a ? !d.ageGroups.includes(a) : d.ageGroups.includes(x)) }))))),
       field('Level', seg('Level', D.LEVELS.map(l => [l, l]), d.level || '', v => set({ level: v }), { allowNone: true })),
-      el('div', { class: 'field' }, el('span', { class: 't-label' }, 'Coaching points'),
-        el('ol', { class: 'pp-pointlist' }, ...points.map((pt, i) => el('li', { class: 'row' },
-          el('input', { class: 'grow point-text', value: pt, maxlength: 140, 'aria-label': `Coaching point ${i + 1}`, oninput: e => { const c = [...this.d.coachingPoints]; c[i] = e.target.value; set({ coachingPoints: c }, { quiet: true, coalesce: `pt-${i}` }); } }),
-          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Move point ${i + 1} up`, disabled: i === 0, onclick: () => { const c = [...points]; [c[i - 1], c[i]] = [c[i], c[i - 1]]; set({ coachingPoints: c }); } }, '↑'),
-          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Move point ${i + 1} down`, disabled: i === points.length - 1, onclick: () => { const c = [...points]; [c[i + 1], c[i]] = [c[i], c[i + 1]]; set({ coachingPoints: c }); } }, '↓'),
-          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Remove point ${i + 1}`, onclick: () => set({ coachingPoints: points.filter((_, j) => j !== i) }) }, '✕')))),
-        el('button', { type: 'button', class: 'btn', id: 'add-point', onclick: () => { set({ coachingPoints: [...points, ''] }); const all = this.panel.querySelectorAll('.point-text'); all[all.length - 1] && all[all.length - 1].focus(); } }, '+ Point')),
+      this.listField('coachingPoints', { label: 'Coaching points', item: 'Coaching point', add: '+ Point', id: 'point' }),
       el('div', { class: 'field' }, el('span', { class: 't-label' }, 'Video links'),
         ...(d.videoLinks || []).map((l, i) => el('div', { class: 'row' }, el('a', { class: 'btn outline grow', href: l.url, target: '_blank', rel: 'noopener noreferrer' }, `▶ ${l.site}`),
           el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Remove ${l.site} link`, onclick: () => set({ videoLinks: d.videoLinks.filter((_, j) => j !== i) }) }, '✕'))),
@@ -313,6 +308,23 @@ class Editor {
       field('Visibility', el('div', { class: 'pp-seg' }, el('button', { type: 'button', class: 'pp-segbtn', 'aria-pressed': 'true' }, 'Private'), el('button', { type: 'button', class: 'pp-segbtn', disabled: true }, 'Public')), 'Public is available when sharing arrives.'),
       el('label', { class: 'pp-check' }, el('input', { type: 'checkbox', id: 'auto-glow', checked: d.autoHighlight !== false, onchange: e => set({ autoHighlight: e.target.checked }) }), 'Glow on the puck carrier'),
     ];
+  }
+
+  /** A numbered list the coach types into (coaching points, setup): add, edit, reorder, remove. */
+  listField(key, { label, item, add, id, hint }) {
+    const list = this.d[key] || [];
+    const now = () => [...(this.d[key] || [])];          // read at tap time: typing doesn't redraw the list
+    const set = (v, opts) => this.commit(D.setDetails(this.d, { [key]: v }), opts);
+    const swap = (i, j) => { const c = now(); [c[i], c[j]] = [c[j], c[i]]; set(c); };
+    return el('div', { class: 'field', id: `${id}-list` }, el('span', { class: 't-label' }, label),
+      hint ? el('span', { class: 'muted pp-hint' }, hint) : null,
+      el('ol', { class: 'pp-pointlist' }, ...list.map((text, i) => el('li', { class: 'pp-listitem' },
+        el('textarea', { class: `${id}-text`, rows: 2, maxlength: 140, 'aria-label': `${item} ${i + 1}`, oninput: e => { const c = now(); c[i] = e.target.value; set(c, { quiet: true, coalesce: `${id}-${i}` }); } }, text),
+        el('div', { class: 'pp-listbtns' },
+          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Move ${item.toLowerCase()} ${i + 1} up`, disabled: i === 0, onclick: () => swap(i, i - 1) }, '↑'),
+          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Move ${item.toLowerCase()} ${i + 1} down`, disabled: i === list.length - 1, onclick: () => swap(i, i + 1) }, '↓'),
+          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Remove ${item.toLowerCase()} ${i + 1}`, onclick: () => set(now().filter((_, j) => j !== i)) }, '✕'))))),
+      el('button', { type: 'button', class: 'btn', id: `add-${id}`, onclick: () => { set([...now(), '']); const all = this.panel.querySelectorAll(`.${id}-text`); all[all.length - 1] && all[all.length - 1].focus(); } }, add));
   }
 
   /* ---------- rink overlay: hit areas, path handles, grid, live markup ---------- */

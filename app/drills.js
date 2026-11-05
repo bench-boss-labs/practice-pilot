@@ -1,9 +1,9 @@
 /* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
    Pure functions on plain drill objects (drill format v1); the editor and library call these,
    and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
-import { PIECES, isPlayer, canMove, positionsByStep, moveOf, DEFAULT_SECONDS } from './engine/model.js?v=1.1.0';
-import { onIce } from './engine/rink.js?v=1.1.0';
-import { dist } from './engine/geometry.js?v=1.1.0';
+import { PIECES, isPlayer, canMove, positionsByStep, moveOf, DEFAULT_SECONDS } from './engine/model.js?v=1.1.1';
+import { onIce } from './engine/rink.js?v=1.1.1';
+import { dist } from './engine/geometry.js?v=1.1.1';
 
 export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
 export const AGES = ['U7', 'U9', 'U11', 'U13', 'U15', 'U18'];
@@ -349,9 +349,9 @@ export const daysLeft = (d, now = new Date()) => Math.max(0, BIN_DAYS - Math.flo
 
 export const fold = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-/** Everything search looks in, folded: title, description, tags, captions, callouts, coaching points. */
+/** Everything search looks in, folded: title, description, tags, captions, callouts, coaching points, setup. */
 export function searchText(d) {
-  const parts = [d.title, d.description, ...(d.tags || []), ...(d.coachingPoints || []), d.goalieNotes];
+  const parts = [d.title, d.description, ...(d.tags || []), ...(d.coachingPoints || []), ...(d.setupNotes || []), d.goalieNotes];
   for (const s of d.steps || []) { parts.push(s.caption); for (const c of s.callouts || []) parts.push(c.text); }
   return fold(parts.filter(Boolean).join(' \n '));
 }

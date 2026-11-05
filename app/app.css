@@ -102,7 +102,11 @@ textarea { padding: 10px 12px; resize: vertical; }
 .pp-panel-body .field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px; }
 .pp-two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 .pp-two select { width: 100%; }
-.pp-pointlist { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.pp-pointlist { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: var(--space-2); }
+.pp-listitem { display: flex; flex-direction: column; gap: 4px; }
+.pp-listitem textarea { width: 100%; box-sizing: border-box; min-height: 0; }
+.pp-listbtns { display: flex; gap: 4px; justify-content: flex-end; }
+.pp-listbtns .pp-mini { min-height: var(--tap-min); font-size: 14px; }
 .pp-callout-edit { padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-sm); gap: 6px; }
 .pp-panel-body h2, .pp-panel-body h3 { margin: 0; }
 .pp-panel-body input[type=range] { width: 100%; accent-color: var(--accent); min-height: var(--tap-min); }

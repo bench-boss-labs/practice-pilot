@@ -17,7 +17,7 @@ const build = () => {
 
 test('new drills have every v1 field and pass validation', () => {
   const d = blank();
-  for (const f of ['view', 'start', 'markup', 'autoHighlight', 'goalieNotes', 'description', 'template', 'sample', 'deletedAt']) assert.ok(f in d, f);
+  for (const f of ['setupNotes', 'view', 'start', 'markup', 'autoHighlight', 'goalieNotes', 'description', 'template', 'sample', 'deletedAt']) assert.ok(f in d, f);
   assert.deepEqual(validateRecord('drills', { ...d, schemaVersion: 1, createdAt: '2026-11-04T00:00:00Z', updatedAt: '2026-11-04T00:00:00Z', updatedBy: 'x' }), []);
 });
 
@@ -184,6 +184,7 @@ test('search: every word must match, ignoring capitals and accents, across title
   assert.deepEqual(f('PIVOT'), ['Pass, Pivot & Go']);
   assert.deepEqual(f('find your winger'), ['Breakout Pass 1 on 1']);    // a callout
   assert.deepEqual(f('outside edge'), ['Figure-8 Edges']);             // a coaching point
+  assert.deepEqual(f('pylons centre red line'), ['Figure-8 Edges']);   // a setup line
   assert.deepEqual(f('pivot breakout'), []);
   all[0].title = 'Passe éclair';
   assert.deepEqual(f('eclair'), ['Passe éclair']);

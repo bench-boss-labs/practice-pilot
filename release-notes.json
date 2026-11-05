@@ -1,5 +1,24 @@
 [
   {
+    "version": "1.1.1",
+    "date": "2026-11-05",
+    "title": "Drill setup",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Every drill has a Setup list telling other coaches how to prep the ice, such as \"Pucks on both blue lines\" or \"Pylons on the dots\". It shows in the preview above the coaching points, and search looks in it too."
+      },
+      {
+        "type": "improved",
+        "text": "The three sample drills now come with setup lines."
+      },
+      {
+        "type": "fixed",
+        "text": "Adding a new coaching point no longer clears the one you just typed."
+      }
+    ]
+  },
+  {
     "version": "1.1.0",
     "date": "2026-11-04",
     "title": "Drill library and editor",

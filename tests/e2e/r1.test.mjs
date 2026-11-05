@@ -44,6 +44,7 @@ test('first run: three samples play in the preview; search, filters, count and s
   await page.waitForSelector('#preview:not([hidden]) .pp-rink');
   assert.match(await page.textContent('#preview'), /4 steps · 9\.5 s/);
   assert.match(await page.textContent('#preview'), /Pass hard and flat/);
+  assert.match(await page.textContent('#setup-notes'), /Setup.*Puck pile at the near boards/);
   await page.click('#preview button[aria-label="Play"]');
   await page.waitForTimeout(700);
   assert.ok(+(await page.inputValue('#preview .pp-scrub')) > 0, 'the preview plays');
@@ -159,6 +160,8 @@ test('build a drill on a tablet: place, step, carry, curve, pivot, callout, high
   await page.click('.pp-tagchip >> text=U11');
   await page.click('.pp-segbtn >> text=Intermediate');
   await page.click('#add-point'); await page.keyboard.type('Stay low through the pivot');
+  await page.click('#add-setup'); await page.keyboard.type('Pucks on both blue lines');
+  await page.click('#add-setup'); await page.keyboard.type('Pylons on the dots');
   await page.fill('#new-link', 'not a link'); await page.click('#add-link');
   assert.equal(await page.textContent('#link-error'), 'That doesn’t look like a link.');
   await page.fill('#new-link', 'https://www.youtube.com/watch?v=abc123'); await page.click('#add-link');
@@ -174,6 +177,7 @@ test('build a drill on a tablet: place, step, carry, curve, pivot, callout, high
   assert.deepEqual(d.ageGroups, ['U11']);
   assert.equal(d.level, 'Intermediate');
   assert.deepEqual(d.coachingPoints, ['Stay low through the pivot']);
+  assert.deepEqual(d.setupNotes, ['Pucks on both blue lines', 'Pylons on the dots']);
   assert.deepEqual(d.videoLinks, [{ url: 'https://www.youtube.com/watch?v=abc123', site: 'YouTube' }]);
   assert.equal(d.goalieNotes, 'Track the pass across');
   assert.equal(d.steps.length, 2);

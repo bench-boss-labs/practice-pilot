@@ -1,5 +1,11 @@
 # Practice Pilot — changelog
 
+## 1.1.1 — 2026-11-05 (Drill setup)
+
+- **New:** Every drill has a Setup list telling other coaches how to prep the ice, such as "Pucks on both blue lines" or "Pylons on the dots". It shows in the preview above the coaching points, and search looks in it too.
+- **Improved:** The three sample drills now come with setup lines.
+- **Fixed:** Adding a new coaching point no longer clears the one you just typed.
+
 ## 1.1.0 — 2026-11-04 (Drill library and editor)
 
 - **New:** Build drills that move: place players, pucks and equipment, add steps, and drag players to make them skate, carry the puck, pass and shoot.

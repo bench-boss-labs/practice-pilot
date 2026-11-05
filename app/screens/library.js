@@ -1,17 +1,17 @@
 /* Library (R1 Library deep-dive): search, filters, sort, drill cards with pictures, a playing preview,
    New drill (blank or template), Duplicate, Save as template, Delete to Recently deleted. */
-import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.1.0';
+import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.1.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.1.0';
-import { newDrill } from '../schema.js?v=1.1.0';
-import { Player } from '../engine/player.js?v=1.1.0';
-import { frame } from '../engine/model.js?v=1.1.0';
-import { thumbnailSVG } from '../engine/render.js?v=1.1.0';
-import { VIEWS } from '../engine/rink.js?v=1.1.0';
-import { firstRunSamples } from '../engine/samples.js?v=1.1.0';
-import * as D from '../drills.js?v=1.1.0';
-import { drillInfo, pills } from './drillview.js?v=1.1.0';
-import { reviewOnly } from './editor.js?v=1.1.0';
+import { SCHEMA_VERSION } from '../version.js?v=1.1.1';
+import { newDrill } from '../schema.js?v=1.1.1';
+import { Player } from '../engine/player.js?v=1.1.1';
+import { frame } from '../engine/model.js?v=1.1.1';
+import { thumbnailSVG } from '../engine/render.js?v=1.1.1';
+import { VIEWS } from '../engine/rink.js?v=1.1.1';
+import { firstRunSamples } from '../engine/samples.js?v=1.1.1';
+import * as D from '../drills.js?v=1.1.1';
+import { drillInfo, pills } from './drillview.js?v=1.1.1';
+import { reviewOnly } from './editor.js?v=1.1.1';
 
 const SHOW = [['drills', 'Drills'], ['templates', 'Templates'], ['samples', 'Samples only'], ['deleted', 'Recently deleted']];
 const SORTS = [['edited', 'Recently edited'], ['az', 'A to Z'], ['steps', 'Most steps']];
@@ -29,6 +29,14 @@ export async function restoreSamples(app, { onlyFirstRun = false } = {}) {
   }
   await app.store.put('meta', { key: 'samples-added', value: new Date().toISOString() });
   return n;
+}
+
+/** Give sample drills saved before 1.1.1 their setup lines (only fills the field when it's missing). */
+export async function fillSampleSetup(app) {
+  for (const s of firstRunSamples()) {
+    const have = await app.store.get('drills', s.id);
+    if (have && !have.setupNotes) await app.store.put('drills', { ...have, setupNotes: s.setupNotes });
+  }
 }
 
 /** Remove drills that have been in Recently deleted for more than 30 days. */

@@ -15,12 +15,12 @@ after(async () => { await env.close(); });
 test('opens with the Bench Boss Labs header, version and no errors', async () => {
   const { ctx, page } = await open(env);
   assert.equal(await page.textContent('.brand-name'), 'Practice Pilot');
-  assert.match(await page.textContent('.brand-sub'), /by Bench Boss Labs · v1\.0\.1/i);
+  assert.match(await page.textContent('.brand-sub'), /by Bench Boss Labs · v1\.1\.0/i);
   assert.equal(await page.textContent('#team-pill'), 'My team');
   assert.equal(await page.title(), 'Practice Pilot · Bench Boss Labs');
   assert.ok(await page.isVisible('#welcome'));
   await page.click('#welcome-ok');
-  await page.reload(); await page.waitForSelector('#library-empty');
+  await page.reload(); await page.waitForSelector('#count:not(:empty)');
   assert.equal(await page.isVisible('#welcome'), false, 'the welcome shows once');
   assert.deepEqual(page.errors, []);
   await ctx.close();
@@ -31,7 +31,7 @@ test('works with no internet once opened', async () => {
   await offlineReady(page);
   env.server.setMode('down');
   await page.reload();
-  await page.waitForSelector('#library-empty');
+  await page.waitForSelector('#count:not(:empty)');
   await page.click('a[data-screen="help"]'); await page.waitForSelector('#help-title');
   await page.click('a[data-screen="settings"]'); await page.waitForSelector('#about-version');
   assert.equal(await page.textContent('#about-kit'), '1.0.1');
@@ -48,7 +48,7 @@ test('a slow network falls back to the saved copy within about 4 seconds', async
   env.server.setMode('slow');
   const t0 = Date.now();
   await page.reload({ waitUntil: 'commit' });
-  await page.waitForSelector('#library-empty', { timeout: 15000 });
+  await page.waitForSelector('#count:not(:empty)', { timeout: 15000 });
   const ms = Date.now() - t0;
   env.server.setMode('normal');
   assert.ok(ms < 9000, `opened in ${ms} ms`);
@@ -60,11 +60,11 @@ test('a rink Wi-Fi sign-in page cannot replace the saved app', async () => {
   await offlineReady(page);
   env.server.setMode('portal');
   await page.reload();
-  await page.waitForSelector('#library-empty');
+  await page.waitForSelector('#count:not(:empty)');
   env.server.setMode('normal');
   env.server.setMode('down');
   await page.reload();
-  await page.waitForSelector('#library-empty');
+  await page.waitForSelector('#count:not(:empty)');
   assert.match(await page.textContent('.brand-name'), /Practice Pilot/);
   env.server.setMode('normal');
   await ctx.close();
@@ -73,18 +73,18 @@ test('a rink Wi-Fi sign-in page cannot replace the saved app', async () => {
 test("an update shows the banner; Update now installs it and shows What's new once", async () => {
   const { ctx, page } = await open(env);
   await offlineReady(page);
-  const next = makeVersion('1.0.2', { title: 'Faster start-up' });
+  const next = makeVersion('1.1.1', { title: 'Faster start-up' });
   env.server.setRoot(next);
   try {
     await page.evaluate(() => window.__pp.checkUpdates());
     await page.waitForSelector('#bbl-update-banner');
     assert.match(await page.textContent('#bbl-update-banner'), /A new version is ready: Faster start-up/);
     await page.click('#bbl-update-go');
-    await page.waitForFunction(() => document.getElementById('app-version')?.textContent === 'v1.0.2', null, { timeout: 15000 });
+    await page.waitForFunction(() => document.getElementById('app-version')?.textContent === 'v1.1.1', null, { timeout: 15000 });
     await page.waitForSelector('#whats-new');
-    assert.match(await page.textContent('#whats-new'), /What's new in 1\.0\.2/);
+    assert.match(await page.textContent('#whats-new'), /What's new in 1\.1\.1/);
     await page.click('#whats-new .btn.primary');
-    await page.reload(); await page.waitForSelector('#library-empty');
+    await page.reload(); await page.waitForSelector('#count:not(:empty)');
     assert.equal(await page.isVisible('#whats-new'), false);
   } finally { env.server.setRoot(ROOT); }
   await ctx.close();
@@ -92,7 +92,7 @@ test("an update shows the banner; Update now installs it and shows What's new on
 
 test('Later hides the banner; a data upgrade is announced', async () => {
   const { ctx, page } = await open(env);
-  env.server.setRoot(makeVersion('1.1.0', { upgradesData: true, title: 'Drills' }));
+  env.server.setRoot(makeVersion('1.2.0', { upgradesData: true, title: 'Drills' }));
   try {
     await page.evaluate(() => window.__pp.checkUpdates());
     await page.waitForSelector('#bbl-update-banner');
@@ -106,10 +106,10 @@ test('Later hides the banner; a data upgrade is announced', async () => {
 test('a quiet update installs by itself with no banner', async () => {
   const { ctx, page } = await open(env);
   await offlineReady(page);
-  env.server.setRoot(makeVersion('1.0.2', { quiet: true }));
+  env.server.setRoot(makeVersion('1.1.1', { quiet: true }));
   try {
     await page.evaluate(() => window.__pp.checkUpdates());
-    await page.waitForFunction(() => document.getElementById('app-version')?.textContent === 'v1.0.2', null, { timeout: 15000 });
+    await page.waitForFunction(() => document.getElementById('app-version')?.textContent === 'v1.1.1', null, { timeout: 15000 });
     assert.equal(await page.isVisible('#bbl-update-banner'), false);
     assert.equal(await page.isVisible('#whats-new'), false);
   } finally { env.server.setRoot(ROOT); }
@@ -132,7 +132,8 @@ test('Check for updates says when the app is current or offline', async () => {
 test('Back up now and Restore (both choices), with refusals for bad files', async () => {
   const { ctx, page } = await open(env);
   await page.evaluate(async () => {
-    const { newDrill } = await import('./app/schema.js?v=1.0.1');
+    const { newDrill } = await import('./app/schema.js?v=1.1.0');
+    for (const d of await window.__pp.store.all('drills')) await window.__pp.store.delete('drills', d.id); // start without the samples
     await window.__pp.store.save('drills', newDrill('d_aaaaaa', { title: 'Keep' }));
   });
   await page.goto(env.server.url + '#settings/device');
@@ -147,7 +148,7 @@ test('Back up now and Restore (both choices), with refusals for bad files', asyn
 
   const ids = () => page.evaluate(async () => (await window.__pp.store.all('drills')).map(d => d.id).sort());
   await page.evaluate(async () => {
-    const { newDrill } = await import('./app/schema.js?v=1.0.1');
+    const { newDrill } = await import('./app/schema.js?v=1.1.0');
     await window.__pp.store.delete('drills', 'd_aaaaaa');
     await window.__pp.store.save('drills', newDrill('d_bbbbbb', { title: 'New' }));
   });
@@ -248,7 +249,7 @@ test('one tab at a time', async () => {
   await second.waitForSelector('#tab-blocked');
   await second.click('#tab-blocked button');
   await page.waitForSelector('#tab-released');
-  await second.waitForSelector('#library-empty');
+  await second.waitForSelector('#count:not(:empty)');
   await ctx.close();
 });
 

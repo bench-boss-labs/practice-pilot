@@ -1,10 +1,11 @@
 /* Settings › About and Settings › This device. */
-import { APP, APP_NAME, APP_VERSION, KIT_VERSION, SCHEMA_VERSION } from '../version.js?v=1.0.1';
-import { DATA_STORES, describeCounts, daysSince, newTeam } from '../schema.js?v=1.0.1';
+import { APP, APP_NAME, APP_VERSION, KIT_VERSION, SCHEMA_VERSION } from '../version.js?v=1.1.0';
+import { DATA_STORES, describeCounts, daysSince, newTeam } from '../schema.js?v=1.1.0';
+import { restoreSamples } from './library.js?v=1.1.0';
 import { newId, makeBackup, backupFileName, validateBackup, restoreBackup, storageStatus, formatBytes } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { formatDate } from '../../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { renderInstallCard } from '../../vendor/bbl-kit/1.0.1/bbl-install.js';
-import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.0.1';
+import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.1.0';
 
 export function renderSettings(app, sub) {
   const tab = sub === 'device' ? 'device' : 'about';
@@ -111,6 +112,13 @@ function device(app) {
       storageLine, keptLine, lastLine, remind,
       el('div', { class: 'row' }, backupBtn, restoreBtn, file),
       el('p', { class: 'hint' }, 'Backups go to your Downloads folder. Keep a copy somewhere safe, like Google Drive.')),
+    el('section', { class: 'card stack', 'aria-labelledby': 'samples-title' },
+      el('h2', { class: 't-section', id: 'samples-title' }, 'Sample drills'),
+      el('p', { class: 'hint' }, 'Puts back any of the three sample drills you deleted. Your own drills aren’t touched.'),
+      el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn', id: 'restore-samples', onclick: async () => {
+        const n = await safeSave(() => restoreSamples(app));
+        toast(n ? `${n} sample drill${n === 1 ? '' : 's'} restored` : 'All the sample drills are already in your library.');
+      } }, 'Restore samples'))),
   ];
 }
 

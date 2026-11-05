@@ -1,5 +1,5 @@
 /* Practice Pilot data format, version 1. Pure functions: tested in Node (tests/unit). */
-import { SCHEMA_VERSION } from './version.js?v=1.0.1';
+import { SCHEMA_VERSION } from './version.js?v=1.1.0';
 
 /** Every data store the app keeps on the device. R0 creates them all; later releases fill them. */
 export const DATA_STORES = ['drills', 'plans', 'teams', 'media'];
@@ -37,9 +37,15 @@ export function newTeam(id, name = 'My team') {
   return { id, name, colours: ['red', 'black'], iceTimeMinutes: 50, driveFolderId: null };
 }
 
-/** A new drill with every field v1 defines (R1 fills in the rest of the editor's fields). */
+/** A new drill with every field of drill format v1 (see the R1 Animation Engine deep-dive). */
 export function newDrill(id, { title = 'New drill', author = '', team = '' } = {}) {
-  return { id, title, author, team, sourceDrillId: null, submittedAt: null, tags: [], ageGroups: [], level: '', visibility: 'private', rinkView: 'full', pieces: [], steps: [], coachingPoints: [], videoLinks: [] };
+  return {
+    id, title, author, team, sourceDrillId: null, submittedAt: null,
+    description: '', tags: [], ageGroups: [], level: '', visibility: 'private',
+    coachingPoints: [], videoLinks: [], goalieNotes: '',
+    view: { rink: 'full', flip: false }, pieces: [], start: {}, steps: [], markup: [], autoHighlight: true,
+    template: false, sample: false, deletedAt: null,
+  };
 }
 
 /** "3 drills, 1 plan, 1 team" from backup counts. */

@@ -29,7 +29,7 @@ export async function open(env, { size = 'tablet', init } = {}) {
   page.on('pageerror', e => page.errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !IGNORE.test(m.text())) page.errors.push(m.text()); });
   await page.goto(env.server.url);
-  await page.waitForSelector('#library-empty');
+  await page.waitForSelector('#count:not(:empty)');
   return { ctx, page };
 }
 

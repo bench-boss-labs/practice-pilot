@@ -2,6 +2,9 @@
 import { el } from '../vendor/bbl-kit/1.0.1/bbl-updates.js';
 export { el };
 
+/** Replace an element's children, skipping empty slots (null/false), which replaceChildren would print. */
+export function fill(node, ...kids) { node.replaceChildren(...kids.flat().filter(k => k != null && k !== false)); return node; }
+
 /** toast('Saved', { action: ['Undo', fn], error: true }) */
 export function toast(text, { action, error = false, ms } = {}) {
   const host = document.getElementById('toasts');

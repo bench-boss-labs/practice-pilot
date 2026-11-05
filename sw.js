@@ -1,5 +1,5 @@
 /* Practice Pilot service worker. The version below is written by the stamp script. */
-const CACHE = 'practice-pilot-1.0.1';
+const CACHE = 'practice-pilot-1.1.0';
 const V = CACHE.slice('practice-pilot-'.length);
 const KIT = 'vendor/bbl-kit/1.0.1/';
 importScripts(KIT + 'bbl-sw.js');
@@ -22,6 +22,15 @@ BBLsw.start({
     `app/screens/library.js?v=${V}`,
     `app/screens/help.js?v=${V}`,
     `app/screens/settings.js?v=${V}`,
+    `app/drills.js?v=${V}`,
+    `app/screens/editor.js?v=${V}`,
+    `app/screens/drillview.js?v=${V}`,
+    `app/engine/geometry.js?v=${V}`,
+    `app/engine/rink.js?v=${V}`,
+    `app/engine/model.js?v=${V}`,
+    `app/engine/render.js?v=${V}`,
+    `app/engine/player.js?v=${V}`,
+    `app/engine/samples.js?v=${V}`,
     `icons/icon.svg?v=${V}`,
     `icons/icon-180.png?v=${V}`,
     `icons/icon-192.png`,

@@ -1,0 +1,591 @@
+/* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
+   with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
+import { el, fill, toast, dialog } from '../ui.js?v=1.1.0';
+import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
+import { SCHEMA_VERSION } from '../version.js?v=1.1.0';
+import { Player } from '../engine/player.js?v=1.1.0';
+import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.1.0';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.1.0';
+import { VIEWS } from '../engine/rink.js?v=1.1.0';
+import { at } from '../engine/geometry.js?v=1.1.0';
+import * as D from '../drills.js?v=1.1.0';
+import { drillInfo } from './drillview.js?v=1.1.0';
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
+const NAMES = { F: 'Forward', C: 'Centre', D: 'Defence', G: 'Goalie', X: 'Skater', coach: 'Coach', puck: 'Puck', pile: 'Puck pile', pylon: 'Pylon', net: 'Net', board: 'Passer board', deker: 'Deker', tire: 'Tire', stick: 'Stick', text: 'Text' };
+const LINE_NAMES = { skate: 'Skate', 'skate-puck': 'With puck', backward: 'Backward', pass: 'Pass', shot: 'Shot', carried: 'Carried' };
+const TEAM_NAMES = { red: 'Red', black: 'Black', white: 'White', blue: 'Blue' };
+const MARK_NAMES = { orange: 'Orange', navy: 'Navy', blue: 'Blue' };
+const TOOLS = [['move', 'Move'], ['pen', 'Pen'], ['arrow', 'Arrow'], ['box', 'Box'], ['text', 'Text'], ['erase', 'Eraser']];
+const ROTATES = type => !!(PIECES[type] && PIECES[type].rotate);
+
+/** Is this screen too small to edit on (a phone)? */
+export const reviewOnly = () => matchMedia('(max-width: 640px)').matches;
+
+function trayIcon(type, team) {
+  const svg = document.createElementNS(SVGNS, 'svg');
+  svg.setAttribute('viewBox', '-6 -6 12 12'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('class', 'pp-tray-icon');
+  svg.innerHTML = pieceSVG({ id: 'icon', type, team, x: 0, y: 0, ang: 0, opacity: 1, rotate: ROTATES(type) ? 0 : 0, text: 'Aa' });
+  return svg;
+}
+const field = (label, input, hint) => el('label', { class: 'field' }, el('span', { class: 't-label' }, label), input, hint ? el('span', { class: 'muted pp-hint' }, hint) : null);
+const seg = (name, options, value, onPick, { allowNone = false } = {}) => el('div', { class: 'pp-seg', role: 'group', 'aria-label': name },
+  ...options.map(([v, label]) => el('button', { type: 'button', class: 'pp-segbtn', 'aria-pressed': String(v === value), onclick: () => onPick(allowNone && v === value ? '' : v) }, label)));
+
+export function renderEditor(app, id) {
+  const root = el('div', { class: 'pp-editor-screen' }, el('p', { class: 'muted' }, 'Opening the drill…'));
+  open(app, id, root).catch(e => {
+    fill(root, el('div', { class: 'card notice' }, el('p', {}, `This drill couldn’t be opened. ${e.message || ''}`), el('a', { class: 'btn', href: '#library' }, 'Back to the library')));
+  });
+  return root;
+}
+
+async function open(app, id, root) {
+  const rec = await app.store.get('drills', id);
+  if (!rec || rec.deletedAt) {
+    fill(root, el('section', { class: 'card empty' }, el('h2', { class: 't-section' }, 'That drill isn’t here'),
+      el('p', {}, rec ? 'It’s in Recently deleted. Restore it from the library first.' : 'It may have been deleted.'), el('a', { class: 'btn primary', href: '#library' }, 'Back to the library')));
+    return;
+  }
+  const newer = rec.schemaVersion > SCHEMA_VERSION;
+  if (reviewOnly() || newer) return reviewView(app, rec, root, newer);
+  const ed = new Editor(app, rec, root);
+  app.cleanup = () => ed.close();
+}
+
+/* Phones (and drills from a newer version): play and read, no editing. */
+function reviewView(app, rec, root, newer) {
+  const host = el('div', { class: 'pp-review-player' });
+  fill(root, 
+    el('div', { class: 'screen-head' }, el('a', { class: 'btn', href: `#library/${rec.id}` }, '‹ Library'), el('h1', { class: 't-title pp-title-cut' }, rec.title)),
+    el('div', { class: 'card notice' }, el('p', {}, newer ? 'This drill was saved by a newer version of Practice Pilot. Update to edit it.' : 'Edit on a tablet or PC. You can play the drill and read its notes here.')),
+    host, drillInfo(rec));
+  const p = new Player(host, rec);
+  app.cleanup = () => p.destroy();
+}
+
+class Editor {
+  constructor(app, rec, root) {
+    this.app = app; this.rec = rec; this.root = root;
+    this.d = D.content(rec);
+    for (const [k, v] of Object.entries({ view: { rink: 'full', flip: false }, start: {}, markup: [], steps: [], pieces: [], tags: [], ageGroups: [], coachingPoints: [], videoLinks: [], autoHighlight: true })) if (this.d[k] == null) this.d[k] = v;
+    this.past = []; this.future = []; this.coalesceKey = null; this.coalesceAt = 0;
+    this.sel = null; this.tool = 'move'; this.place = null; this.team = 'red';
+    this.markColour = 'orange'; this.markAll = false; this.tab = 'piece';
+    this.status = 'Saved'; this.saveTimer = 0; this.saving = Promise.resolve();
+    this.customTags = [];
+    app.busy = true;
+    this.build();
+    app.store.get('meta', 'tags').then(t => { this.customTags = (t && t.value) || []; if (this.tab === 'details') this.renderPanel(); });
+    this.onKey = e => this.key(e);
+    document.addEventListener('keydown', this.onKey);
+    this.onHide = () => { if (document.visibilityState === 'hidden') this.flush(); };
+    document.addEventListener('visibilitychange', this.onHide);
+    addEventListener('pagehide', this.onHide);
+  }
+
+  /* ---------- layout ---------- */
+  build() {
+    this.statusEl = el('span', { class: 'pp-status', 'aria-live': 'polite', id: 'save-status' }, 'Saved');
+    this.titleEl = el('h1', { class: 't-section pp-title-cut', id: 'editor-title' }, this.d.title);
+    this.bUndo = el('button', { type: 'button', class: 'btn', id: 'undo', 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => this.undo() }, '↶ Undo');
+    this.bRedo = el('button', { type: 'button', class: 'btn', id: 'redo', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => this.redo() }, '↷ Redo');
+    const top = el('div', { class: 'pp-edtop' },
+      el('a', { class: 'btn', href: `#library/${this.rec.id}`, id: 'editor-back' }, '‹ Library'),
+      el('div', { class: 'grow pp-edtitle' }, this.titleEl, this.statusEl),
+      this.bUndo, this.bRedo,
+      el('button', { type: 'button', class: 'btn', id: 'drill-menu', 'aria-label': 'More drill actions', onclick: () => this.menu() }, '⋮'));
+
+    this.tray = el('div', { class: 'pp-tray', id: 'tray', role: 'toolbar', 'aria-label': 'Pieces' });
+    this.toolbar = el('div', { class: 'pp-tools', id: 'tools' });
+    this.stepAdd = el('button', { type: 'button', class: 'pp-chip pp-chip-add', id: 'add-step', onclick: () => this.addStep() }, '+ Step');
+    this.playerHost = el('div', { class: 'pp-edplayer' });
+    this.panel = el('aside', { class: 'pp-panel card', id: 'panel', 'aria-label': 'Options' });
+    fill(this.root, top, el('div', { class: 'pp-editor' }, this.tray, el('div', { class: 'pp-edcentre' }, this.toolbar, this.playerHost), this.panel));
+    this.player = new Player(this.playerHost, this.d, { editing: true, chipsExtra: this.stepAdd, overlay: fr => this.overlay(fr), onStep: () => { if (this.built) { this.renderPanel(); this.renderTools(); } } });
+    this.player.host.querySelector('.pp-controls').after(this.player.chips);
+    this.wirePointer();
+    this.built = true;
+    this.renderTray(); this.renderTools(); this.renderPanel(); this.renderTop();
+  }
+
+  get k() { return this.player.step(); }
+
+  renderTop() {
+    this.titleEl.textContent = this.d.title || 'New drill';
+    this.statusEl.textContent = this.status;
+    this.statusEl.className = `pp-status${this.status === 'Not saved' ? ' bad' : ''}`;
+    this.bUndo.disabled = !this.past.length; this.bRedo.disabled = !this.future.length;
+  }
+
+  renderTray() {
+    const n = this.d.pieces.length;
+    fill(this.tray, 
+      el('div', { class: 'pp-tray-teams', role: 'group', 'aria-label': 'Team colour for new players' },
+        ...Object.keys(TEAMS).map(t => el('button', { type: 'button', class: 'pp-swatch', 'aria-pressed': String(this.team === t), 'aria-label': `${TEAM_NAMES[t]} team`, title: `${TEAM_NAMES[t]} team`, style: `--sw:${TEAMS[t]}`, onclick: () => { this.team = t; this.renderTray(); } }))),
+      el('button', { type: 'button', class: 'pp-trayb', id: 'tray-move', 'aria-pressed': String(!this.place && this.tool === 'move'), onclick: () => this.setTool('move') }, el('span', { class: 'pp-tray-glyph', 'aria-hidden': 'true' }, '✥'), el('span', {}, 'Move')),
+      ...TRAY.map(type => el('button', { type: 'button', class: 'pp-trayb', 'data-type': type, 'aria-pressed': String(this.place === type), title: `Place: ${NAMES[type]}`, 'aria-label': `Place ${NAMES[type]}`, onclick: () => this.setPlace(type) },
+        trayIcon(type, this.team), el('span', {}, type.length === 1 ? type : NAMES[type]))),
+      n >= D.PIECE_WARNING ? el('p', { class: 'pp-warn', role: 'status' }, `${n} pieces: the drill may get hard to read.`) : null);
+  }
+
+  renderTools() {
+    const marking = this.tool !== 'move';
+    const v = this.d.view || { rink: 'full', flip: false };
+    fill(this.toolbar, 
+      el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Tool' }, ...TOOLS.map(([t, label]) =>
+        el('button', { type: 'button', class: 'pp-segbtn', 'data-tool': t, 'aria-pressed': String(this.tool === t && !this.place), onclick: () => this.setTool(t) }, label))),
+      marking ? el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Markup colour' }, ...Object.keys(MARK_COLOURS).map(c =>
+        el('button', { type: 'button', class: 'pp-swatch', 'aria-pressed': String(this.markColour === c), 'aria-label': MARK_NAMES[c], title: MARK_NAMES[c], style: `--sw:${MARK_COLOURS[c]}`, onclick: () => { this.markColour = c; this.renderTools(); } }))) : null,
+      marking ? seg('Markup shows on', [[false, this.k ? 'This step only' : 'Setup only'], [true, 'All steps']], this.markAll, v2 => { this.markAll = v2; this.renderTools(); }) : null,
+      marking && this.d.markup.length ? el('button', { type: 'button', class: 'btn', id: 'clear-markup', onclick: () => { this.commit(D.clearMarkup(this.d)); toast('Markup cleared', { action: ['Undo', () => this.undo()] }); } }, 'Clear markup') : null,
+      el('span', { class: 'grow' }),
+      el('label', { class: 'pp-inline' }, el('span', { class: 'sr' }, 'Rink view'),
+        el('select', { id: 'rink-view', onchange: e => this.commit(D.setDetails(this.d, { view: { ...v, rink: e.target.value } })) },
+          ...VIEWS.map(([val, label]) => el('option', { value: val, selected: v.rink === val }, label)))),
+      (v.rink === 'half' || v.rink === 'zone') ? el('button', { type: 'button', class: 'btn', id: 'flip', 'aria-pressed': String(!!v.flip), onclick: () => this.commit(D.setDetails(this.d, { view: { ...v, flip: !v.flip } })) }, '⇄ Flip') : null);
+  }
+
+  setTool(t) { this.tool = t; this.place = null; this.renderTray(); this.renderTools(); this.playerHost.dataset.tool = t; }
+  setPlace(type) {
+    if (this.place === type) return this.setTool('move');
+    this.place = type; this.tool = 'move'; this.renderTray(); this.renderTools(); this.playerHost.dataset.tool = 'place';
+  }
+
+  /* ---------- the panel ---------- */
+  renderPanel() {
+    const tabs = [['piece', 'Piece'], ['step', this.k ? `Step ${this.k}` : 'Setup'], ['details', 'Details']];
+    const body = this.tab === 'piece' ? this.piecePanel() : this.tab === 'step' ? this.stepPanel() : this.detailsPanel();
+    const active = document.activeElement && this.panel.contains(document.activeElement) ? document.activeElement.id : null;
+    fill(this.panel, 
+      el('div', { class: 'pp-tabs', role: 'tablist' }, ...tabs.map(([t, label]) => el('button', { type: 'button', role: 'tab', class: 'pp-tab', id: `tab-${t}`, 'aria-selected': String(this.tab === t), onclick: () => { this.tab = t; this.renderPanel(); } }, label))),
+      el('div', { class: 'pp-panel-body stack', role: 'tabpanel' }, ...[].concat(body)));
+    if (active) { const a = document.getElementById(active); if (a) a.focus(); }
+  }
+
+  piecePanel() {
+    const p = this.d.pieces.find(x => x.id === this.sel);
+    if (!p) return [el('p', { class: 'muted' }, 'Tap a piece on the rink to see its options.'),
+      el('p', { class: 'muted' }, 'To add one, tap it in the tray, then tap the rink. It stays picked so you can drop several; tap Move to stop.')];
+    const k = this.k, out = [];
+    const nm = NAMES[p.type] + (p.team ? ` · ${TEAM_NAMES[p.team] || ''}` : '');
+    out.push(el('h2', { class: 't-section', id: 'piece-name' }, nm));
+    if (isPlayer(p.type)) out.push(field('Team colour', el('div', { class: 'pp-seg' }, ...Object.keys(TEAMS).map(t =>
+      el('button', { type: 'button', class: 'pp-swatch', 'aria-pressed': String(p.team === t), 'aria-label': `${TEAM_NAMES[t]} team`, style: `--sw:${TEAMS[t]}`, onclick: () => this.commit(D.setPiece(this.d, p.id, { team: t })) })))));
+    if (p.type === 'text') out.push(field('Text', el('input', { id: 'piece-text', value: p.text || '', maxlength: 30, oninput: e => this.commit(D.setPiece(this.d, p.id, { text: e.target.value || 'Text' }), { quiet: true, coalesce: `text-${p.id}` }) })));
+    if (ROTATES(p.type)) out.push(field(`Rotate (${p.rotate || 0}°)`, el('div', { class: 'row' },
+      el('button', { type: 'button', class: 'btn', id: 'rot-left', onclick: () => this.commit(D.setPiece(this.d, p.id, { rotate: (p.rotate || 0) - 15 })) }, '↺ 15°'),
+      el('button', { type: 'button', class: 'btn', id: 'rot-right', onclick: () => this.commit(D.setPiece(this.d, p.id, { rotate: (p.rotate || 0) + 15 })) }, '↻ 15°'),
+      el('input', { type: 'range', id: 'rot-slider', min: 0, max: 345, step: 15, value: p.rotate || 0, 'aria-label': 'Rotation', class: 'grow', oninput: e => this.commit(D.setPiece(this.d, p.id, { rotate: +e.target.value }), { coalesce: `rot-${p.id}`, quiet: true }), onchange: () => this.renderPanel() }))));
+
+    if (k > 0 && canMove(p.type)) out.push(...this.movePanel(p, k));
+    else if (k === 0 && canMove(p.type)) out.push(el('p', { class: 'muted' }, 'This is where it starts. Pick a step, then drag it to make it move.'));
+    if (k > 0 && (isPlayer(p.type) || p.type === 'coach')) out.push(...this.calloutPanel(p, k));
+
+    const n = this.d.steps.length;
+    out.push(el('div', { class: 'pp-two' },
+      field('Appears in', el('select', { id: 'appears', onchange: e => this.commit(D.setPiece(this.d, p.id, { fromStep: +e.target.value || null })) },
+        el('option', { value: 0, selected: !p.fromStep }, 'Setup'), ...Array.from({ length: n }, (_, i) => el('option', { value: i + 1, selected: p.fromStep === i + 1 }, `Step ${i + 1}`)))),
+      field('Leaves after', el('select', { id: 'leaves', onchange: e => this.commit(D.setPiece(this.d, p.id, { untilStep: e.target.value === '' ? null : +e.target.value })) },
+        el('option', { value: '', selected: p.untilStep == null }, 'Stays to the end'), ...Array.from({ length: n }, (_, i) => el('option', { value: i + 1, selected: p.untilStep === i + 1 }, `Step ${i + 1}`))))));
+    out.push(el('div', { class: 'row' },
+      el('button', { type: 'button', class: 'btn', id: 'dup-piece', onclick: () => { const nid = newId('pc'); this.commit(D.duplicatePiece(this.d, p.id, nid)); this.select(nid); } }, 'Duplicate'),
+      el('button', { type: 'button', class: 'btn danger', id: 'remove-piece', onclick: () => this.removeSelected() }, 'Remove from drill')));
+    return out;
+  }
+
+  movePanel(p, k) {
+    const m = moveOf(this.d.steps[k - 1], p.id);
+    const moving = m && movesIn(this.d, k, p.id);
+    if (!m || (!moving && !m.carriedBy)) return [el('p', { class: 'muted', id: 'no-move' }, `Not moving in step ${k}. Drag it on the rink to make it move.`)];
+    const out = [];
+    const lines = p.type === 'puck' ? LINES.puck : p.type === 'coach' ? LINES.coach : LINES.player;
+    const line = m.carriedBy ? 'carried' : (m.line || (p.type === 'puck' ? 'pass' : 'skate'));
+    if (lines.length > 1) out.push(field('Line', seg('Line', lines.map(l => [l, LINE_NAMES[l]]), line, v => this.commit(D.setMove(this.d, k, p.id, { line: v })))));
+    if (m.carriedBy) {
+      const c = this.d.pieces.find(x => x.id === m.carriedBy);
+      out.push(el('p', { class: 'muted' }, `Carried by the ${c ? NAMES[c.type].toLowerCase() : 'player'} in this step.`));
+      return out;
+    }
+    out.push(field('Path', el('div', { class: 'row' },
+      el('button', { type: 'button', class: 'btn', id: 'add-bend', onclick: () => this.commit(D.addBend(this.d, k, p.id)) }, '+ Bend point'),
+      (m.bends || []).length ? el('button', { type: 'button', class: 'btn', id: 'straighten', onclick: () => this.commit(D.setMove(this.d, k, p.id, { bends: [] })) }, 'Straighten') : null),
+      'Drag the dot on the path to curve it.'));
+    if (isPlayer(p.type) || p.type === 'coach') out.push(field('Finish', seg('Finish', [['', 'None'], ['stop', 'Stop'], ['pivot', 'Pivot']], m.finish || '', v => this.commit(D.setMove(this.d, k, p.id, { finish: v })))));
+    const when = m.when || 'step';
+    out.push(field('When', seg('When', [['step', 'With the step'], ['after', 'After skaters arrive'], ['custom', 'Custom']], when, v => this.commit(D.setMove(this.d, k, p.id, { when: v === 'step' ? '' : v })))));
+    if (when === 'custom') {
+      const s = Math.round((m.start ?? 0) * 100), e = Math.round((m.end ?? 1) * 100);
+      const set = (key, val) => {
+        let start = key === 'start' ? val : (m.start ?? 0), end = key === 'end' ? val : (m.end ?? 1);
+        if (end - start < 0.1) { if (key === 'start') start = Math.max(0, end - 0.1); else end = Math.min(1, start + 0.1); }
+        this.commit(D.setMove(this.d, k, p.id, { when: 'custom', start, end }), { coalesce: `win-${k}-${p.id}`, quiet: true });
+      };
+      out.push(el('div', { class: 'pp-two' },
+        field(`Starts at ${s}%`, el('input', { type: 'range', id: 'win-start', min: 0, max: 90, step: 5, value: s, oninput: ev => set('start', ev.target.value / 100), onchange: () => this.renderPanel() })),
+        field(`Ends at ${e}%`, el('input', { type: 'range', id: 'win-end', min: 10, max: 100, step: 5, value: e, oninput: ev => set('end', ev.target.value / 100), onchange: () => this.renderPanel() }))));
+    }
+    out.push(el('button', { type: 'button', class: 'btn', id: 'clear-move', onclick: () => this.commit(D.clearMove(this.d, k, p.id)) }, `Stay still in step ${k}`));
+    return out;
+  }
+
+  calloutPanel(p, k) {
+    const out = [el('h3', { class: 't-label' }, 'Callouts')];
+    for (const c of D.calloutsFor(this.d, k, p.id)) {
+      if (c.k !== k) { out.push(el('p', { class: 'muted' }, `“${c.text}” from step ${c.k}, until the end`)); continue; }
+      const left = el('span', { class: 'muted pp-hint' }, `${D.CALLOUT_MAX - c.text.length} left`);
+      out.push(el('div', { class: 'pp-callout-edit stack' },
+        el('input', { 'aria-label': 'Callout text', class: 'callout-text', value: c.text, maxlength: D.CALLOUT_MAX, oninput: e => { left.textContent = `${D.CALLOUT_MAX - e.target.value.length} left`; this.commit(D.setCallout(this.d, k, c.i, { text: e.target.value }), { quiet: true, coalesce: `co-${k}-${c.i}` }); } }), left,
+        el('div', { class: 'row' }, seg('Shows', [[false, 'This step'], [true, 'Until the end']], c.stay, v => this.commit(D.setCallout(this.d, k, c.i, { stay: v }))),
+          el('button', { type: 'button', class: 'btn danger', onclick: () => { this.commit(D.removeCallout(this.d, k, c.i)); toast('Callout removed', { action: ['Undo', () => this.undo()] }); } }, 'Remove callout'))));
+    }
+    out.push(el('button', { type: 'button', class: 'btn', id: 'add-callout', onclick: () => {
+      this.commit(D.addCallout(this.d, k, p.id, ''));
+      const inputs = this.panel.querySelectorAll('.callout-text'); const last = inputs[inputs.length - 1]; if (last) last.focus();
+    } }, '+ Callout'));
+    const lit = ((this.d.steps[k - 1] || {}).highlight || []).includes(p.id);
+    out.push(el('label', { class: 'pp-check' }, el('input', { type: 'checkbox', id: 'highlight', checked: lit, onchange: e => this.commit(D.setHighlight(this.d, k, p.id, e.target.checked)) }), `Highlight in step ${k}`));
+    return out;
+  }
+
+  stepPanel() {
+    const k = this.k;
+    if (!k) return [el('p', {}, 'Setup is where every piece starts. Drag pieces here to set their starting spots.'),
+      el('button', { type: 'button', class: 'btn primary', id: 'panel-add-step', onclick: () => this.addStep() }, this.d.steps.length ? '+ Step after Setup' : '+ Step 1')];
+    const s = this.d.steps[k - 1], n = this.d.steps.length;
+    return [
+      field('Caption', el('textarea', { id: 'caption', rows: 2, maxlength: 120, placeholder: 'The coaching cue for this step', oninput: e => this.commit(D.setStep(this.d, k, { caption: e.target.value }), { quiet: true, coalesce: `cap-${k}` }) }, s.caption || '')),
+      field(`Step length: ${s.seconds || 2} s`, el('input', { type: 'range', id: 'step-length', min: D.STEP_MIN, max: D.STEP_MAX, step: 0.5, value: s.seconds || 2, oninput: e => { e.target.previousSibling.textContent = `Step length: ${e.target.value} s`; this.commit(D.setStep(this.d, k, { seconds: +e.target.value }), { quiet: true, coalesce: `len-${k}` }); } })),
+      el('div', { class: 'row' },
+        el('button', { type: 'button', class: 'btn', id: 'step-earlier', disabled: k <= 1, onclick: () => { this.commit(D.moveStep(this.d, k, -1)); this.player.goStep(k - 1); } }, '← Move earlier'),
+        el('button', { type: 'button', class: 'btn', id: 'step-later', disabled: k >= n, onclick: () => { this.commit(D.moveStep(this.d, k, 1)); this.player.goStep(k + 1); } }, 'Move later →')),
+      el('div', { class: 'row' },
+        el('button', { type: 'button', class: 'btn', id: 'panel-add-step', onclick: () => this.addStep() }, `+ Step after ${k}`),
+        el('button', { type: 'button', class: 'btn danger', id: 'remove-step', onclick: () => { this.commit(D.removeStep(this.d, k)); this.player.goStep(Math.min(k, this.d.steps.length)); toast(`Step ${k} removed`, { action: ['Undo', () => this.undo()] }); } }, 'Remove step')),
+    ];
+  }
+
+  detailsPanel() {
+    const d = this.d;
+    const set = (fields, opts) => this.commit(D.setDetails(this.d, fields), opts);
+    const toggle = (list, v) => (list.includes(v) ? list.filter(x => x !== v) : [...list, v]);
+    const chip = (label, on, onclick) => el('button', { type: 'button', class: 'pp-tagchip', 'aria-pressed': String(on), onclick }, label);
+    const tags = [...D.TAGS, ...this.customTags.filter(t => !D.TAGS.includes(t)), ...(d.tags || []).filter(t => !D.TAGS.includes(t) && !this.customTags.includes(t))];
+    const tagInput = el('input', { id: 'new-tag', placeholder: 'New tag', maxlength: 24, 'aria-label': 'New tag', onkeydown: e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } } });
+    const addTag = async () => {
+      const t = tagInput.value.trim().replace(/\s+/g, ' ');
+      if (!t) return;
+      const existing = tags.find(x => x.toLowerCase() === t.toLowerCase());
+      if (!existing) { this.customTags = [...this.customTags, t]; await this.app.store.put('meta', { key: 'tags', value: this.customTags }); }
+      const name = existing || t;
+      if (!d.tags.includes(name)) set({ tags: [...d.tags, name] }); else this.renderPanel();
+    };
+    const linkErr = el('p', { class: 'pp-error', role: 'alert', id: 'link-error' });
+    const linkInput = el('input', { id: 'new-link', type: 'url', inputmode: 'url', placeholder: 'Paste a YouTube or other video link', 'aria-label': 'Video link', onkeydown: e => { if (e.key === 'Enter') { e.preventDefault(); addLink(); } } });
+    const addLink = () => {
+      const l = D.videoLink(linkInput.value);
+      if (!l) { linkErr.textContent = 'That doesn’t look like a link.'; return; }
+      set({ videoLinks: [...d.videoLinks, l] });
+    };
+    const points = d.coachingPoints || [];
+    return [
+      field('Title', el('input', { id: 'title', value: d.title, maxlength: 100, required: true,
+        oninput: e => { this.commit(D.setDetails(this.d, { title: e.target.value }), { quiet: true, coalesce: 'title' }); this.titleEl.textContent = e.target.value || 'New drill'; },
+        onblur: e => { if (!e.target.value.trim()) { e.target.value = 'New drill'; this.commit(D.setDetails(this.d, { title: 'New drill' }), { quiet: true, coalesce: 'title' }); } } })),
+      field('Description', el('textarea', { id: 'description', rows: 2, maxlength: 400, placeholder: 'What the drill is for', oninput: e => set({ description: e.target.value }, { quiet: true, coalesce: 'desc' }) }, d.description || '')),
+      field('Tags', el('div', { class: 'pp-chipwrap' }, ...tags.map(t => chip(t, d.tags.includes(t), () => set({ tags: toggle(d.tags, t) }))))),
+      el('div', { class: 'row' }, tagInput, el('button', { type: 'button', class: 'btn', id: 'add-tag', onclick: addTag }, '+ Tag')),
+      field('Age groups', el('div', { class: 'pp-chipwrap' }, ...D.AGES.map(a => chip(a, d.ageGroups.includes(a), () => set({ ageGroups: D.AGES.filter(x => x === a ? !d.ageGroups.includes(a) : d.ageGroups.includes(x)) }))))),
+      field('Level', seg('Level', D.LEVELS.map(l => [l, l]), d.level || '', v => set({ level: v }), { allowNone: true })),
+      el('div', { class: 'field' }, el('span', { class: 't-label' }, 'Coaching points'),
+        el('ol', { class: 'pp-pointlist' }, ...points.map((pt, i) => el('li', { class: 'row' },
+          el('input', { class: 'grow point-text', value: pt, maxlength: 140, 'aria-label': `Coaching point ${i + 1}`, oninput: e => { const c = [...this.d.coachingPoints]; c[i] = e.target.value; set({ coachingPoints: c }, { quiet: true, coalesce: `pt-${i}` }); } }),
+          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Move point ${i + 1} up`, disabled: i === 0, onclick: () => { const c = [...points]; [c[i - 1], c[i]] = [c[i], c[i - 1]]; set({ coachingPoints: c }); } }, '↑'),
+          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Move point ${i + 1} down`, disabled: i === points.length - 1, onclick: () => { const c = [...points]; [c[i + 1], c[i]] = [c[i], c[i + 1]]; set({ coachingPoints: c }); } }, '↓'),
+          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Remove point ${i + 1}`, onclick: () => set({ coachingPoints: points.filter((_, j) => j !== i) }) }, '✕')))),
+        el('button', { type: 'button', class: 'btn', id: 'add-point', onclick: () => { set({ coachingPoints: [...points, ''] }); const all = this.panel.querySelectorAll('.point-text'); all[all.length - 1] && all[all.length - 1].focus(); } }, '+ Point')),
+      el('div', { class: 'field' }, el('span', { class: 't-label' }, 'Video links'),
+        ...(d.videoLinks || []).map((l, i) => el('div', { class: 'row' }, el('a', { class: 'btn outline grow', href: l.url, target: '_blank', rel: 'noopener noreferrer' }, `▶ ${l.site}`),
+          el('button', { type: 'button', class: 'btn pp-mini', 'aria-label': `Remove ${l.site} link`, onclick: () => set({ videoLinks: d.videoLinks.filter((_, j) => j !== i) }) }, '✕'))),
+        el('div', { class: 'row' }, linkInput, el('button', { type: 'button', class: 'btn', id: 'add-link', onclick: addLink }, 'Add')), linkErr),
+      field('Goalie notes', el('textarea', { id: 'goalie-notes', rows: 2, maxlength: 300, oninput: e => set({ goalieNotes: e.target.value }, { quiet: true, coalesce: 'goalie' }) }, d.goalieNotes || '')),
+      field('Visibility', el('div', { class: 'pp-seg' }, el('button', { type: 'button', class: 'pp-segbtn', 'aria-pressed': 'true' }, 'Private'), el('button', { type: 'button', class: 'pp-segbtn', disabled: true }, 'Public')), 'Public is available when sharing arrives.'),
+      el('label', { class: 'pp-check' }, el('input', { type: 'checkbox', id: 'auto-glow', checked: d.autoHighlight !== false, onchange: e => set({ autoHighlight: e.target.checked }) }), 'Glow on the puck carrier'),
+    ];
+  }
+
+  /* ---------- rink overlay: hit areas, path handles, grid, live markup ---------- */
+  overlay(fr) {
+    if (!this.built && !this.player) return '';
+    const ctm = this.player.svg.getScreenCTM();
+    const pxPerFt = ctm ? ctm.a : 4;
+    const minR = 24 / pxPerFt;          // at least a 48 px target
+    let s = '';
+    if (this.grid) {
+      s += '<g class="pp-grid" pointer-events="none">';
+      for (let x = 0; x <= 200; x += 5) s += `<line x1="${x}" y1="0" x2="${x}" y2="85"/>`;
+      for (let y = 0; y <= 85; y += 5) s += `<line x1="0" y1="${y}" x2="200" y2="${y}"/>`;
+      s += '</g>';
+    }
+    const k = fr.k;
+    if (this.sel && k > 0) {
+      const p = this.d.pieces.find(x => x.id === this.sel);
+      const m = p && moveOf(this.d.steps[k - 1], p.id);
+      if (m && m.to && movesIn(this.d, k, p.id)) {
+        const handles = (m.bends || []).length ? m.bends.map((b, i) => [b, i]) : (() => { const pl = pathOf(this.d, k, p.id); const q = at(pl, pl.L / 2); return [[[q.x, q.y], 'mid']]; })();
+        for (const [[x, y], i] of handles) s += `<g class="pp-handle" data-bend="${i}"><circle cx="${x}" cy="${y}" r="${Math.max(minR * 0.75, 2)}" fill="transparent"/><circle cx="${x}" cy="${y}" r="1.4" fill="#fff" stroke="${ACCENT}" stroke-width=".6"/></g>`;
+      }
+    }
+    for (const pc of fr.pieces) if (pc.opacity > 0.05) s += `<circle class="pp-hit" data-hit="${pc.id}" cx="${pc.x}" cy="${pc.y}" r="${Math.max(radius(pc.type) + 0.8, minR)}" fill="transparent"/>`;
+    if (this.live) s += this.live;
+    return s;
+  }
+
+  wirePointer() {
+    const svg = this.player.svg;
+    svg.addEventListener('pointerdown', e => this.down(e));
+    svg.addEventListener('pointermove', e => this.moveP(e));
+    svg.addEventListener('pointerup', e => this.up(e));
+    svg.addEventListener('pointercancel', () => this.cancelDrag());
+    svg.addEventListener('click', e => {
+      if (this.tool !== 'erase') return;
+      const m = e.target.closest('[data-mark]');
+      if (m) { this.commit(D.removeMark(this.d, m.getAttribute('data-mark'))); toast('Mark erased', { action: ['Undo', () => this.undo()] }); }
+    });
+  }
+
+  down(e) {
+    if (e.button > 0) return;
+    if (this.player.playing) this.player.pause();
+    const pt = this.player.toRink(e), k = this.k;
+    if (this.place) {
+      const id = newId('pc');
+      this.commit(D.addPiece(this.d, { id, type: this.place, team: this.team, at: pt, step: k }));
+      this.select(id, { tab: false });
+      return;
+    }
+    if (this.tool === 'erase') return;
+    if (this.tool === 'text') { this.textMark(pt); return; }
+    if (this.tool !== 'move') {
+      this.drag = { kind: 'mark', points: [pt], start: pt };
+      this.player.svg.setPointerCapture(e.pointerId);
+      return;
+    }
+    const bend = e.target.closest('[data-bend]');
+    if (bend && this.sel) {
+      this.drag = { kind: 'bend', i: bend.getAttribute('data-bend'), base: this.d, start: pt, moved: false };
+    } else {
+      const id = this.nearest(pt, e.target);
+      if (!id) { if (this.sel) this.select(null); return; }
+      if (id !== this.sel) this.select(id);
+      this.drag = { kind: 'piece', id, base: this.d, start: pt, moved: false };
+    }
+    this.player.svg.setPointerCapture(e.pointerId);
+    this.armGrid();
+  }
+
+  /** The piece under a finger: the one whose centre is nearest, within its touch area. */
+  nearest(pt, target) {
+    if (!target.closest('[data-hit],[data-piece]')) return null;
+    const ctm = this.player.svg.getScreenCTM(), minR = 24 / (ctm ? ctm.a : 4);
+    let best = null, bestD = Infinity;
+    for (const pc of this.player.current().pieces) {
+      if (pc.opacity <= 0.05) continue;
+      const dd = Math.hypot(pc.x - pt[0], pc.y - pt[1]);
+      if (dd <= Math.max(radius(pc.type) + 0.8, minR) && dd < bestD) { best = pc.id; bestD = dd; }
+    }
+    return best;
+  }
+
+  armGrid() { clearTimeout(this.gridTimer); this.gridTimer = setTimeout(() => { if (this.drag && this.drag.kind !== 'mark') { this.grid = true; this.player.draw(); } }, 500); }
+
+  moveP(e) {
+    if (!this.drag) return;
+    const pt = this.player.toRink(e), dr = this.drag;
+    if (dr.kind === 'mark') {
+      if (this.tool === 'pen') dr.points.push(pt); else dr.points = [dr.start, pt];
+      this.live = this.markPreview(dr.points);
+      this.player.draw();
+      return;
+    }
+    if (!dr.moved && Math.hypot(pt[0] - dr.start[0], pt[1] - dr.start[1]) < 0.8) return;
+    if (dr.last && Math.hypot(pt[0] - dr.last[0], pt[1] - dr.last[1]) > 0.3) { this.grid = false; this.armGrid(); }
+    dr.moved = true; dr.last = pt;
+    const k = this.k;
+    dr.result = dr.kind === 'piece' ? D.dragPiece(dr.base, k, dr.id, pt)
+      : D.moveBend(dr.base, k, this.sel, dr.i === 'mid' ? 0 : +dr.i, pt);
+    if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = 0; if (this.drag && this.drag.result) { this.d = this.drag.result; this.player.load(this.d); } });
+  }
+
+  up() {
+    const dr = this.drag; this.drag = null;
+    clearTimeout(this.gridTimer);
+    const hadGrid = this.grid; this.grid = false;
+    if (!dr) return;
+    if (dr.kind === 'mark') {
+      this.live = '';
+      const pts = this.tool === 'pen' ? D.smoothStroke(dr.points) : dr.points;
+      const big = pts.length > 1 && Math.hypot(pts[pts.length - 1][0] - pts[0][0], pts[pts.length - 1][1] - pts[0][1]) > 1.5;
+      if (big || (this.tool === 'pen' && pts.length > 2)) this.commit(D.addMark(this.d, { id: newId('mk'), step: this.markAll ? null : this.k, kind: this.tool, points: pts, colour: this.markColour }));
+      else this.player.draw();
+      return;
+    }
+    if (dr.moved && dr.result) { this.d = dr.base; this.commit(dr.result); } else if (hadGrid) this.player.draw();
+  }
+
+  cancelDrag() {
+    if (!this.drag) return;
+    if (this.drag.base) { this.d = this.drag.base; this.player.load(this.d); }
+    this.drag = null; this.grid = false; this.live = '';
+  }
+
+  markPreview(points) {
+    const col = MARK_COLOURS[this.markColour];
+    const a = points[0], b = points[points.length - 1];
+    if (this.tool === 'box') return `<rect x="${Math.min(a[0], b[0])}" y="${Math.min(a[1], b[1])}" width="${Math.abs(b[0] - a[0])}" height="${Math.abs(b[1] - a[1])}" fill="none" stroke="${col}" stroke-width=".55" stroke-dasharray="1.4 1"/>`;
+    return `<path d="M${points.map(p => p.join(',')).join(' L')}" fill="none" stroke="${col}" stroke-width=".55" stroke-linecap="round"/>`;
+  }
+
+  async textMark(pt) {
+    const input = el('input', { id: 'mark-text', maxlength: 30, 'aria-label': 'Text', placeholder: 'A word or two' });
+    const p = dialog({ title: 'Add text', body: input, buttons: [{ label: 'Cancel', value: null }, { label: 'Add', value: 'add', kind: 'primary' }] });
+    setTimeout(() => input.focus(), 0);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.closest('.dialog').querySelector('[data-value="add"]').click(); } });
+    if (await p === 'add' && input.value.trim()) this.commit(D.addMark(this.d, { id: newId('mk'), step: this.markAll ? null : this.k, kind: 'text', points: [pt], text: input.value.trim(), colour: this.markColour }));
+  }
+
+  select(id, { tab = true } = {}) {
+    this.sel = id;
+    this.player.select(id);
+    if (tab && id) this.tab = 'piece';
+    this.renderPanel();
+  }
+
+  /* ---------- changes, undo, saving ---------- */
+  commit(next, { quiet = false, coalesce = null } = {}) {
+    if (next === this.d) return;
+    const now = Date.now();
+    const merge = coalesce && coalesce === this.coalesceKey && now - this.coalesceAt < 1500;
+    if (!merge) { this.past.push(JSON.stringify(this.d)); if (this.past.length > D.MAX_UNDO) this.past.shift(); this.future = []; }
+    this.coalesceKey = coalesce; this.coalesceAt = now;
+    this.d = next;
+    this.changed({ quiet });
+  }
+
+  changed({ quiet = false } = {}) {
+    if (this.sel && !this.d.pieces.some(p => p.id === this.sel)) this.sel = null;
+    this.player.selected = this.sel;
+    this.player.load(this.d);
+    if (!quiet) { this.renderPanel(); this.renderTray(); this.renderTools(); }
+    this.status = 'Saving…'; this.renderTop();
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => this.save(), 500);
+  }
+
+  undo() {
+    if (!this.past.length) return;
+    this.future.push(JSON.stringify(this.d));
+    this.d = JSON.parse(this.past.pop()); this.coalesceKey = null;
+    this.changed();
+  }
+  redo() {
+    if (!this.future.length) return;
+    this.past.push(JSON.stringify(this.d));
+    this.d = JSON.parse(this.future.pop()); this.coalesceKey = null;
+    this.changed();
+  }
+
+  async save() {
+    clearTimeout(this.saveTimer); this.saveTimer = 0;
+    const snapshot = this.d;
+    this.saving = this.saving.then(async () => {
+      try {
+        const thumb = await thumbnailSVG(snapshot, frame);
+        this.rec = await this.app.store.save('drills', { ...this.rec, ...snapshot, thumb });
+        if (this.d === snapshot) { this.status = 'Saved'; this.renderTop(); }
+      } catch (e) {
+        this.status = 'Not saved'; this.renderTop();
+        if (e.code === 'full') toast('Your tablet is out of space. Your last saved version is kept.', { error: true, action: ['Try again', () => this.save()] });
+        else toast(`Couldn’t save: ${e.message}`, { error: true, action: ['Try again', () => this.save()] });
+      }
+    });
+    return this.saving;
+  }
+
+  flush() { if (this.saveTimer) return this.save(); return this.saving; }
+
+  close() {
+    this.flush();
+    document.removeEventListener('keydown', this.onKey);
+    document.removeEventListener('visibilitychange', this.onHide);
+    removeEventListener('pagehide', this.onHide);
+    this.player.destroy();
+    this.app.busy = false;
+    if (this.app.pendingUpdate) { this.app.pendingUpdate = null; this.app.checkUpdates(); }
+  }
+
+  /* ---------- actions ---------- */
+  addStep() {
+    const { drill, k } = D.addStep(this.d, this.k);
+    this.commit(drill);
+    this.player.goStep(k);
+    this.tab = this.sel ? this.tab : 'step';
+    this.renderPanel();
+  }
+
+  removeSelected() {
+    const p = this.d.pieces.find(x => x.id === this.sel);
+    if (!p) return;
+    this.commit(D.removePiece(this.d, p.id));
+    this.select(null);
+    toast(`${NAMES[p.type]} removed`, { action: ['Undo', () => this.undo()] });
+  }
+
+  key(e) {
+    if (document.querySelector('.bbl-overlay')) return;
+    const typing = e.target.closest && e.target.closest('input,textarea,select,[contenteditable]');
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && !typing && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) this.redo(); else this.undo(); return; }
+    if (mod && !typing && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); this.redo(); return; }
+    if (typing) return;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && this.sel) { e.preventDefault(); this.removeSelected(); return; }
+    if (e.key === 'Escape') { if (this.place || this.tool !== 'move') this.setTool('move'); else if (this.sel) this.select(null); return; }
+    if (e.shiftKey && this.sel && e.key.startsWith('Arrow')) {
+      e.preventDefault();
+      const k = this.k, pos = positionsByStep(this.d)[k][this.sel];
+      const dx = { ArrowLeft: -1, ArrowRight: 1 }[e.key] || 0, dy = { ArrowUp: -1, ArrowDown: 1 }[e.key] || 0;
+      this.commit(D.dragPiece(this.d, k, this.sel, [pos[0] + dx, pos[1] + dy]), { coalesce: `nudge-${this.sel}-${k}`, quiet: true });
+      return;
+    }
+    if (!e.target.closest || !e.target.closest('.pp-player')) {
+      if (e.key === ' ') { e.preventDefault(); this.player.toggle(); }
+      else if (e.key === 'ArrowLeft') this.player.goStep(this.k - 1);
+      else if (e.key === 'ArrowRight') this.player.goStep(this.k + 1);
+    }
+  }
+
+  async menu() {
+    const v = await dialog({ id: 'drill-actions', title: this.d.title || 'Drill', body: el('p', { class: 'muted', style: 'margin:0' }, 'Your changes are already saved.'), buttons: [
+      { label: 'Duplicate', value: 'dup' }, { label: 'Save as template', value: 'tmpl' }, { label: 'Delete', value: 'del', kind: 'danger' }, { label: 'Close', value: null }] });
+    if (!v) return;
+    await this.flush();
+    if (v === 'dup') {
+      const c = D.duplicateDrill(this.rec, newId('d'));
+      await this.app.store.save('drills', { ...c, thumb: this.rec.thumb });
+      toast(`“${c.title}” opened`);
+      location.hash = `#edit/${c.id}`;
+    } else if (v === 'tmpl') {
+      const t = D.templateFrom(this.rec, newId('d'));
+      await this.app.store.save('drills', { ...t, thumb: this.rec.thumb });
+      toast('Saved as a template. New drill now offers it.');
+    } else if (v === 'del') {
+      const id = this.rec.id;
+      await this.app.store.save('drills', { ...this.rec, deletedAt: new Date().toISOString() });
+      location.hash = '#library';
+      toast(`“${this.d.title}” moved to Recently deleted`, { action: ['Undo', async () => {
+        const r = await this.app.store.get('drills', id); await this.app.store.save('drills', { ...r, deletedAt: null }); this.app.render();
+      }] });
+    }
+  }
+}

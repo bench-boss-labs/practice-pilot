@@ -1,5 +1,40 @@
 [
   {
+    "version": "1.1.0",
+    "date": "2026-11-04",
+    "title": "Drill library and editor",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Build drills that move: place players, pucks and equipment, add steps, and drag players to make them skate, carry the puck, pass and shoot."
+      },
+      {
+        "type": "new",
+        "text": "Curved paths, stops and pivots, and passes that wait until skaters arrive."
+      },
+      {
+        "type": "new",
+        "text": "Callouts that follow a player, and a glow on the player to watch."
+      },
+      {
+        "type": "new",
+        "text": "Draw on a drill with pen, arrows, boxes and text."
+      },
+      {
+        "type": "new",
+        "text": "Tags, age groups, level, coaching points, video links and goalie notes for every drill."
+      },
+      {
+        "type": "new",
+        "text": "A library with search, filters and a playing preview, plus three sample drills to start."
+      },
+      {
+        "type": "new",
+        "text": "Templates, Duplicate, Undo and Redo, and Recently deleted, which keeps deleted drills for 30 days."
+      }
+    ]
+  },
+  {
     "version": "1.0.1",
     "date": "2026-11-04",
     "title": "Install button fix",

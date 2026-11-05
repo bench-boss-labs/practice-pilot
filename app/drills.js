@@ -1,0 +1,402 @@
+/* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
+   Pure functions on plain drill objects (drill format v1); the editor and library call these,
+   and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
+import { PIECES, isPlayer, canMove, positionsByStep, moveOf, DEFAULT_SECONDS } from './engine/model.js?v=1.1.0';
+import { onIce } from './engine/rink.js?v=1.1.0';
+import { dist } from './engine/geometry.js?v=1.1.0';
+
+export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
+export const AGES = ['U7', 'U9', 'U11', 'U13', 'U15', 'U18'];
+export const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
+export const MAX_UNDO = 200;
+export const CALLOUT_MAX = 40;
+export const PIECE_WARNING = 50;
+export const BIN_DAYS = 30;
+export const STEP_MIN = 1, STEP_MAX = 6;
+
+const clone = o => JSON.parse(JSON.stringify(o));
+const r1 = n => Math.round(n * 10) / 10;
+const pt = p => onIce([r1(p[0]), r1(p[1])]);
+
+/** The drill fields an edit can change (thumb and record stamps are left out of undo snapshots). */
+export function content(d) {
+  const { thumb, createdAt, updatedAt, updatedBy, schemaVersion, ...rest } = d;
+  return rest;
+}
+
+/* ---------- pieces ---------- */
+
+export function addPiece(d, { id, type, team = 'red', at, step = 0 }) {
+  const n = clone(d);
+  const p = { id, type };
+  if (isPlayer(type)) p.team = team;
+  if (PIECES[type] && PIECES[type].rotate) p.rotate = 0;
+  if (type === 'text') p.text = 'Text';
+  if (step > 0) p.fromStep = step;
+  n.pieces.push(p);
+  n.start[id] = pt(at);
+  return n;
+}
+
+/** Remove a piece from every step, with its moves, callouts and highlights. A puck it carried stays where it was. */
+export function removePiece(d, id) {
+  const n = clone(d);
+  const gone = n.pieces.find(p => p.id === id);
+  if (!gone) return n;
+  n.pieces = n.pieces.filter(p => p.id !== id);
+  delete n.start[id];
+  n.steps.forEach(s => {
+    const carried = (s.moves || []).filter(m => m.carriedBy && m.piece === id).map(m => m.carriedBy);
+    // its carrier is gone: a puck it carried stays where it was this step
+    s.moves = (s.moves || []).filter(m => m.piece !== id && m.carriedBy !== id);
+    // a removed puck: its carrier's "with puck" line becomes "skate"
+    for (const c of carried) { const cm = moveOf(s, c); if (cm && cm.line === 'skate-puck') cm.line = 'skate'; }
+    if (s.callouts) s.callouts = s.callouts.filter(c => c.piece !== id);
+    if (s.highlight) s.highlight = s.highlight.filter(h => h !== id);
+  });
+  return n;
+}
+
+export function duplicatePiece(d, id, newId) {
+  const src = d.pieces.find(p => p.id === id);
+  if (!src) return d;
+  const n = clone(d);
+  const at = d.start[id] || [100, 42.5];
+  n.pieces.push({ ...clone(src), id: newId });
+  n.start[newId] = pt([at[0] + 6, at[1] + 4]);
+  return n;
+}
+
+export function setPiece(d, id, fields) {
+  const n = clone(d);
+  const p = n.pieces.find(x => x.id === id);
+  if (!p) return n;
+  for (const [k, v] of Object.entries(fields)) {
+    if (v == null || v === '') delete p[k]; else p[k] = v;
+  }
+  if (p.rotate != null) p.rotate = ((Math.round(p.rotate) % 360) + 360) % 360;
+  return n;
+}
+
+/** Is a puck on this player's stick at the start of step k (within 4.5 ft, not moving on its own)? */
+export function puckOnStick(d, k, playerId, pos = positionsByStep(d)) {
+  const before = pos[k - 1];
+  return d.pieces.find(p => p.type === 'puck' && before[p.id] && dist(before[p.id], before[playerId]) <= 4.5 &&
+    !(d.steps[k - 1].moves || []).some(m => m.piece === p.id && m.to)) || null;
+}
+
+/**
+ * Drag a piece to a point. Setup (k = 0) moves its starting spot; step k creates or changes its move.
+ * Dragging a player with a puck on their stick makes it a "with puck" carry, as in the demo.
+ */
+export function dragPiece(d, k, id, to) {
+  const n = clone(d);
+  const piece = n.pieces.find(p => p.id === id);
+  if (!piece) return n;
+  to = pt(to);
+  if (k === 0 || !canMove(piece.type) || (piece.fromStep && k <= piece.fromStep && !moveOf(n.steps[k - 1], id))) {
+    // fixed pieces and a piece in the step it appears in are placed, not moved
+    n.start[id] = to;
+    return n;
+  }
+  const step = n.steps[k - 1];
+  step.moves = step.moves || [];
+  let m = step.moves.find(x => x.piece === id);
+  if (!m) { m = { piece: id, line: piece.type === 'puck' ? 'pass' : 'skate' }; step.moves.push(m); }
+  if (m.carriedBy) { delete m.carriedBy; m.line = 'pass'; }
+  m.to = to;
+  if (isPlayer(piece.type)) {
+    const pk = puckOnStick(d, k, id);
+    if (pk && !step.moves.some(x => x.piece === pk.id)) {
+      step.moves.push({ piece: pk.id, carriedBy: id });
+      if (m.line === 'skate') m.line = 'skate-puck';
+    }
+  }
+  return n;
+}
+
+/** Undo a piece's move in step k (it stays where it was). */
+export function clearMove(d, k, id) {
+  const n = clone(d);
+  const s = n.steps[k - 1];
+  if (!s) return n;
+  const carried = s.moves.filter(m => m.carriedBy === id).map(m => m.piece);
+  s.moves = s.moves.filter(m => m.piece !== id && !carried.includes(m.piece));
+  return n;
+}
+
+/** Change fields of a piece's move in step k: line, finish, when, start, end, bends. */
+export function setMove(d, k, id, fields) {
+  const n = clone(d);
+  const s = n.steps[k - 1];
+  const m = s && (s.moves || []).find(x => x.piece === id);
+  if (!m) return n;
+  for (const [key, v] of Object.entries(fields)) {
+    if (v == null || v === '' || (Array.isArray(v) && !v.length)) delete m[key]; else m[key] = v;
+  }
+  if (fields.line === 'carried') {
+    // a puck set to Carried rides with the nearest player
+    const pos = positionsByStep(d);
+    const before = pos[k - 1];
+    const players = d.pieces.filter(p => isPlayer(p.type) && before[p.id]);
+    players.sort((a, b) => dist(before[a.id], before[id]) - dist(before[b.id], before[id]));
+    delete m.to; delete m.bends; delete m.line;
+    if (players[0]) m.carriedBy = players[0].id;
+  } else if (fields.line && m.carriedBy) {
+    const pos = positionsByStep(d);
+    m.to = [...pos[k][id]]; delete m.carriedBy;
+  }
+  if (fields.when && fields.when !== 'custom') { delete m.start; delete m.end; }
+  if (fields.when === 'custom') {
+    m.start = Number.isFinite(fields.start) ? fields.start : (m.start ?? 0);
+    m.end = Number.isFinite(fields.end) ? fields.end : (m.end ?? 1);
+  }
+  return n;
+}
+
+/** Bend points: add one in the middle of the last segment, move one, or straighten. */
+export function addBend(d, k, id) {
+  const pos = positionsByStep(d);
+  const m = moveOf(d.steps[k - 1], id);
+  if (!m || !m.to) return d;
+  const pts = [pos[k - 1][id], ...(m.bends || []), pos[k][id]];
+  const a = pts[pts.length - 2], b = pts[pts.length - 1];
+  const mid = pt([(a[0] + b[0]) / 2 + (b[1] - a[1]) * 0.2, (a[1] + b[1]) / 2 - (b[0] - a[0]) * 0.2]);
+  return setMove(d, k, id, { bends: [...(m.bends || []), mid] });
+}
+export function moveBend(d, k, id, i, to) {
+  const m = moveOf(d.steps[k - 1], id);
+  if (!m) return d;
+  const bends = [...(m.bends || [])];
+  bends[i] = pt(to);
+  return setMove(d, k, id, { bends });
+}
+
+/* ---------- steps ---------- */
+
+const shiftPieces = (n, fn) => {
+  for (const p of n.pieces) {
+    if (Number.isInteger(p.fromStep)) { p.fromStep = fn(p.fromStep, 'from'); if (p.fromStep <= 0) delete p.fromStep; }
+    if (Number.isInteger(p.untilStep)) p.untilStep = fn(p.untilStep, 'until');
+  }
+};
+
+/** Add an empty step after step k (k = 0 adds step 1). Returns { drill, k: the new step }. */
+export function addStep(d, k) {
+  const n = clone(d);
+  n.steps.splice(k, 0, { caption: '', seconds: DEFAULT_SECONDS, moves: [] });
+  shiftPieces(n, (s, kind) => (kind === 'from' ? (s > k ? s + 1 : s) : (s > k ? s + 1 : s)));
+  for (const m of n.markup) if (m.step != null && m.step > k) m.step += 1;
+  return { drill: n, k: k + 1 };
+}
+
+/** Remove step k. Moves in later steps stay; a piece that first appeared in it appears in the next step. */
+export function removeStep(d, k) {
+  const n = clone(d);
+  n.steps.splice(k - 1, 1);
+  shiftPieces(n, (s, kind) => (kind === 'from' ? (s > k ? s - 1 : s) : (s >= k ? s - 1 : s)));
+  for (const p of n.pieces) if (Number.isInteger(p.fromStep) && p.fromStep > n.steps.length) p.fromStep = Math.max(1, n.steps.length);
+  n.markup = n.markup.filter(m => m.step !== k).map(m => (m.step != null && m.step > k ? { ...m, step: m.step - 1 } : m));
+  return n;
+}
+
+/** Swap step k with the one before (dir = -1) or after (dir = 1). */
+export function moveStep(d, k, dir) {
+  const j = k + dir;
+  if (j < 1 || j > d.steps.length || k < 1 || k > d.steps.length) return d;
+  const n = clone(d);
+  [n.steps[k - 1], n.steps[j - 1]] = [n.steps[j - 1], n.steps[k - 1]];
+  const swap = s => (s === k ? j : s === j ? k : s);
+  shiftPieces(n, swap);
+  for (const m of n.markup) if (m.step != null) m.step = swap(m.step);
+  return n;
+}
+
+export function setStep(d, k, fields) {
+  const n = clone(d);
+  const s = n.steps[k - 1];
+  if (!s) return n;
+  if ('caption' in fields) s.caption = String(fields.caption).slice(0, 120);
+  if ('seconds' in fields) s.seconds = Math.max(STEP_MIN, Math.min(STEP_MAX, Math.round(Number(fields.seconds) * 2) / 2 || DEFAULT_SECONDS));
+  return n;
+}
+
+/* ---------- callouts and highlight ---------- */
+
+export function addCallout(d, k, piece, text, stay = false) {
+  const n = clone(d);
+  const s = n.steps[k - 1];
+  if (!s) return n;
+  s.callouts = s.callouts || [];
+  s.callouts.push({ piece, text: String(text).slice(0, CALLOUT_MAX), ...(stay ? { stay: true } : {}) });
+  return n;
+}
+export function setCallout(d, k, i, fields) {
+  const n = clone(d);
+  const c = n.steps[k - 1] && (n.steps[k - 1].callouts || [])[i];
+  if (!c) return n;
+  if ('text' in fields) c.text = String(fields.text).slice(0, CALLOUT_MAX);
+  if ('stay' in fields) { if (fields.stay) c.stay = true; else delete c.stay; }
+  return n;
+}
+export function removeCallout(d, k, i) {
+  const n = clone(d);
+  const s = n.steps[k - 1];
+  if (s && s.callouts) s.callouts.splice(i, 1);
+  return n;
+}
+/** Callouts on a piece that are visible in step k, with where they live: [{ k, i, text, stay }]. */
+export function calloutsFor(d, k, piece) {
+  const out = [];
+  d.steps.forEach((s, si) => (s.callouts || []).forEach((c, i) => {
+    if (c.piece === piece && (si + 1 === k || (c.stay && si + 1 < k))) out.push({ k: si + 1, i, text: c.text, stay: !!c.stay });
+  }));
+  return out;
+}
+export function setHighlight(d, k, piece, on) {
+  const n = clone(d);
+  const s = n.steps[k - 1];
+  if (!s) return n;
+  const h = new Set(s.highlight || []);
+  if (on) h.add(piece); else h.delete(piece);
+  if (h.size) s.highlight = [...h]; else delete s.highlight;
+  return n;
+}
+
+/* ---------- markup ---------- */
+
+/** Thin out a freehand stroke and smooth it a little. */
+export function smoothStroke(points, minGap = 0.8) {
+  if (points.length < 3) return points.map(pt);
+  const kept = [points[0]];
+  for (const p of points.slice(1)) if (dist(p, kept[kept.length - 1]) >= minGap) kept.push(p);
+  if (kept[kept.length - 1] !== points[points.length - 1]) kept.push(points[points.length - 1]);
+  const out = kept.map((p, i) => {
+    if (i === 0 || i === kept.length - 1) return p;
+    const a = kept[i - 1], b = kept[i + 1];
+    return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4];
+  });
+  return out.map(pt);
+}
+export function addMark(d, mark) {
+  const n = clone(d);
+  n.markup.push({ ...mark, points: (mark.points || []).map(pt) });
+  return n;
+}
+export function removeMark(d, id) {
+  const n = clone(d);
+  n.markup = n.markup.filter(m => m.id !== id);
+  return n;
+}
+export function clearMarkup(d) { const n = clone(d); n.markup = []; return n; }
+
+/* ---------- details ---------- */
+
+const SITES = [[/(^|\.)youtube\.com$|(^|\.)youtu\.be$/, 'YouTube'], [/(^|\.)instagram\.com$/, 'Instagram'], [/(^|\.)facebook\.com$|(^|\.)fb\.watch$/, 'Facebook'], [/(^|\.)tiktok\.com$/, 'TikTok'], [/(^|\.)vimeo\.com$/, 'Vimeo']];
+
+/** Check a pasted video link. → { url, site } or null when it isn't a web address. */
+export function videoLink(text) {
+  let s = String(text || '').trim();
+  if (!s) return null;
+  if (!/^https?:\/\//i.test(s) && /^[\w-]+(\.[\w-]+)+(\/|$)/.test(s)) s = 'https://' + s;
+  let u;
+  try { u = new URL(s); } catch { return null; }
+  if (!/^https?:$/.test(u.protocol) || !u.hostname.includes('.')) return null;
+  const host = u.hostname.replace(/^www\.|^m\./, '');
+  const site = (SITES.find(([re]) => re.test(host)) || [null, host])[1];
+  return { url: u.href, site };
+}
+
+export function setDetails(d, fields) {
+  const n = clone(d);
+  for (const [k, v] of Object.entries(fields)) n[k] = clone(v);
+  if ('title' in fields) n.title = String(fields.title).slice(0, 100);
+  return n;
+}
+
+/* ---------- copies, templates, the bin ---------- */
+
+const copyBase = (d, id) => {
+  const n = clone(content(d));
+  n.id = id; n.deletedAt = null; n.sample = false; n.template = false; n.submittedAt = null;
+  return n;
+};
+/** "Copy of …", recording which drill it came from. */
+export function duplicateDrill(d, id) {
+  const n = copyBase(d, id);
+  n.title = `Copy of ${d.title}`.slice(0, 100); n.sourceDrillId = d.id;
+  return n;
+}
+/** A template copy: rink, pieces, steps and details as a starting point. */
+export function templateFrom(d, id) {
+  const n = copyBase(d, id);
+  n.template = true; n.sourceDrillId = d.id;
+  return n;
+}
+/** A new drill from a template. */
+export function drillFromTemplate(t, id) {
+  const n = copyBase(t, id);
+  n.title = t.title; n.sourceDrillId = t.id;
+  return n;
+}
+/** Drills in the bin long enough to remove for good. */
+export function expired(drills, now = new Date()) {
+  return drills.filter(d => d.deletedAt && (now - new Date(d.deletedAt)) > BIN_DAYS * 86400000).map(d => d.id);
+}
+export const daysLeft = (d, now = new Date()) => Math.max(0, BIN_DAYS - Math.floor((now - new Date(d.deletedAt)) / 86400000));
+
+/* ---------- search, filters, sort ---------- */
+
+export const fold = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/** Everything search looks in, folded: title, description, tags, captions, callouts, coaching points. */
+export function searchText(d) {
+  const parts = [d.title, d.description, ...(d.tags || []), ...(d.coachingPoints || []), d.goalieNotes];
+  for (const s of d.steps || []) { parts.push(s.caption); for (const c of s.callouts || []) parts.push(c.text); }
+  return fold(parts.filter(Boolean).join(' \n '));
+}
+
+export const DEFAULT_FILTERS = { q: '', tags: [], ages: [], levels: [], rinks: [], show: ['drills'], sort: 'edited' };
+
+/** Which list a drill belongs to for the Show filter. */
+export const kindOf = d => (d.deletedAt ? 'deleted' : d.template ? 'templates' : d.sample ? 'samples' : 'drills');
+
+/** Filter and sort drills. Samples count as drills unless Show says otherwise; the bin shows only when picked. */
+export function findDrills(drills, f = DEFAULT_FILTERS, texts = new Map()) {
+  const words = fold(f.q).split(/\s+/).filter(Boolean);
+  const show = new Set(f.show && f.show.length ? f.show : ['drills']);
+  const out = drills.filter(d => {
+    const kind = kindOf(d);
+    if (kind === 'samples' ? !(show.has('samples') || show.has('drills')) : !show.has(kind)) return false;
+    if (f.tags.length && !f.tags.every(t => (d.tags || []).includes(t))) return false;
+    if (f.ages.length && !f.ages.some(a => (d.ageGroups || []).includes(a))) return false;
+    if (f.levels.length && !f.levels.includes(d.level)) return false;
+    if (f.rinks.length && !f.rinks.includes((d.view && d.view.rink) || 'full')) return false;
+    if (words.length) {
+      let t = texts.get(d.id);
+      if (t == null) { t = searchText(d); texts.set(d.id, t); }
+      if (!words.every(w => t.includes(w))) return false;
+    }
+    return true;
+  });
+  const by = {
+    edited: (a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')),
+    az: (a, b) => fold(a.title).localeCompare(fold(b.title)) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')),
+    steps: (a, b) => (b.steps || []).length - (a.steps || []).length || fold(a.title).localeCompare(fold(b.title)),
+  }[f.sort] || ((a, b) => 0);
+  return out.sort(by);
+}
+export const filtersOn = f => !!(f.q.trim() || f.tags.length || f.ages.length || f.levels.length || f.rinks.length);
+
+/** Tags in use by at least one drill (for the Tags filter), in the starting-list order then A to Z. */
+export function tagsInUse(drills) {
+  const used = new Set(drills.filter(d => !d.deletedAt).flatMap(d => d.tags || []));
+  return [...TAGS.filter(t => used.has(t)), ...[...used].filter(t => !TAGS.includes(t)).sort()];
+}
+
+/** "5 steps · 10 s" */
+export function lengthLabel(d) {
+  const n = (d.steps || []).length;
+  const secs = (d.steps || []).reduce((a, s) => a + (s.seconds > 0 ? s.seconds : DEFAULT_SECONDS), 0);
+  return `${n} step${n === 1 ? '' : 's'} · ${Math.round(secs * 10) / 10} s`;
+}

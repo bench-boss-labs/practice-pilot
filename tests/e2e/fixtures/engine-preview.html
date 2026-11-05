@@ -1,0 +1,9 @@
+<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Engine preview</title>
+<link rel="stylesheet" href="../../../vendor/bbl-kit/1.0.1/bbl-tokens.css"><link rel="stylesheet" href="../../../vendor/bbl-kit/1.0.1/bbl-components.css"><link rel="stylesheet" href="../../../app/app.css">
+</head><body><main style="max-width:1000px;margin:auto"><div id="p"></div></main>
+<script type="module">
+import { Player } from '../../../app/engine/player.js?v=1.0.1';
+import { sampleDrill } from '../../../app/engine/samples.js?v=1.0.1';
+window.player = new Player(document.getElementById('p'), sampleDrill());
+</script></body></html>

@@ -1,14 +1,15 @@
 /* Practice Pilot — start-up, screens, updates, offline status. */
-import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.0.1';
-import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.0.1';
+import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.1.0';
+import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.1.0';
 import { openStore, newId, requestPersistence, storageStatus } from '../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { checkForUpdate, showUpdateBanner, pendingWhatsNew, renderReleases, normalizeReleases } from '../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { registerOffline, applyUpdate, watchOnline, singleTab } from '../vendor/bbl-kit/1.0.1/bbl-offline.js';
 import { isStandalone, detectInstalled } from '../vendor/bbl-kit/1.0.1/bbl-install.js';
-import { el, toast, dialog, blocker } from './ui.js?v=1.0.1';
-import { renderLibrary } from './screens/library.js?v=1.0.1';
-import { renderHelpScreen } from './screens/help.js?v=1.0.1';
-import { renderSettings } from './screens/settings.js?v=1.0.1';
+import { el, toast, dialog, blocker } from './ui.js?v=1.1.0';
+import { renderLibrary, restoreSamples, emptyBin } from './screens/library.js?v=1.1.0';
+import { renderEditor } from './screens/editor.js?v=1.1.0';
+import { renderHelpScreen } from './screens/help.js?v=1.1.0';
+import { renderSettings } from './screens/settings.js?v=1.1.0';
 
 const app = {
   store: null, team: null, reg: null, notes: [], busy: false, online: true,
@@ -23,22 +24,27 @@ const app = {
     document.getElementById('team-pill').textContent = app.team ? app.team.name : '';
   },
   render() { route(); },
+  cleanup: null, pendingUpdate: null,
   checkUpdates: opts => checkUpdates(opts),
 };
 window.__pp = app; // for the browser tests
 
-const SCREENS = { library: renderLibrary, help: renderHelpScreen, settings: renderSettings };
+const SCREENS = { library: renderLibrary, edit: renderEditor, help: renderHelpScreen, settings: renderSettings };
 
 function route() {
   const [screen, sub] = (location.hash.replace('#', '') || 'library').split('/');
-  const name = SCREENS[screen] ? screen : 'library';
+  const name = SCREENS[screen] && (screen !== 'edit' || sub) ? screen : 'library';
+  if (app.cleanup) { try { app.cleanup(); } catch (e) { console.error(e); } app.cleanup = null; }
+  const navName = name === 'edit' ? 'library' : name;
   for (const a of document.querySelectorAll('#nav a')) {
-    if (a.dataset.screen === name) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    if (a.dataset.screen === navName) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
   const main = document.getElementById('main');
+  main.classList.toggle('wide', name === 'edit' || name === 'library');
+  document.body.classList.remove('pp-noscroll');
   main.replaceChildren(...[].concat(SCREENS[name](app, sub)));
   if (app.privateLikely) main.prepend(privateNotice());
-  document.title = `${name === 'library' ? '' : name[0].toUpperCase() + name.slice(1) + ' · '}${APP_NAME} · Bench Boss Labs`;
+  document.title = `${name === 'library' ? '' : name === 'edit' ? 'Edit drill · ' : name[0].toUpperCase() + name.slice(1) + ' · '}${APP_NAME} · Bench Boss Labs`;
 }
 
 function privateNotice() {
@@ -126,6 +132,7 @@ async function start() {
   if (app.store.upgradeFailed) toast('The update couldn’t upgrade your drills. Nothing was lost.', { error: true, ms: 15000 });
   if (!(await app.store.count('teams'))) await app.store.save('teams', newTeam(newId('t')));
   await app.refreshTeam();
+  try { await restoreSamples(app, { onlyFirstRun: true }); await emptyBin(app); } catch (e) { console.error(e); }
   app.installed = app.installed || !!(await app.store.get('meta', 'installed')) || await detectInstalled();
   if (app.installed) { app.installPrompt = null; document.getElementById('install-btn').hidden = true; }
 

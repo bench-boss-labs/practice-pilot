@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="bbl-guide" content="practice-pilot">
 <title>Guide · Practice Pilot · Bench Boss Labs</title>
-<link rel="icon" href="../icons/icon.svg?v=1.0.1" type="image/svg+xml">
+<link rel="icon" href="../icons/icon.svg?v=1.1.0" type="image/svg+xml">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;600&display=swap">
 <link rel="stylesheet" href="../vendor/bbl-kit/1.0.1/bbl-tokens.css">
 <link rel="stylesheet" href="../vendor/bbl-kit/1.0.1/bbl-components.css">
@@ -19,8 +19,37 @@
 </head>
 <body>
 <main>
-  <div class="lockup"><img src="../icons/icon.svg?v=1.0.1" alt=""><div><h1>Practice Pilot guide</h1><div class="muted">by Bench Boss Labs · version 1.0.0</div></div></div>
-  <p>Practice Pilot is for building hockey drills that move, putting them into practice plans, and sharing them with your bench staff and on-ice helpers. This first version sets the app up on your devices. The drill editor and library arrive in the next update.</p>
+  <div class="lockup"><img src="../icons/icon.svg?v=1.1.0" alt=""><div><h1>Practice Pilot guide</h1><div class="muted">by Bench Boss Labs · version 1.1.0</div></div></div>
+  <p>Practice Pilot is for building hockey drills that move, putting them into practice plans, and sharing them with your bench staff and on-ice helpers. Version 1.1 brings the drill library and the drill editor. Practice plans arrive in a later update.</p>
+
+  <h2>The library</h2>
+  <p>The library is the first screen. Every drill shows as a card with a picture of it. Three <b>Sample</b> drills are there to start: tap one to watch it play.</p>
+  <ul>
+    <li><b>Search</b> looks in titles, descriptions, tags, step captions, callouts and coaching points. Every word must match: "pivot pass" finds Pass, Pivot &amp; Go.</li>
+    <li><b>Filters</b>: Tags (drills with all the tags you pick), Age, Level and Rink (any of the ones you pick). <b>Show</b> switches between Drills, Templates, Samples only and Recently deleted. <b>Clear filters</b> turns them all off.</li>
+    <li><b>Sort</b>: Recently edited, A to Z or Most steps. The library remembers your search, filters and sort.</li>
+    <li>Tap a card to open its <b>preview</b>: the drill playing, its coaching points, goalie notes and video links. From there: <b>Edit</b>, <b>Duplicate</b>, and under <b>⋮</b>, <b>Save as template</b> and <b>Delete</b>.</li>
+    <li><b>Delete</b> moves a drill to <b>Recently deleted</b> for 30 days, with Undo. Open it from <b>Show</b> to <b>Restore</b> a drill or <b>Delete forever</b>.</li>
+    <li><b>+ New drill</b> starts blank, or from one of your templates.</li>
+  </ul>
+
+  <h2>Building a drill</h2>
+  <p>Build drills on a tablet or PC. On a phone, drills play and can be read but not edited. There's no Save button: every change is saved on the device straight away.</p>
+  <ul>
+    <li><b>Place pieces</b>: tap a piece in the tray on the left, then tap the rink. It stays picked so you can drop several pylons in a row; tap <b>Move</b> to stop. Pick a team colour at the top of the tray first.</li>
+    <li><b>Setup</b> is where everything starts. Drag pieces to their starting spots.</li>
+    <li><b>Steps</b>: tap <b>+ Step</b>, then drag a player to where they go. If a puck is on their stick, they carry it. Drag the puck to pass or shoot it.</li>
+    <li><b>Select a piece</b> by tapping it. The <b>Piece</b> tab then shows its options: the line (Skate, With puck, Backward; Pass, Shot, Carried for pucks), <b>+ Bend point</b> and <b>Straighten</b>, the finish (Stop or Pivot), and when it moves (<b>With the step</b>, <b>After skaters arrive</b> or <b>Custom</b>).</li>
+    <li><b>Curve a path</b>: drag the dot in the middle of the orange line.</li>
+    <li><b>Callouts</b>: with a player selected, <b>+ Callout</b> adds a speech bubble (up to 40 characters) for this step or until the end. <b>Highlight in this step</b> makes the player glow. The puck carrier and a puck in flight glow by themselves; turn that off in <b>Details</b>.</li>
+    <li><b>Appears in</b> and <b>Leaves after</b> bring a piece on later or take it off early. <b>Remove from drill</b> takes it out of every step, with Undo.</li>
+    <li>The <b>Step</b> tab holds the caption (the coaching cue), the step length (1 to 6 seconds), <b>Move earlier / later</b> and <b>Remove step</b>.</li>
+    <li><b>Markup</b>: Pen, Arrow, Box and Text draw on top of the drill without moving anything, on this step only or on all steps. <b>Eraser</b> removes one mark; <b>Clear markup</b> removes all.</li>
+    <li><b>Details</b>: title, description, tags (<b>+ Tag</b> adds your own), age groups, level, coaching points, video links (YouTube, Instagram, Facebook, TikTok and others) and goalie notes.</li>
+    <li><b>Rink view</b> is above the rink: Full ice, Half ice, Zone or Neutral zone. <b>Flip</b> shows the other end.</li>
+    <li><b>Undo</b> and <b>Redo</b> are at the top. On a PC: Ctrl+Z, Ctrl+Y, Delete removes the selected piece, Shift+arrows nudge it 1 ft, Space plays and pauses, and ← → change step.</li>
+    <li><b>⋮</b> at the top: <b>Duplicate</b>, <b>Save as template</b> and <b>Delete</b>.</li>
+  </ul>
 
   <h2>Settings at a glance</h2>
   <ul>
@@ -29,6 +58,7 @@
     <li><b>Settings › This device › Team</b>: the team name shown at the top of the app.</li>
     <li><b>Settings › This device › Theme</b>: Dark (the default) or Light.</li>
     <li><b>Settings › This device › Storage and backups</b>: how much space the app uses, <b>Back up now</b> and <b>Restore</b>.</li>
+    <li><b>Settings › This device › Sample drills</b>: <b>Restore samples</b> puts back any sample drill you deleted.</li>
   </ul>
 
   <h2>Put it on your home screen</h2>
@@ -52,6 +82,7 @@
   <h2>Questions</h2>
   <p><b>It says it's open in another tab.</b> Practice Pilot works in one tab at a time so your changes never overwrite each other. Tap <b>Use this tab instead</b>.</p>
   <p><b>It says the window forgets everything.</b> You've opened it in a private (incognito) window. Open it in a normal window to keep your work.</p>
+  <p><b>I deleted a drill by mistake.</b> Tap <b>Undo</b> on the message, or open <b>Show › Recently deleted</b> in the library and tap <b>Restore</b>. Drills stay there for 30 days.</p>
   <p><b>Who can see my drills?</b> Only you, on this device, for now. Sharing with your bench staff and helpers comes in a later update, and only people you give access to will see anything.</p>
 
   <p><a class="btn outline" href="../">Back to Practice Pilot</a></p>

@@ -1,0 +1,107 @@
+/* Practice Pilot — a sample drill in the v1 format, used by the welcome screen and the tests. */
+export function sampleDrill() {
+  return {
+    title: '2-on-0 give-and-go',
+    view: { rink: 'half', flip: false },
+    autoHighlight: true,
+    pieces: [
+      { id: 'f1', type: 'F', team: 'red' },
+      { id: 'f2', type: 'F', team: 'red' },
+      { id: 'pk', type: 'puck' },
+      { id: 'g', type: 'G', team: 'black' },
+      { id: 'c1', type: 'pylon' },
+      { id: 'pile', type: 'pile' },
+      { id: 'd1', type: 'D', team: 'black', fromStep: 3 },
+    ],
+    start: { f1: [110, 70], f2: [110, 18], pk: [112.5, 70], g: [186, 42.5], c1: [140, 42.5], pile: [104, 78], d1: [150, 30] },
+    steps: [
+      { caption: 'F1 carries wide, F2 drives the middle lane', seconds: 2.5,
+        moves: [
+          { piece: 'f1', to: [150, 68], line: 'skate-puck', bends: [[130, 72]] },
+          { piece: 'pk', carriedBy: 'f1' },
+          { piece: 'f2', to: [145, 32], line: 'skate', bends: [[128, 22]] },
+        ],
+        callouts: [{ piece: 'f1', text: 'Head up!' }] },
+      { caption: 'Pass to F2, F1 goes to the net', seconds: 2,
+        moves: [
+          { piece: 'pk', to: [145, 35.5], line: 'pass' },
+          { piece: 'f1', to: [172, 55], line: 'skate', when: 'after' },
+        ],
+        callouts: [{ piece: 'f2', text: 'Give and go', stay: true }] },
+      { caption: 'F2 shoots, F1 stops at the net', seconds: 2,
+        moves: [
+          { piece: 'f2', to: [160, 38], line: 'skate-puck' },
+          { piece: 'pk', carriedBy: 'f2' },
+          { piece: 'f1', to: [180, 50], line: 'skate', finish: 'stop' },
+        ],
+        highlight: ['f1'] },
+      { caption: 'Shot', seconds: 1.5,
+        moves: [{ piece: 'pk', to: [188, 41], line: 'shot' }, { piece: 'd1', to: [165, 30], line: 'backward', finish: 'pivot' }] },
+    ],
+    markup: [{ step: 3, kind: 'box', points: [[176, 34], [190, 51]], colour: 'orange' }],
+  };
+}
+
+/** The three first-run sample drills (Library deep-dive). Ids are fixed so Restore samples can find them. */
+export function firstRunSamples() {
+  const base = { author: 'Practice Pilot', team: '', sourceDrillId: null, submittedAt: null, visibility: 'private', template: false, sample: true, deletedAt: null, autoHighlight: true, markup: [], videoLinks: [], goalieNotes: '' };
+  return [
+    { ...base, id: 'd_samplepivot', title: 'Pass, Pivot & Go',
+      description: 'Pass to a partner, pivot round the pylon, take the return pass, drive wide and shoot, then loop behind the net.',
+      tags: ['Passing', 'Skating', 'Shooting'], ageGroups: ['U9', 'U11', 'U13'], level: 'Beginner',
+      coachingPoints: ['Pass hard and flat, on the tape', 'Tight pivot at the pylon: stay low', 'Drive wide with your head up', 'Shoot in stride'],
+      goalieNotes: 'Square up to the shooter on the wide drive; follow the loop behind the net.',
+      view: { rink: 'half', flip: false },
+      pieces: [{ id: 'f1', type: 'F', team: 'red' }, { id: 'f2', type: 'F', team: 'black' }, { id: 'pk', type: 'puck' }, { id: 'c1', type: 'pylon' }, { id: 'g', type: 'G', team: 'black' }, { id: 'pile', type: 'pile' }],
+      start: { f1: [128, 70], pk: [130.5, 70], f2: [150, 20], c1: [150, 62], g: [186, 42.5], pile: [126, 79] },
+      steps: [
+        { caption: 'F1 passes to F2 and skates to the pylon', seconds: 2,
+          moves: [{ piece: 'pk', to: [150, 22.5], line: 'pass' }, { piece: 'f1', to: [146, 63], line: 'skate', finish: 'pivot', bends: [[138, 70]] }],
+          callouts: [{ piece: 'f2', text: 'Stick on the ice' }] },
+        { caption: 'F1 comes off the pylon; F2 passes back once F1 arrives', seconds: 2.5,
+          moves: [{ piece: 'f1', to: [158, 70], line: 'skate', bends: [[150, 69]] }, { piece: 'pk', to: [160.5, 70], line: 'pass', when: 'after' }] },
+        { caption: 'F1 drives wide with the puck', seconds: 2,
+          moves: [{ piece: 'f1', to: [176, 70], line: 'skate-puck', bends: [[168, 75]] }, { piece: 'pk', carriedBy: 'f1' }],
+          callouts: [{ piece: 'f1', text: 'Wide, protect the puck' }] },
+        { caption: 'Shoot, then loop behind the net', seconds: 3,
+          moves: [{ piece: 'pk', to: [188, 44], line: 'shot' }, { piece: 'f1', to: [178, 24], line: 'skate', bends: [[192, 62], [196, 42.5], [191, 27]] }] },
+      ] },
+    { ...base, id: 'd_samplebreakout', title: 'Breakout Pass 1 on 1',
+      description: 'The D picks up a puck behind the net, finds the winger on the wall and the winger carries it out against a forechecker.',
+      tags: ['Breakout', 'Passing', 'Battle'], ageGroups: ['U11', 'U13', 'U15'], level: 'Intermediate',
+      coachingPoints: ['D: shoulder check before you reach the puck', 'Winger: stop on the wall, stick on the ice as a target', 'Pass firm, to the winger\'s forehand', 'Winger: carry it out with speed'],
+      view: { rink: 'half', flip: true },
+      pieces: [{ id: 'd1', type: 'D', team: 'red' }, { id: 'w1', type: 'F', team: 'red' }, { id: 'x1', type: 'F', team: 'black' }, { id: 'pk', type: 'puck' }, { id: 'g', type: 'G', team: 'red' }],
+      start: { d1: [32, 30], pk: [12.5, 60], w1: [56, 74], x1: [60, 42], g: [14, 42.5] },
+      steps: [
+        { caption: 'D goes back for the puck', seconds: 2.5,
+          moves: [{ piece: 'd1', to: [10, 60], line: 'skate', bends: [[18, 48]] }, { piece: 'x1', to: [42, 50], line: 'skate' }],
+          callouts: [{ piece: 'd1', text: 'Shoulder check' }] },
+        { caption: 'D carries up the wall; the winger gets open', seconds: 2,
+          moves: [{ piece: 'd1', to: [22, 72], line: 'skate-puck' }, { piece: 'pk', carriedBy: 'd1' }, { piece: 'w1', to: [44, 79], line: 'skate', finish: 'stop' }, { piece: 'x1', to: [30, 60], line: 'skate' }],
+          callouts: [{ piece: 'd1', text: 'Head up, find your winger' }] },
+        { caption: 'Pass to the winger', seconds: 1.5,
+          moves: [{ piece: 'pk', to: [46.5, 78], line: 'pass' }, { piece: 'x1', to: [34, 70], line: 'skate', when: 'after' }] },
+        { caption: 'The winger carries it out of the zone', seconds: 2.5,
+          moves: [{ piece: 'w1', to: [88, 70], line: 'skate-puck', bends: [[66, 79]] }, { piece: 'pk', carriedBy: 'w1' }, { piece: 'd1', to: [50, 58], line: 'skate' }, { piece: 'x1', to: [52, 72], line: 'skate' }],
+          callouts: [{ piece: 'w1', text: 'Speed through the blue line' }] },
+      ] },
+    { ...base, id: 'd_samplefigure', title: 'Figure-8 Edges',
+      description: 'A warm-up figure eight around two pylons: forward round the first, backward round the second.',
+      tags: ['Warm-up', 'Skating'], ageGroups: ['U7', 'U9', 'U11'], level: 'Beginner',
+      coachingPoints: ['Knees bent, chest up', 'Push with the outside edge', 'Backward: look over your shoulder'],
+      view: { rink: 'neutral', flip: false },
+      pieces: [{ id: 's1', type: 'X', team: 'red' }, { id: 'c1', type: 'pylon' }, { id: 'c2', type: 'pylon' }, { id: 's2', type: 'X', team: 'blue' }],
+      start: { s1: [100, 30], c1: [87, 42.5], c2: [113, 42.5], s2: [100, 76] },
+      steps: [
+        { caption: 'Forward round the first pylon', seconds: 3,
+          moves: [{ piece: 's1', to: [100, 55], line: 'skate', bends: [[86, 29], [75, 42.5], [86, 56]] }],
+          callouts: [{ piece: 's1', text: 'Knees bent, edges in' }] },
+        { caption: 'Backward round the second pylon', seconds: 3.5,
+          moves: [{ piece: 's1', to: [100, 30], line: 'backward', bends: [[114, 56], [125, 42.5], [114, 29]] }, { piece: 's2', to: [100, 52], line: 'skate', when: 'after' }],
+          callouts: [{ piece: 's1', text: 'Look over your shoulder' }] },
+        { caption: 'Next skater goes', seconds: 3,
+          moves: [{ piece: 's2', to: [100, 30], line: 'skate', bends: [[86, 56], [75, 42.5], [86, 29]] }, { piece: 's1', to: [100, 76], line: 'skate', bends: [[118, 22], [127, 42.5], [118, 66]] }] },
+      ] },
+  ];
+}

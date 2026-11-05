@@ -375,3 +375,80 @@ test('an update waits while the editor is open and shows once you leave', async 
   await page.waitForSelector('#banners .banner', { timeout: 8000 });
   await ctx.close();
 });
+
+test('pass and shoot by tapping: Pass then the teammate, Shoot then a spot', async () => {
+  const { ctx, page } = await open(env);
+  await page.click('#new-drill-btn'); await page.waitForSelector('.pp-editor');
+  const id = await editorId(page);
+  await page.click('.pp-trayb[data-type="F"]'); await tapRink(page, 60, 60); await tapRink(page, 120, 30);
+  await page.click('.pp-trayb[data-type="puck"]'); await tapRink(page, 62.5, 60);
+  await page.click('#tray-move');
+  await page.click('#add-step');
+  await dragRink(page, [120, 30], [140, 25]);                  // the receiver skates up ice in step 1
+  await tapRink(page, 60, 60);                                  // select the passer
+  await page.click('#pass-btn');
+  assert.match(await page.textContent('#action-hint'), /Tap the teammate/);
+  await tapRink(page, 140, 25);
+  await page.waitForSelector('.toast >> text=Pass to the forward in step 1');
+  await saved(page);
+  let d = await drill(page, id);
+  const [f1, f2, pk] = d.pieces.map(p => p.id);
+  const pass = d.steps[0].moves.find(m => m.piece === pk);
+  assert.equal(pass.line, 'pass'); assert.equal(pass.when, 'after');
+  // F2 now has it: Shoot from F2 adds a step when they're carrying, otherwise shoots in this one
+  await page.click('#add-step');
+  await tapRink(page, 140, 25);
+  await page.click('#shoot-btn');
+  await tapRink(page, 188, 42);
+  await saved(page);
+  d = await drill(page, id);
+  assert.deepEqual(d.steps[1].moves.find(m => m.piece === pk), { piece: pk, line: 'shot', to: d.steps[1].moves.find(m => m.piece === pk).to });
+  assert.ok(Math.abs(d.steps[1].moves.find(m => m.piece === pk).to[0] - 188) < 1.5);
+  // Moving in this step lists what moves together
+  await page.click('.pp-chip[data-k="1"]'); await page.click('#tab-step');
+  assert.equal(await page.locator('#moving-list .pp-moveitem').count(), 2);
+  assert.match(await page.textContent('#moving-list'), /Pass · After skaters arrive/);
+  assert.deepEqual(page.errors, []);
+  void f1; void f2;
+  await ctx.close();
+});
+
+test('a puck on a stick: tap again to select the puck, or use Select the puck', async () => {
+  const { ctx, page } = await open(env);
+  await page.goto(env.server.url + '#edit/d_samplepivot'); await page.waitForSelector('.pp-editor');
+  await tapRink(page, 128, 70);
+  assert.match(await page.textContent('#piece-name'), /Forward/);
+  await tapRink(page, 128, 70);
+  assert.match(await page.textContent('#piece-name'), /Puck/);
+  await tapRink(page, 128, 70);
+  assert.match(await page.textContent('#piece-name'), /Forward/);
+  await page.click('#select-puck');
+  assert.match(await page.textContent('#piece-name'), /Puck/);
+  await ctx.close();
+});
+
+test('library: drag the handle to resize the preview, cards become a list, expand hides them; all remembered', async () => {
+  const { ctx, page } = await open(env);
+  await page.click('.pp-card[data-id="d_samplepivot"]');
+  await page.waitForSelector('#splitter');
+  const w0 = (await page.locator('#preview').boundingBox()).width;
+  const sb = await page.locator('#splitter').boundingBox();
+  await page.mouse.move(sb.x + sb.width / 2, sb.y + 100); await page.mouse.down();
+  await page.mouse.move(sb.x - 200, sb.y + 100, { steps: 6 }); await page.mouse.up();
+  const w1 = (await page.locator('#preview').boundingBox()).width;
+  assert.ok(w1 > w0 + 150, `${w0} → ${w1}`);
+  const cards = await page.locator('.pp-card').evaluateAll(cs => cs.map(c => c.getBoundingClientRect().left));
+  assert.equal(new Set(cards).size, 1, 'cards stack in a list');
+  await page.click('#expand-preview');
+  assert.equal(await page.isVisible('#cards'), false);
+  assert.ok((await page.locator('#preview').boundingBox()).width > 1100);
+  await page.waitForTimeout(200);
+  await page.reload(); await page.waitForSelector('#preview:not([hidden])');
+  assert.equal(await page.isVisible('#cards'), false, 'expanded is remembered');
+  await page.click('#expand-preview');
+  assert.ok(Math.abs((await page.locator('#preview').boundingBox()).width - w1) < 4, 'size is remembered');
+  await page.focus('#splitter'); await page.keyboard.press('End');
+  assert.equal(await page.getAttribute('#splitter', 'aria-valuenow'), '30');
+  assert.deepEqual(page.errors, []);
+  await ctx.close();
+});

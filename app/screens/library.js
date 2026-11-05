@@ -1,17 +1,17 @@
 /* Library (R1 Library deep-dive): search, filters, sort, drill cards with pictures, a playing preview,
    New drill (blank or template), Duplicate, Save as template, Delete to Recently deleted. */
-import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.1.1';
+import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.1.2';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.1.1';
-import { newDrill } from '../schema.js?v=1.1.1';
-import { Player } from '../engine/player.js?v=1.1.1';
-import { frame } from '../engine/model.js?v=1.1.1';
-import { thumbnailSVG } from '../engine/render.js?v=1.1.1';
-import { VIEWS } from '../engine/rink.js?v=1.1.1';
-import { firstRunSamples } from '../engine/samples.js?v=1.1.1';
-import * as D from '../drills.js?v=1.1.1';
-import { drillInfo, pills } from './drillview.js?v=1.1.1';
-import { reviewOnly } from './editor.js?v=1.1.1';
+import { SCHEMA_VERSION } from '../version.js?v=1.1.2';
+import { newDrill } from '../schema.js?v=1.1.2';
+import { Player } from '../engine/player.js?v=1.1.2';
+import { frame } from '../engine/model.js?v=1.1.2';
+import { thumbnailSVG } from '../engine/render.js?v=1.1.2';
+import { VIEWS } from '../engine/rink.js?v=1.1.2';
+import { firstRunSamples } from '../engine/samples.js?v=1.1.2';
+import * as D from '../drills.js?v=1.1.2';
+import { drillInfo, pills } from './drillview.js?v=1.1.2';
+import { reviewOnly } from './editor.js?v=1.1.2';
 
 const SHOW = [['drills', 'Drills'], ['templates', 'Templates'], ['samples', 'Samples only'], ['deleted', 'Recently deleted']];
 const SORTS = [['edited', 'Recently edited'], ['az', 'A to Z'], ['steps', 'Most steps']];
@@ -72,12 +72,44 @@ class Library {
   constructor(app, root, sub) { this.app = app; this.root = root; this.openId = sub || null; this.texts = new Map(); }
 
   async start() {
-    const [drills, prefs, welcomed] = await Promise.all([this.app.store.all('drills'), this.app.store.get('meta', 'library-prefs'), this.app.store.get('meta', 'welcomed')]);
+    const [drills, prefs, welcomed, layout] = await Promise.all([this.app.store.all('drills'), this.app.store.get('meta', 'library-prefs'), this.app.store.get('meta', 'welcomed'), this.app.store.get('meta', 'library-layout')]);
+    this.layout = { pct: 55, expanded: false, ...((layout && layout.value) || {}) };
     this.drills = drills;
     this.f = { ...D.DEFAULT_FILTERS, ...((prefs && prefs.value) || {}) };
     this.welcomed = !!welcomed;
     this.build();
     this.app.cleanup = () => { this.player && this.player.destroy(); };
+  }
+
+  saveLayout() { this.app.store.put('meta', { key: 'library-layout', value: this.layout }).catch(() => {}); }
+
+  /** Size the preview (a share of the width, 30–80 %) and expand or collapse it. */
+  applyLayout() {
+    this.root.style.setProperty('--pv', `${this.layout.pct}%`);
+    this.root.classList.toggle('pv-expanded', !!this.layout.expanded);
+    this.splitter.setAttribute('aria-valuenow', String(Math.round(this.layout.pct)));
+    const b = this.preview.querySelector('#expand-preview');
+    if (b) { b.textContent = this.layout.expanded ? '⤡ Show cards' : '⤢ Expand'; b.setAttribute('aria-pressed', String(!!this.layout.expanded)); }
+    if (this.player) this.player.draw();
+  }
+
+  makeSplitter() {
+    const sp = el('div', { class: 'pp-splitter', id: 'splitter', role: 'separator', tabindex: 0, 'aria-orientation': 'vertical', 'aria-label': 'Resize the preview', 'aria-valuemin': 30, 'aria-valuemax': 80 },
+      el('span', { class: 'pp-grip', 'aria-hidden': 'true' }));
+    const setPct = v => { this.layout.pct = Math.max(30, Math.min(80, v)); this.applyLayout(); };
+    sp.addEventListener('pointerdown', e => {
+      e.preventDefault(); sp.setPointerCapture(e.pointerId); sp.classList.add('dragging');
+      const body = sp.parentElement.getBoundingClientRect();
+      const move = ev => setPct((body.right - ev.clientX) / body.width * 100);
+      const up = () => { sp.classList.remove('dragging'); sp.removeEventListener('pointermove', move); sp.removeEventListener('pointerup', up); sp.removeEventListener('pointercancel', up); this.saveLayout(); };
+      sp.addEventListener('pointermove', move); sp.addEventListener('pointerup', up); sp.addEventListener('pointercancel', up);
+    });
+    sp.addEventListener('keydown', e => {
+      const step = { ArrowLeft: 5, ArrowRight: -5, Home: 80, End: 30 }[e.key];
+      if (step == null) return;
+      e.preventDefault(); setPct(e.key === 'Home' || e.key === 'End' ? step : this.layout.pct + step); this.saveLayout();
+    });
+    return sp;
   }
 
   savePrefs() { this.app.store.put('meta', { key: 'library-prefs', value: this.f }).catch(() => {}); }
@@ -97,7 +129,8 @@ class Library {
         el('label', { class: 'pp-inline' }, el('span', { class: 'sr' }, 'Sort'),
           el('select', { id: 'sort', onchange: e => { this.f.sort = e.target.value; this.savePrefs(); this.renderCards(); } }, ...SORTS.map(([v, l]) => el('option', { value: v, selected: this.f.sort === v }, l))))),
       this.filterRow, this.countLine,
-      el('div', { class: 'pp-libbody' }, this.grid, this.preview));
+      el('div', { class: 'pp-libbody' }, this.grid, this.splitter = this.makeSplitter(), this.preview));
+    this.applyLayout();
     this.renderFilters(); this.renderCards();
     if (this.openId) this.openPreview(this.openId, { scroll: false });
   }
@@ -196,10 +229,12 @@ class Library {
         act('⋮', 'preview-menu', () => this.menu(d)))];
     fill(this.preview, 
       el('div', { class: 'row pp-preview-head' }, el('h2', { class: 't-section grow', id: 'preview-title' }, d.title),
+        phone ? null : el('button', { type: 'button', class: 'btn', id: 'expand-preview', onclick: () => { this.layout.expanded = !this.layout.expanded; this.saveLayout(); this.applyLayout(); } }, '⤢ Expand'),
         el('button', { type: 'button', class: 'btn', id: 'close-preview', 'aria-label': 'Close preview', onclick: () => this.closePreview() }, '✕')),
       host, ...actions, drillInfo(d));
     this.preview.hidden = false;
     this.root.classList.add('has-preview');
+    this.applyLayout();
     this.player = new Player(host, d);
     if (phone) document.body.classList.add('pp-noscroll');
     if (scroll && !phone) this.preview.scrollIntoView({ block: 'nearest' });

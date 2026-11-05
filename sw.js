@@ -1,5 +1,5 @@
 /* Practice Pilot service worker. The version below is written by the stamp script. */
-const CACHE = 'practice-pilot-1.1.1';
+const CACHE = 'practice-pilot-1.1.2';
 const V = CACHE.slice('practice-pilot-'.length);
 const KIT = 'vendor/bbl-kit/1.0.1/';
 importScripts(KIT + 'bbl-sw.js');

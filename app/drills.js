@@ -1,9 +1,9 @@
 /* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
    Pure functions on plain drill objects (drill format v1); the editor and library call these,
    and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
-import { PIECES, isPlayer, canMove, positionsByStep, moveOf, DEFAULT_SECONDS } from './engine/model.js?v=1.1.1';
-import { onIce } from './engine/rink.js?v=1.1.1';
-import { dist } from './engine/geometry.js?v=1.1.1';
+import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.1.2';
+import { onIce } from './engine/rink.js?v=1.1.2';
+import { dist } from './engine/geometry.js?v=1.1.2';
 
 export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
 export const AGES = ['U7', 'U9', 'U11', 'U13', 'U15', 'U18'];
@@ -399,4 +399,60 @@ export function lengthLabel(d) {
   const n = (d.steps || []).length;
   const secs = (d.steps || []).reduce((a, s) => a + (s.seconds > 0 ? s.seconds : DEFAULT_SECONDS), 0);
   return `${n} step${n === 1 ? '' : 's'} · ${Math.round(secs * 10) / 10} s`;
+}
+
+/* ---------- pass and shoot (tap a teammate or a spot) ---------- */
+
+/** The puck a player has in step k: one they carry in it, or one on their stick when it starts. */
+export function puckWith(d, k, playerId, pos = positionsByStep(d)) {
+  const step = d.steps[k - 1];
+  if (!step) return null;
+  const carried = (step.moves || []).find(m => m.carriedBy === playerId && !m.to);
+  if (carried) return d.pieces.find(p => p.id === carried.piece) || null;
+  const before = pos[k - 1];
+  return d.pieces.find(p => p.type === 'puck' && before[p.id] && before[playerId] && dist(before[p.id], before[playerId]) <= 4.5) || null;
+}
+
+/** The passer stops carrying: their "with puck" line becomes "skate". */
+function dropCarry(n, k, passerId) {
+  const pm = moveOf(n.steps[k - 1], passerId);
+  if (pm && pm.line === 'skate-puck') pm.line = 'skate';
+}
+
+/**
+ * Pass the puck in step k to a teammate's stick where they end up in that step (a lead pass).
+ * If the receiver skates in this step, the pass waits until they arrive ("after skaters arrive").
+ */
+export function passTo(d, k, passerId, puckId, receiverId) {
+  const pos = positionsByStep(d);
+  const from = pos[k - 1][puckId], end = pos[k][receiverId];
+  if (!from || !end) return d;
+  const len = dist(from, end) || 1;
+  const target = [end[0] - (end[0] - from[0]) / len * 2.5, end[1] - (end[1] - from[1]) / len * 2.5];
+  const n = clone(d);
+  const step = n.steps[k - 1];
+  step.moves = (step.moves || []).filter(m => m.piece !== puckId);
+  const m = { piece: puckId, line: 'pass', to: pt(target) };
+  if (movesIn(d, k, receiverId, pos)) m.when = 'after';
+  step.moves.push(m);
+  dropCarry(n, k, passerId);
+  return n;
+}
+
+/** Shoot the puck in step k at a spot. */
+export function shootAt(d, k, passerId, puckId, at) {
+  const n = clone(d);
+  const step = n.steps[k - 1];
+  step.moves = (step.moves || []).filter(m => m.piece !== puckId);
+  step.moves.push({ piece: puckId, line: 'shot', to: pt(at) });
+  dropCarry(n, k, passerId);
+  return n;
+}
+
+/** What moves in step k, in drill order: [{ piece, move }]. */
+export function movingIn(d, k, pos = positionsByStep(d)) {
+  const step = d.steps[k - 1];
+  if (!step) return [];
+  return d.pieces.filter(p => { const m = moveOf(step, p.id); return m && (m.carriedBy || movesIn(d, k, p.id, pos)); })
+    .map(p => ({ piece: p, move: moveOf(step, p.id) }));
 }

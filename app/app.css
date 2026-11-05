@@ -93,6 +93,11 @@ textarea { padding: 10px 12px; resize: vertical; }
 .pp-handle { cursor: grab; }
 .pp-hit { cursor: grab; }
 .pp-grid line { stroke: #6b8299; stroke-width: .12; opacity: .45; }
+.pp-puckacts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pp-actionbar { display: flex; align-items: center; gap: var(--space-3); flex: 1; padding: 4px 4px 4px 14px; border: 2px solid var(--accent); border-radius: var(--radius-md); background: var(--accent-soft); font-weight: 700; }
+.pp-movelist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pp-moveitem { width: 100%; justify-content: space-between; text-align: left; gap: var(--space-2); font-weight: 600; }
+.pp-moveitem .muted { font-weight: 500; font-size: 12px; }
 .pp-chip-add { border-style: dashed; color: var(--accent-text); }
 .pp-panel { position: sticky; top: var(--space-2); max-height: calc(100vh - 24px); overflow-y: auto; padding: 0; }
 .pp-tabs { display: flex; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
@@ -119,9 +124,20 @@ textarea { padding: 10px 12px; resize: vertical; }
 .pp-filter[aria-pressed="true"] { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--accent-text); }
 .pp-count { margin: 0; }
 .pp-libbody { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
-.pp-library.has-preview .pp-libbody { grid-template-columns: minmax(0, 1fr) minmax(360px, 44%); }
+.pp-library.has-preview .pp-libbody { grid-template-columns: minmax(0, 1fr) 28px minmax(320px, var(--pv, 55%)); gap: var(--space-2); }
+.pp-splitter { display: none; }
+.pp-library.has-preview .pp-splitter { display: flex; align-self: stretch; justify-content: center; cursor: col-resize; touch-action: none; min-height: 240px; border-radius: var(--radius-sm); outline: none; }
+.pp-splitter:focus-visible { box-shadow: 0 0 0 3px var(--focus); }
+.pp-grip { width: 6px; border-radius: 3px; background: var(--line-strong); margin: 4px 0; }
+.pp-splitter:hover .pp-grip, .pp-splitter.dragging .pp-grip { background: var(--accent); }
+.pp-library.pv-expanded.has-preview .pp-libbody { grid-template-columns: minmax(0, 1fr); }
+.pp-library.pv-expanded.has-preview .pp-cards, .pp-library.pv-expanded.has-preview .pp-splitter { display: none; }
+/* Cards shrink to a list while a preview is open. */
+.pp-library.has-preview .pp-cards { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+.pp-library.has-preview .pp-card { display: grid; grid-template-columns: 112px minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: var(--space-3); row-gap: 2px; align-items: start; }
+.pp-library.has-preview .pp-card .pp-thumb { grid-row: 1 / 4; }
+.pp-library.has-preview .pp-card .pp-pills .pill:nth-child(n+3) { display: none; }
 .pp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3); }
-.pp-library.has-preview .pp-cards { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .pp-cards > .card.empty { grid-column: 1 / -1; }
 .pp-card { display: flex; flex-direction: column; gap: 6px; padding: var(--space-2); text-align: left; cursor: pointer; color: var(--ink); font: inherit; min-width: 0; }
 .pp-card[aria-pressed="true"] { border: 2px solid var(--accent); }
@@ -146,7 +162,6 @@ body.pp-noscroll { overflow: hidden; }
   .pp-tray-teams { display: flex; margin: 0 4px 0 0; }
   .pp-trayb { flex-direction: column; gap: 0; padding: 2px 4px; min-width: 56px; font-size: 11px; text-align: center; }
   .pp-panel { position: static; max-height: none; }
-  .pp-library.has-preview .pp-libbody { grid-template-columns: minmax(0, 1fr) minmax(320px, 50%); }
 }
 
 /* Phones: the screens become a row of tabs under the header. */
@@ -162,6 +177,8 @@ body.pp-noscroll { overflow: hidden; }
   .kv { grid-template-columns: 1fr; gap: 2px; }
   .kv dd { margin-bottom: var(--space-2); }
   .pp-library.has-preview .pp-libbody { grid-template-columns: minmax(0, 1fr); }
+  .pp-library.has-preview .pp-splitter { display: none; }
+  .pp-library.has-preview .pp-card { display: flex; }
   .pp-cards, .pp-library.has-preview .pp-cards { grid-template-columns: minmax(0, 1fr); }
   .pp-preview { position: fixed; inset: 0; max-height: none; z-index: 50; border-radius: 0; margin: 0; }
   .pp-searchrow { flex-wrap: wrap; }

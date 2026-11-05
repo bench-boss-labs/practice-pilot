@@ -1,5 +1,12 @@
 # Practice Pilot — changelog
 
+## 1.1.2 — 2026-11-05 (Easier passing and a bigger preview)
+
+- **New:** Pass and Shoot: tap the player with the puck, tap Pass and then the teammate, or Shoot and then the spot. A pass goes to where the teammate ends up and waits until they arrive.
+- **New:** Resize the drill preview in the library by dragging the handle beside it, or tap Expand to hide the cards. While a preview is open, the cards shrink to a list.
+- **New:** The Step tab lists what's moving in the step. Everything in a step moves at the same time.
+- **Improved:** Easier to pick a puck on a player's stick: tap the player again to switch to the puck, or tap Select the puck.
+
 ## 1.1.1 — 2026-11-05 (Drill setup)
 
 - **New:** Every drill has a Setup list telling other coaches how to prep the ice, such as "Pucks on both blue lines" or "Pylons on the dots". It shows in the preview above the coaching points, and search looks in it too.

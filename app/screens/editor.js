@@ -1,15 +1,15 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.1.1';
+import { el, fill, toast, dialog } from '../ui.js?v=1.1.2';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.1.1';
-import { Player } from '../engine/player.js?v=1.1.1';
-import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.1.1';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.1.1';
-import { VIEWS } from '../engine/rink.js?v=1.1.1';
-import { at } from '../engine/geometry.js?v=1.1.1';
-import * as D from '../drills.js?v=1.1.1';
-import { drillInfo } from './drillview.js?v=1.1.1';
+import { SCHEMA_VERSION } from '../version.js?v=1.1.2';
+import { Player } from '../engine/player.js?v=1.1.2';
+import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.1.2';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.1.2';
+import { VIEWS } from '../engine/rink.js?v=1.1.2';
+import { at } from '../engine/geometry.js?v=1.1.2';
+import * as D from '../drills.js?v=1.1.2';
+import { drillInfo } from './drillview.js?v=1.1.2';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
@@ -131,6 +131,12 @@ class Editor {
   }
 
   renderTools() {
+    if (this.action) {
+      fill(this.toolbar, el('div', { class: 'pp-actionbar', role: 'status', id: 'action-hint' },
+        el('span', { class: 'grow' }, this.action.kind === 'pass' ? 'Tap the teammate to pass to. The puck goes to where they end up in this step.' : 'Tap the spot to shoot at.'),
+        el('button', { type: 'button', class: 'btn', id: 'cancel-action', onclick: () => this.cancelAction() }, 'Cancel')));
+      return;
+    }
     const marking = this.tool !== 'move';
     const v = this.d.view || { rink: 'full', flip: false };
     fill(this.toolbar, 
@@ -179,6 +185,7 @@ class Editor {
       el('button', { type: 'button', class: 'btn', id: 'rot-right', onclick: () => this.commit(D.setPiece(this.d, p.id, { rotate: (p.rotate || 0) + 15 })) }, '↻ 15°'),
       el('input', { type: 'range', id: 'rot-slider', min: 0, max: 345, step: 15, value: p.rotate || 0, 'aria-label': 'Rotation', class: 'grow', oninput: e => this.commit(D.setPiece(this.d, p.id, { rotate: +e.target.value }), { coalesce: `rot-${p.id}`, quiet: true }), onchange: () => this.renderPanel() }))));
 
+    if (isPlayer(p.type)) out.push(...this.puckActions(p, k));
     if (k > 0 && canMove(p.type)) out.push(...this.movePanel(p, k));
     else if (k === 0 && canMove(p.type)) out.push(el('p', { class: 'muted' }, 'This is where it starts. Pick a step, then drag it to make it move.'));
     if (k > 0 && (isPlayer(p.type) || p.type === 'coach')) out.push(...this.calloutPanel(p, k));
@@ -193,6 +200,52 @@ class Editor {
       el('button', { type: 'button', class: 'btn', id: 'dup-piece', onclick: () => { const nid = newId('pc'); this.commit(D.duplicatePiece(this.d, p.id, nid)); this.select(nid); } }, 'Duplicate'),
       el('button', { type: 'button', class: 'btn danger', id: 'remove-piece', onclick: () => this.removeSelected() }, 'Remove from drill')));
     return out;
+  }
+
+  /** Pass and Shoot for a player with the puck, and a quick way to select the puck itself. */
+  puckActions(p, k) {
+    const pk = this.puckFor(p.id, k);
+    if (!pk) return [];
+    return [el('div', { class: 'pp-puckacts' },
+      el('button', { type: 'button', class: 'btn primary', id: 'pass-btn', onclick: () => this.startAction('pass', p.id) }, '➜ Pass'),
+      el('button', { type: 'button', class: 'btn primary', id: 'shoot-btn', onclick: () => this.startAction('shoot', p.id) }, '⇒ Shoot'),
+      el('button', { type: 'button', class: 'btn', id: 'select-puck', onclick: () => this.select(pk.id) }, 'Select the puck'))];
+  }
+
+  /** The puck this player has in step k (in Setup: the puck on their stick). */
+  puckFor(id, k) {
+    if (k > 0) return D.puckWith(this.d, k, id);
+    const pos = positionsByStep(this.d)[0];
+    return this.d.pieces.find(x => x.type === 'puck' && pos[x.id] && Math.hypot(pos[x.id][0] - pos[id][0], pos[x.id][1] - pos[id][1]) <= 4.5) || null;
+  }
+
+  startAction(kind, passer) {
+    this.action = { kind, passer };
+    this.setTool('move');
+    this.renderTools();
+  }
+  cancelAction() { this.action = null; this.renderTools(); }
+
+  /** A tap while passing or shooting. Passing or shooting while carrying the puck adds a step after the carry. */
+  doAction(pt) {
+    const { kind, passer } = this.action;
+    let k = this.k, d = this.d;
+    let pk = this.puckFor(passer, k);
+    if (!pk) { this.cancelAction(); return; }
+    const carrying = k > 0 && (d.steps[k - 1].moves || []).some(m => m.piece === pk.id && m.carriedBy === passer);
+    let receiver = null;
+    if (kind === 'pass') {
+      receiver = this.nearest(pt, null, { players: true, except: passer });
+      if (!receiver) { toast('Tap the player to pass to.'); return; }
+    }
+    if (k === 0 || carrying) ({ drill: d, k } = D.addStep(d, k));
+    d = kind === 'pass' ? D.passTo(d, k, passer, pk.id, receiver) : D.shootAt(d, k, passer, pk.id, pt);
+    this.action = null;
+    this.commit(d);
+    this.player.goStep(k);
+    this.select(passer);
+    const r = receiver && this.d.pieces.find(x => x.id === receiver);
+    toast(kind === 'pass' ? `Pass to the ${NAMES[r.type].toLowerCase()} in step ${k}` : `Shot in step ${k}`, { action: ['Undo', () => this.undo()] });
   }
 
   movePanel(p, k) {
@@ -255,8 +308,21 @@ class Editor {
       this.listField('setupNotes', { label: 'Setup', item: 'Setup line', add: '+ Setup line', id: 'setup', hint: 'How to prep the ice for other coaches, e.g. “Pucks on both blue lines”, “Pylons on the dots”.' }),
       el('button', { type: 'button', class: 'btn primary', id: 'panel-add-step', onclick: () => this.addStep() }, this.d.steps.length ? '+ Step after Setup' : '+ Step 1')];
     const s = this.d.steps[k - 1], n = this.d.steps.length;
+    const moving = D.movingIn(this.d, k);
+    const label = pc => {
+      const same = this.d.pieces.filter(x => x.type === pc.type && x.team === pc.team);
+      return `${NAMES[pc.type]}${pc.team ? ` · ${TEAM_NAMES[pc.team]}` : ''}${same.length > 1 ? ` ${same.indexOf(pc) + 1}` : ''}`;
+    };
+    const whenOf = m => (m.carriedBy ? 'Carried' : m.when === 'after' ? 'After skaters arrive' : m.when === 'custom' ? 'Custom' : 'With the step');
+    const movingList = el('div', { class: 'field', id: 'moving-list' }, el('span', { class: 't-label' }, 'Moving in this step'),
+      el('span', { class: 'muted pp-hint' }, 'Everything here moves at the same time. Drag more pieces on the rink to add them; pick “After skaters arrive” to make one wait.'),
+      moving.length ? el('ul', { class: 'pp-movelist' }, ...moving.map(({ piece, move }) => el('li', {},
+        el('button', { type: 'button', class: 'btn pp-moveitem', onclick: () => this.select(piece.id) },
+          el('span', { class: 'grow' }, label(piece)), el('span', { class: 'muted' }, `${LINE_NAMES[move.carriedBy ? 'carried' : move.line || (piece.type === 'puck' ? 'pass' : 'skate')]} · ${whenOf(move)}`)))))
+        : el('p', { class: 'muted', style: 'margin:0' }, 'Nothing moves yet. Drag a piece on the rink.'));
     return [
       field('Caption', el('textarea', { id: 'caption', rows: 2, maxlength: 120, placeholder: 'The coaching cue for this step', oninput: e => this.commit(D.setStep(this.d, k, { caption: e.target.value }), { quiet: true, coalesce: `cap-${k}` }) }, s.caption || '')),
+      movingList,
       field(`Step length: ${s.seconds || 2} s`, el('input', { type: 'range', id: 'step-length', min: D.STEP_MIN, max: D.STEP_MAX, step: 0.5, value: s.seconds || 2, oninput: e => { e.target.previousSibling.textContent = `Step length: ${e.target.value} s`; this.commit(D.setStep(this.d, k, { seconds: +e.target.value }), { quiet: true, coalesce: `len-${k}` }); } })),
       el('div', { class: 'row' },
         el('button', { type: 'button', class: 'btn', id: 'step-earlier', disabled: k <= 1, onclick: () => { this.commit(D.moveStep(this.d, k, -1)); this.player.goStep(k - 1); } }, '← Move earlier'),
@@ -371,6 +437,7 @@ class Editor {
     if (e.button > 0) return;
     if (this.player.playing) this.player.pause();
     const pt = this.player.toRink(e), k = this.k;
+    if (this.action) { this.doAction(pt); return; }
     if (this.place) {
       const id = newId('pc');
       this.commit(D.addPiece(this.d, { id, type: this.place, team: this.team, at: pt, step: k }));
@@ -390,24 +457,34 @@ class Editor {
     } else {
       const id = this.nearest(pt, e.target);
       if (!id) { if (this.sel) this.select(null); return; }
-      if (id !== this.sel) this.select(id);
-      this.drag = { kind: 'piece', id, base: this.d, start: pt, moved: false };
+      const again = id === this.sel || (this.sel && this.under(pt).includes(this.sel));
+      if (!again) this.select(id);
+      this.drag = { kind: 'piece', id, base: this.d, start: pt, moved: false, again };
     }
     this.player.svg.setPointerCapture(e.pointerId);
     this.armGrid();
   }
 
   /** The piece under a finger: the one whose centre is nearest, within its touch area. */
-  nearest(pt, target) {
-    if (!target.closest('[data-hit],[data-piece]')) return null;
+  nearest(pt, target, { players = false, except = null } = {}) {
+    if (target && !target.closest('[data-hit],[data-piece]')) return null;
     const ctm = this.player.svg.getScreenCTM(), minR = 24 / (ctm ? ctm.a : 4);
     let best = null, bestD = Infinity;
     for (const pc of this.player.current().pieces) {
-      if (pc.opacity <= 0.05) continue;
+      if (pc.opacity <= 0.05 || pc.id === except || (players && !isPlayer(pc.type))) continue;
       const dd = Math.hypot(pc.x - pt[0], pc.y - pt[1]);
       if (dd <= Math.max(radius(pc.type) + 0.8, minR) && dd < bestD) { best = pc.id; bestD = dd; }
     }
     return best;
+  }
+
+  /** Every piece whose touch area covers this point, nearest first. */
+  under(pt) {
+    const ctm = this.player.svg.getScreenCTM(), minR = 24 / (ctm ? ctm.a : 4);
+    return this.player.current().pieces
+      .filter(pc => pc.opacity > 0.05)
+      .map(pc => [pc.id, Math.hypot(pc.x - pt[0], pc.y - pt[1]), Math.max(radius(pc.type) + 0.8, minR)])
+      .filter(([, dd, r]) => dd <= r).sort((a, b) => a[1] - b[1]).map(([id]) => id);
   }
 
   armGrid() { clearTimeout(this.gridTimer); this.gridTimer = setTimeout(() => { if (this.drag && this.drag.kind !== 'mark') { this.grid = true; this.player.draw(); } }, 500); }
@@ -423,6 +500,7 @@ class Editor {
     }
     if (!dr.moved && Math.hypot(pt[0] - dr.start[0], pt[1] - dr.start[1]) < 0.8) return;
     if (dr.last && Math.hypot(pt[0] - dr.last[0], pt[1] - dr.last[1]) > 0.3) { this.grid = false; this.armGrid(); }
+    if (!dr.moved && dr.kind === 'piece' && dr.id !== this.sel) this.select(dr.id);
     dr.moved = true; dr.last = pt;
     const k = this.k;
     dr.result = dr.kind === 'piece' ? D.dragPiece(dr.base, k, dr.id, pt)
@@ -443,7 +521,13 @@ class Editor {
       else this.player.draw();
       return;
     }
-    if (dr.moved && dr.result) { this.d = dr.base; this.commit(dr.result); } else if (hadGrid) this.player.draw();
+    if (dr.moved && dr.result) { this.d = dr.base; this.commit(dr.result); return; }
+    if (dr.kind === 'piece' && dr.again) {
+      // a second tap on pieces that overlap (a puck on a stick) selects the next one
+      const ids = this.under(dr.start);
+      if (ids.length > 1) { const next = ids[(ids.indexOf(this.sel) + 1) % ids.length]; this.select(next); toast(`${NAMES[this.d.pieces.find(x => x.id === next).type]} selected`, { ms: 1500 }); return; }
+    }
+    if (hadGrid) this.player.draw();
   }
 
   cancelDrag() {
@@ -562,6 +646,7 @@ class Editor {
     if (mod && !typing && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); this.redo(); return; }
     if (typing) return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && this.sel) { e.preventDefault(); this.removeSelected(); return; }
+    if (e.key === 'Escape' && this.action) { this.cancelAction(); return; }
     if (e.key === 'Escape') { if (this.place || this.tool !== 'move') this.setTool('move'); else if (this.sel) this.select(null); return; }
     if (e.shiftKey && this.sel && e.key.startsWith('Arrow')) {
       e.preventDefault();

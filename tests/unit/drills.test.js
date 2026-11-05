@@ -234,3 +234,40 @@ test('the samples are valid drills that play from start to end', () => {
   }
   assert.equal(D.lengthLabel(sampleDrill()), '4 steps · 8 s');
 });
+
+test('pass to a teammate: the puck goes to their stick where they end up; it waits if they are skating', () => {
+  let d = build();
+  d = D.addPiece(d, { id: 'f2', type: 'F', team: 'red', at: [140, 20] });
+  d = D.dragPiece(d, 1, 'f2', [150, 30]);                     // the receiver skates in step 1
+  assert.equal(D.puckWith(d, 1, 'f1').id, 'pk');               // on f1's stick at the start of step 1
+  assert.equal(D.puckWith(d, 1, 'f2'), null);
+  const p = D.passTo(d, 1, 'f1', 'pk', 'f2');
+  const m = moveOf(p.steps[0], 'pk');
+  assert.equal(m.line, 'pass'); assert.equal(m.when, 'after');
+  assert.ok(Math.abs(Math.hypot(m.to[0] - 150, m.to[1] - 30) - 2.5) < 0.2, 'lands 2.5 ft in front of the receiver');
+  // a receiver standing still: the pass goes straight away
+  const still = D.passTo(D.clearMove(d, 1, 'f2'), 1, 'f1', 'pk', 'f2');
+  assert.equal(moveOf(still.steps[0], 'pk').when, undefined);
+  // the receiver has it on their stick for the next step, so dragging them carries it
+  let n = D.addStep(p, 1).drill;
+  assert.equal(D.puckWith(n, 2, 'f2').id, 'pk');
+  n = D.dragPiece(n, 2, 'f2', [170, 40]);
+  assert.equal(moveOf(n.steps[1], 'pk').carriedBy, 'f2');
+});
+
+test('passing or shooting replaces a carry, and the passer stops carrying', () => {
+  let d = D.dragPiece(build(), 1, 'f1', [150, 60]);            // carrying in step 1
+  assert.equal(D.puckWith(d, 1, 'f1').id, 'pk');
+  const s = D.shootAt(d, 1, 'f1', 'pk', [188, 42]);
+  assert.deepEqual(moveOf(s.steps[0], 'pk'), { piece: 'pk', line: 'shot', to: [188, 42] });
+  assert.equal(moveOf(s.steps[0], 'f1').line, 'skate');
+});
+
+test('what moves in a step, together', () => {
+  let d = build();
+  d = D.addPiece(d, { id: 'f2', type: 'F', team: 'red', at: [140, 20] });
+  d = D.dragPiece(d, 1, 'f1', [150, 60]);
+  d = D.dragPiece(d, 1, 'f2', [150, 30]);
+  assert.deepEqual(D.movingIn(d, 1).map(x => x.piece.id), ['f1', 'pk', 'f2']);
+  assert.deepEqual(D.movingIn(d, 2), []);
+});

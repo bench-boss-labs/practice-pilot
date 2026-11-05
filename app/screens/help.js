@@ -1,7 +1,7 @@
 /* Help: the standard Bench Boss Labs Help screen. */
 import { renderHelp } from '../../vendor/bbl-kit/1.0.1/bbl-help.js';
-import { APP_NAME, APP_VERSION } from '../version.js?v=1.1.1';
-import { el } from '../ui.js?v=1.1.1';
+import { APP_NAME, APP_VERSION } from '../version.js?v=1.1.2';
+import { el } from '../ui.js?v=1.1.2';
 
 export function renderHelpScreen(app) {
   const b = t => el('b', {}, t);
@@ -11,6 +11,8 @@ export function renderHelpScreen(app) {
     intro: 'Practice Pilot is for building hockey drills that move and turning them into practice plans. Build drills on a tablet or PC; play them anywhere.',
     tasks: [
       { title: 'Build a drill', text: p('Tap ', b('+ New drill'), ' in the library. Tap a piece in the tray, then the rink, to place it. Tap ', b('+ Step'), ' and drag players to where they go; a player with the puck on their stick carries it. Every change saves by itself.') },
+      { title: 'Pass or shoot', text: p('Tap the player with the puck, then ', b('Pass'), ' and tap the teammate, or ', b('Shoot'), ' and tap the spot. The pass goes to where the teammate ends up in that step.') },
+      { title: 'Make two players move at once', text: p('Drag both in the same step: everything in a step moves together. The ', b('Step'), ' tab lists what’s moving.') },
       { title: 'Curve a path, pivot or wait', text: p('Tap a moving player. Drag the dot on their line to curve it, pick ', b('Stop'), ' or ', b('Pivot'), ' as the finish, and use ', b('After skaters arrive'), ' to make a pass wait.') },
       { title: 'Add a callout', text: p('Select a player in a step, tap ', b('+ Callout'), ' and type the cue. Pick ', b('This step'), ' or ', b('Until the end'), '.') },
       { title: 'Find a drill', text: p('Search the library, or use the Tags, Age, Level and Rink filters. Tap a card to watch it play.') },

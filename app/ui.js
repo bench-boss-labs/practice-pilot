@@ -5,10 +5,10 @@ export { el };
 /** Replace an element's children, skipping empty slots (null/false), which replaceChildren would print. */
 export function fill(node, ...kids) { node.replaceChildren(...kids.flat().filter(k => k != null && k !== false)); return node; }
 
-/** toast('Saved', { action: ['Undo', fn], error: true }) */
-export function toast(text, { action, error = false, ms } = {}) {
+/** toast('Saved', { action: ['Undo', fn], error: true, scoped: true }). scoped = its action belongs to this screen, so it closes when you leave. */
+export function toast(text, { action, error = false, ms, scoped = false } = {}) {
   const host = document.getElementById('toasts');
-  const t = el('div', { class: `toast${error ? ' err' : ''}`, role: error ? 'alert' : 'status' }, el('span', {}, text));
+  const t = el('div', { class: `toast${error ? ' err' : ''}${scoped ? ' scoped' : ''}`, role: error ? 'alert' : 'status' }, el('span', {}, text));
   if (action) t.append(el('button', { type: 'button', onclick: () => { t.remove(); action[1](); } }, action[0]));
   host.append(t);
   setTimeout(() => t.remove(), ms || (error ? 9000 : 5000));

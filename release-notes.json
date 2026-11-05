@@ -1,5 +1,44 @@
 [
   {
+    "version": "1.2.0",
+    "date": "2026-11-05",
+    "title": "Practice plans",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Plans: build a practice from your drills, with minutes for each and start times worked out for you."
+      },
+      {
+        "type": "new",
+        "text": "Station blocks run two to four drills at once, with groups rotating or staying put, and helpers at each station."
+      },
+      {
+        "type": "new",
+        "text": "An ice-time bar shows the minutes left and warns when the plan runs over."
+      },
+      {
+        "type": "new",
+        "text": "The equipment list is counted from the drills, with each drill's setup lines."
+      },
+      {
+        "type": "new",
+        "text": "Print a plan, or save it as a PDF: a run sheet, then a card for each drill with its picture, purpose, setup, coaching points and who runs it."
+      },
+      {
+        "type": "new",
+        "text": "Each drill has a usual length, and plans start from it. A drill's preview has Add to plan."
+      },
+      {
+        "type": "new",
+        "text": "Set your team's ice time in Settings."
+      },
+      {
+        "type": "fixed",
+        "text": "Undo messages close when you leave the screen they belong to."
+      }
+    ]
+  },
+  {
     "version": "1.1.3",
     "date": "2026-11-05",
     "title": "Pass and Shoot are easier to find",

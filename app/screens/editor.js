@@ -1,15 +1,15 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.1.3';
+import { el, fill, toast, dialog } from '../ui.js?v=1.2.0';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.1.3';
-import { Player } from '../engine/player.js?v=1.1.3';
-import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.1.3';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.1.3';
-import { VIEWS } from '../engine/rink.js?v=1.1.3';
-import { at } from '../engine/geometry.js?v=1.1.3';
-import * as D from '../drills.js?v=1.1.3';
-import { drillInfo } from './drillview.js?v=1.1.3';
+import { SCHEMA_VERSION } from '../version.js?v=1.2.0';
+import { Player } from '../engine/player.js?v=1.2.0';
+import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.2.0';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.2.0';
+import { VIEWS } from '../engine/rink.js?v=1.2.0';
+import { at } from '../engine/geometry.js?v=1.2.0';
+import * as D from '../drills.js?v=1.2.0';
+import { drillInfo } from './drillview.js?v=1.2.0';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
@@ -146,7 +146,7 @@ class Editor {
       marking ? el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Markup colour' }, ...Object.keys(MARK_COLOURS).map(c =>
         el('button', { type: 'button', class: 'pp-swatch', 'aria-pressed': String(this.markColour === c), 'aria-label': MARK_NAMES[c], title: MARK_NAMES[c], style: `--sw:${MARK_COLOURS[c]}`, onclick: () => { this.markColour = c; this.renderTools(); } }))) : null,
       marking ? seg('Markup shows on', [[false, this.k ? 'This step only' : 'Setup only'], [true, 'All steps']], this.markAll, v2 => { this.markAll = v2; this.renderTools(); }) : null,
-      marking && this.d.markup.length ? el('button', { type: 'button', class: 'btn', id: 'clear-markup', onclick: () => { this.commit(D.clearMarkup(this.d)); toast('Markup cleared', { action: ['Undo', () => this.undo()] }); } }, 'Clear markup') : null,
+      marking && this.d.markup.length ? el('button', { type: 'button', class: 'btn', id: 'clear-markup', onclick: () => { this.commit(D.clearMarkup(this.d)); toast('Markup cleared', { action: ['Undo', () => this.undo()], scoped: true }); } }, 'Clear markup') : null,
       el('span', { class: 'grow' }),
       el('label', { class: 'pp-inline' }, el('span', { class: 'sr' }, 'Rink view'),
         el('select', { id: 'rink-view', onchange: e => this.commit(D.setDetails(this.d, { view: { ...v, rink: e.target.value } })) },
@@ -263,7 +263,7 @@ class Editor {
     this.player.goStep(k);
     this.select(passer);
     const r = receiver && this.d.pieces.find(x => x.id === receiver);
-    toast((kind === 'pass' ? `Pass to the ${NAMES[r.type].toLowerCase()} in step ${k}.` : `Shot in step ${k}.`) + note, { action: ['Undo', () => this.undo()] });
+    toast((kind === 'pass' ? `Pass to the ${NAMES[r.type].toLowerCase()} in step ${k}.` : `Shot in step ${k}.`) + note, { action: ['Undo', () => this.undo()], scoped: true });
   }
 
   movePanel(p, k) {
@@ -309,7 +309,7 @@ class Editor {
       out.push(el('div', { class: 'pp-callout-edit stack' },
         el('input', { 'aria-label': 'Callout text', class: 'callout-text', value: c.text, maxlength: D.CALLOUT_MAX, oninput: e => { left.textContent = `${D.CALLOUT_MAX - e.target.value.length} left`; this.commit(D.setCallout(this.d, k, c.i, { text: e.target.value }), { quiet: true, coalesce: `co-${k}-${c.i}` }); } }), left,
         el('div', { class: 'row' }, seg('Shows', [[false, 'This step'], [true, 'Until the end']], c.stay, v => this.commit(D.setCallout(this.d, k, c.i, { stay: v }))),
-          el('button', { type: 'button', class: 'btn danger', onclick: () => { this.commit(D.removeCallout(this.d, k, c.i)); toast('Callout removed', { action: ['Undo', () => this.undo()] }); } }, 'Remove callout'))));
+          el('button', { type: 'button', class: 'btn danger', onclick: () => { this.commit(D.removeCallout(this.d, k, c.i)); toast('Callout removed', { action: ['Undo', () => this.undo()], scoped: true }); } }, 'Remove callout'))));
     }
     out.push(el('button', { type: 'button', class: 'btn', id: 'add-callout', onclick: () => {
       this.commit(D.addCallout(this.d, k, p.id, ''));
@@ -347,7 +347,7 @@ class Editor {
         el('button', { type: 'button', class: 'btn', id: 'step-later', disabled: k >= n, onclick: () => { this.commit(D.moveStep(this.d, k, 1)); this.player.goStep(k + 1); } }, 'Move later →')),
       el('div', { class: 'row' },
         el('button', { type: 'button', class: 'btn', id: 'panel-add-step', onclick: () => this.addStep() }, `+ Step after ${k}`),
-        el('button', { type: 'button', class: 'btn danger', id: 'remove-step', onclick: () => { this.commit(D.removeStep(this.d, k)); this.player.goStep(Math.min(k, this.d.steps.length)); toast(`Step ${k} removed`, { action: ['Undo', () => this.undo()] }); } }, 'Remove step')),
+        el('button', { type: 'button', class: 'btn danger', id: 'remove-step', onclick: () => { this.commit(D.removeStep(this.d, k)); this.player.goStep(Math.min(k, this.d.steps.length)); toast(`Step ${k} removed`, { action: ['Undo', () => this.undo()], scoped: true }); } }, 'Remove step')),
     ];
   }
 
@@ -377,6 +377,8 @@ class Editor {
       field('Title', el('input', { id: 'title', value: d.title, maxlength: 100, required: true,
         oninput: e => { this.commit(D.setDetails(this.d, { title: e.target.value }), { quiet: true, coalesce: 'title' }); this.titleEl.textContent = e.target.value || 'New drill'; },
         onblur: e => { if (!e.target.value.trim()) { e.target.value = 'New drill'; this.commit(D.setDetails(this.d, { title: 'New drill' }), { quiet: true, coalesce: 'title' }); } } })),
+      field('Usual length (minutes)', el('input', { type: 'number', id: 'usual-minutes', min: 1, max: 60, inputmode: 'numeric', value: d.minutes || '', placeholder: '8',
+        oninput: e => { const v = Math.round(Number(e.target.value)); set({ minutes: v >= 1 && v <= 60 ? v : null }, { quiet: true, coalesce: 'minutes' }); } }), 'Plans start this drill at this length.'),
       field('Description', el('textarea', { id: 'description', rows: 2, maxlength: 400, placeholder: 'What the drill is for', oninput: e => set({ description: e.target.value }, { quiet: true, coalesce: 'desc' }) }, d.description || '')),
       this.listField('setupNotes', { label: 'Setup', item: 'Setup line', add: '+ Setup line', id: 'setup', hint: 'How to prep the ice for other coaches, e.g. “Pucks on both blue lines”, “Pylons on the dots”.' }),
       field('Tags', el('div', { class: 'pp-chipwrap' }, ...tags.map(t => chip(t, d.tags.includes(t), () => set({ tags: toggle(d.tags, t) }))))),
@@ -447,7 +449,7 @@ class Editor {
     svg.addEventListener('click', e => {
       if (this.tool !== 'erase') return;
       const m = e.target.closest('[data-mark]');
-      if (m) { this.commit(D.removeMark(this.d, m.getAttribute('data-mark'))); toast('Mark erased', { action: ['Undo', () => this.undo()] }); }
+      if (m) { this.commit(D.removeMark(this.d, m.getAttribute('data-mark'))); toast('Mark erased', { action: ['Undo', () => this.undo()], scoped: true }); }
     });
   }
 
@@ -653,7 +655,7 @@ class Editor {
     if (!p) return;
     this.commit(D.removePiece(this.d, p.id));
     this.select(null);
-    toast(`${NAMES[p.type]} removed`, { action: ['Undo', () => this.undo()] });
+    toast(`${NAMES[p.type]} removed`, { action: ['Undo', () => this.undo()], scoped: true });
   }
 
   key(e) {

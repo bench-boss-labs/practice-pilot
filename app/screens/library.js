@@ -1,17 +1,18 @@
 /* Library (R1 Library deep-dive): search, filters, sort, drill cards with pictures, a playing preview,
    New drill (blank or template), Duplicate, Save as template, Delete to Recently deleted. */
-import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.1.3';
+import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.2.0';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.1.3';
-import { newDrill } from '../schema.js?v=1.1.3';
-import { Player } from '../engine/player.js?v=1.1.3';
-import { frame } from '../engine/model.js?v=1.1.3';
-import { thumbnailSVG } from '../engine/render.js?v=1.1.3';
-import { VIEWS } from '../engine/rink.js?v=1.1.3';
-import { firstRunSamples } from '../engine/samples.js?v=1.1.3';
-import * as D from '../drills.js?v=1.1.3';
-import { drillInfo, pills } from './drillview.js?v=1.1.3';
-import { reviewOnly } from './editor.js?v=1.1.3';
+import { SCHEMA_VERSION } from '../version.js?v=1.2.0';
+import { newDrill } from '../schema.js?v=1.2.0';
+import { Player } from '../engine/player.js?v=1.2.0';
+import { frame } from '../engine/model.js?v=1.2.0';
+import { thumbnailSVG } from '../engine/render.js?v=1.2.0';
+import { VIEWS } from '../engine/rink.js?v=1.2.0';
+import { firstRunSamples } from '../engine/samples.js?v=1.2.0';
+import * as D from '../drills.js?v=1.2.0';
+import { drillInfo, pills } from './drillview.js?v=1.2.0';
+import { reviewOnly } from './editor.js?v=1.2.0';
+import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.2.0';
 
 const SHOW = [['drills', 'Drills'], ['templates', 'Templates'], ['samples', 'Samples only'], ['deleted', 'Recently deleted']];
 const SORTS = [['edited', 'Recently edited'], ['az', 'A to Z'], ['steps', 'Most steps']];
@@ -35,7 +36,7 @@ export async function restoreSamples(app, { onlyFirstRun = false } = {}) {
 export async function fillSampleSetup(app) {
   for (const s of firstRunSamples()) {
     const have = await app.store.get('drills', s.id);
-    if (have && !have.setupNotes) await app.store.put('drills', { ...have, setupNotes: s.setupNotes });
+    if (have && (!have.setupNotes || have.minutes === undefined)) await app.store.put('drills', { ...have, setupNotes: have.setupNotes || s.setupNotes, minutes: have.minutes === undefined ? s.minutes : have.minutes });
   }
 }
 
@@ -225,6 +226,7 @@ class Library {
         el('div', { class: 'row' }, act('Restore', 'restore-drill', () => this.restore(d), 'primary'), act('Delete forever', 'delete-forever', () => this.deleteForever(d), 'danger'))]
       : [el('div', { class: 'row' },
         phone || newer ? el('span', { class: 'muted' }, newer ? 'Update to edit' : 'Edit on a tablet or PC') : el('a', { class: 'btn primary', id: 'edit-drill', href: `#edit/${d.id}` }, d.template ? 'Edit template' : 'Edit'),
+        phone || d.template ? null : act('Add to plan', 'add-to-plan', () => this.addToPlan(d)),
         act('Duplicate', 'duplicate-drill', () => this.duplicate(d)),
         act('⋮', 'preview-menu', () => this.menu(d)))];
     fill(this.preview, 
@@ -249,6 +251,18 @@ class Library {
     history.replaceState(null, '', '#library');
     for (const c of this.grid.querySelectorAll('.pp-card')) c.setAttribute('aria-pressed', 'false');
     const card = id && this.grid.querySelector(`[data-id="${id}"]`); if (card) card.focus();
+  }
+
+  /** Add the drill to the end of a plan: one of the latest plans, or a new one. */
+  async addToPlan(d) {
+    const plans = findPlans(await this.app.store.all('plans')).slice(0, 6);
+    const v = await dialog({ id: 'add-to-plan-dialog', title: `Add “${d.title}” to a plan`, body: el('p', { style: 'margin:0' }, plans.length ? 'It goes at the end of the plan.' : 'You have no plans yet.'),
+      buttons: [...plans.map(p => ({ label: [p.title, dayLabel(p.date)].filter(Boolean).join(' · '), value: p.id })), { label: '+ New plan', value: 'new', kind: 'primary' }, { label: 'Cancel', value: null }] });
+    if (!v) return;
+    let p = v === 'new' ? newPlan(newId('p'), { team: this.app.team ? this.app.team.id : '' }) : plans.find(x => x.id === v);
+    p = addBlock(p, drillBlock(newId('bk'), d));
+    await this.app.store.save('plans', p);
+    toast(`Added to “${p.title}”`, { action: ['Open plan', () => { location.hash = `#plan/${p.id}`; }] });
   }
 
   async duplicate(d) {

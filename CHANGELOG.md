@@ -1,5 +1,16 @@
 # Practice Pilot — changelog
 
+## 1.2.0 — 2026-11-05 (Practice plans)
+
+- **New:** Plans: build a practice from your drills, with minutes for each and start times worked out for you.
+- **New:** Station blocks run two to four drills at once, with groups rotating or staying put, and helpers at each station.
+- **New:** An ice-time bar shows the minutes left and warns when the plan runs over.
+- **New:** The equipment list is counted from the drills, with each drill's setup lines.
+- **New:** Print a plan, or save it as a PDF: a run sheet, then a card for each drill with its picture, purpose, setup, coaching points and who runs it.
+- **New:** Each drill has a usual length, and plans start from it. A drill's preview has Add to plan.
+- **New:** Set your team's ice time in Settings.
+- **Fixed:** Undo messages close when you leave the screen they belong to.
+
 ## 1.1.3 — 2026-11-05 (Pass and Shoot are easier to find)
 
 - **New:** Pass and Shoot are now tools above the rink: tap Pass, tap the passer, then the teammate.

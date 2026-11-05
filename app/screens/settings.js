@@ -1,11 +1,11 @@
 /* Settings › About and Settings › This device. */
-import { APP, APP_NAME, APP_VERSION, KIT_VERSION, SCHEMA_VERSION } from '../version.js?v=1.1.3';
-import { DATA_STORES, describeCounts, daysSince, newTeam } from '../schema.js?v=1.1.3';
-import { restoreSamples } from './library.js?v=1.1.3';
+import { APP, APP_NAME, APP_VERSION, KIT_VERSION, SCHEMA_VERSION } from '../version.js?v=1.2.0';
+import { DATA_STORES, describeCounts, daysSince, newTeam } from '../schema.js?v=1.2.0';
+import { restoreSamples } from './library.js?v=1.2.0';
 import { newId, makeBackup, backupFileName, validateBackup, restoreBackup, storageStatus, formatBytes } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { formatDate } from '../../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { renderInstallCard } from '../../vendor/bbl-kit/1.0.1/bbl-install.js';
-import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.1.3';
+import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.2.0';
 
 export function renderSettings(app, sub) {
   const tab = sub === 'device' ? 'device' : 'about';
@@ -61,6 +61,15 @@ function device(app) {
     toast('Saved');
   });
 
+  const iceInput = el('input', { type: 'number', id: 'ice-minutes', min: '10', max: '180', inputmode: 'numeric', value: String((app.team && app.team.iceTimeMinutes) || 50) });
+  iceInput.addEventListener('change', async () => {
+    const v = Math.round(Number(iceInput.value));
+    if (!(v >= 10 && v <= 180)) { iceInput.value = String(app.team.iceTimeMinutes || 50); toast('Ice time is between 10 and 180 minutes.', { error: true }); return; }
+    await safeSave(() => app.store.save('teams', { ...app.team, iceTimeMinutes: v }));
+    await app.refreshTeam();
+    toast('Saved');
+  });
+
   const storageLine = el('p', { class: 'status-line', id: 'storage-used' }, 'Checking…');
   const keptLine = el('p', { class: 'status-line', id: 'storage-kept' });
   storageStatus().then(s => {
@@ -103,7 +112,8 @@ function device(app) {
     install,
     el('section', { class: 'card stack', 'aria-labelledby': 'team-title' },
       el('h2', { class: 't-section', id: 'team-title' }, 'Team'),
-      el('label', { class: 'field', for: 'team-name' }, 'Team name', teamInput, el('span', { class: 'hint' }, 'Shown at the top of the app.'))),
+      el('label', { class: 'field', for: 'team-name' }, 'Team name', teamInput, el('span', { class: 'hint' }, 'Shown at the top of the app.')),
+      el('label', { class: 'field', for: 'ice-minutes' }, 'Ice time (minutes)', iceInput, el('span', { class: 'hint' }, 'How long a practice usually is. New plans start with this.'))),
     el('section', { class: 'card stack', 'aria-labelledby': 'theme-title' },
       el('h2', { class: 't-section', id: 'theme-title' }, 'Theme'),
       el('div', { class: 'row', role: 'group', 'aria-label': 'Theme' }, themeBtn('dark', 'Dark'), themeBtn('light', 'Light'))),

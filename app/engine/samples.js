@@ -46,7 +46,7 @@ export function sampleDrill() {
 export function firstRunSamples() {
   const base = { author: 'Practice Pilot', team: '', sourceDrillId: null, submittedAt: null, visibility: 'private', template: false, sample: true, deletedAt: null, autoHighlight: true, markup: [], videoLinks: [], goalieNotes: '' };
   return [
-    { ...base, id: 'd_samplepivot', title: 'Pass, Pivot & Go',
+    { ...base, id: 'd_samplepivot', title: 'Pass, Pivot & Go', minutes: 10,
       description: 'Pass to a partner, pivot round the pylon, take the return pass, drive wide and shoot, then loop behind the net.',
       tags: ['Passing', 'Skating', 'Shooting'], ageGroups: ['U9', 'U11', 'U13'], level: 'Beginner',
       coachingPoints: ['Pass hard and flat, on the tape', 'Tight pivot at the pylon: stay low', 'Drive wide with your head up', 'Shoot in stride'],
@@ -67,7 +67,7 @@ export function firstRunSamples() {
         { caption: 'Shoot, then loop behind the net', seconds: 3,
           moves: [{ piece: 'pk', to: [188, 44], line: 'shot' }, { piece: 'f1', to: [178, 24], line: 'skate', bends: [[192, 62], [196, 42.5], [191, 27]] }] },
       ] },
-    { ...base, id: 'd_samplebreakout', title: 'Breakout Pass 1 on 1',
+    { ...base, id: 'd_samplebreakout', title: 'Breakout Pass 1 on 1', minutes: 8,
       description: 'The D picks up a puck behind the net, finds the winger on the wall and the winger carries it out against a forechecker.',
       tags: ['Breakout', 'Passing', 'Battle'], ageGroups: ['U11', 'U13', 'U15'], level: 'Intermediate',
       coachingPoints: ['D: shoulder check before you reach the puck', 'Winger: stop on the wall, stick on the ice as a target', 'Pass firm, to the winger\'s forehand', 'Winger: carry it out with speed'],
@@ -88,7 +88,7 @@ export function firstRunSamples() {
           moves: [{ piece: 'w1', to: [88, 70], line: 'skate-puck', bends: [[66, 79]] }, { piece: 'pk', carriedBy: 'w1' }, { piece: 'd1', to: [50, 58], line: 'skate' }, { piece: 'x1', to: [52, 72], line: 'skate' }],
           callouts: [{ piece: 'w1', text: 'Speed through the blue line' }] },
       ] },
-    { ...base, id: 'd_samplefigure', title: 'Figure-8 Edges',
+    { ...base, id: 'd_samplefigure', title: 'Figure-8 Edges', minutes: 6,
       description: 'A warm-up figure eight around two pylons: forward round the first, backward round the second.',
       tags: ['Warm-up', 'Skating'], ageGroups: ['U7', 'U9', 'U11'], level: 'Beginner',
       coachingPoints: ['Knees bent, chest up', 'Push with the outside edge', 'Backward: look over your shoulder'],

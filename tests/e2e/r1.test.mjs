@@ -367,7 +367,7 @@ test('500 drills: the library opens in under a second and filtering keeps up', a
 test('an update waits while the editor is open and shows once you leave', async () => {
   const { ctx, page } = await open(env);
   await page.goto(env.server.url + '#edit/d_samplepivot'); await page.waitForSelector('.pp-editor');
-  env.server.setRoot(makeVersion('1.1.9'));
+  env.server.setRoot(makeVersion('1.2.9'));
   await page.evaluate(() => window.__pp.checkUpdates());
   await page.waitForTimeout(500);
   assert.equal(await page.locator('#banners .banner').count(), 0, 'no banner while editing');

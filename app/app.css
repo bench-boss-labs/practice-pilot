@@ -155,6 +155,105 @@ textarea { padding: 10px 12px; resize: vertical; }
 .pp-review-player { max-width: 900px; }
 body.pp-noscroll { overflow: hidden; }
 
+/* Toast buttons meet the 44 px tap size */
+.toast button { min-height: var(--tap-min); min-width: var(--tap-min); }
+
+/* Plans list and the read-only plan view */
+.pp-plans { display: flex; flex-direction: column; gap: var(--space-3); }
+.pp-plancards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3); }
+.pp-plancards > .card.empty { grid-column: 1 / -1; }
+.pp-plans.has-preview .pp-planbody { grid-template-columns: minmax(0, 1fr) minmax(340px, 55%); }
+.pp-plans.has-preview .pp-plancards { grid-template-columns: minmax(0, 1fr); }
+.pp-plancard-pics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; min-height: 40px; }
+.pp-overtag { display: inline-block; align-self: flex-start; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--work-soft); color: var(--work); font-weight: 700; font-size: 12px; }
+.pp-planview { gap: var(--space-3); }
+.pp-planview p, .pp-planview h3 { margin: 0; }
+.pp-runlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pp-run { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: var(--space-3); padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); align-items: start; }
+.pp-run.over { border-color: var(--work); }
+.pp-run-time, .pp-run-min { font-variant-numeric: tabular-nums; font-weight: 600; }
+.pp-run-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pp-run-stations { margin: 0; padding-left: 18px; }
+.pp-drill-link { padding: 0; min-height: var(--tap-min); text-align: left; }
+
+/* Plan builder */
+.pp-planner { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--space-3); align-items: start; }
+.pp-budget { display: flex; flex-direction: column; gap: 4px; }
+.pp-budget-bar { position: relative; height: 18px; border-radius: 4px; border: 1px solid var(--line-strong); background: var(--surface); overflow: hidden; }
+.pp-budget-seg { position: absolute; top: 0; bottom: 0; opacity: .85; border-right: 1px solid var(--surface); }
+.pp-budget-end { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: var(--ink); }
+.pp-budget.over .pp-budget-bar { border-color: var(--work); }
+.pp-budget-words { font-weight: 600; font-size: 14px; }
+.pp-budget.over .pp-budget-words { color: var(--work); }
+.pp-blocks { display: flex; flex-direction: column; gap: var(--space-2); }
+.pp-block { padding: 0; border-left: 6px solid var(--blk); overflow: hidden; }
+.pp-block.selected { outline: 2px solid var(--accent); }
+.pp-block.over { border-top-color: var(--work); border-right-color: var(--work); border-bottom-color: var(--work); }
+.pp-block-main { display: grid; grid-template-columns: 64px auto minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; width: 100%; min-height: 64px; padding: 8px 12px; background: none; border: 0; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.pp-block-main:not(:has(.pp-block-thumb)) { grid-template-columns: 64px minmax(0, 1fr) auto; }
+.pp-block-time { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; }
+.pp-block-time .muted { font-weight: 500; font-size: 12px; }
+.pp-block-thumb { width: 96px; aspect-ratio: 206 / 91; }
+.pp-block-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pp-block-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-block-kind { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-block-min { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pp-stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-2); padding: 0 12px 12px 88px; }
+.pp-station { display: flex; flex-direction: column; gap: 2px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; min-width: 0; }
+.pp-station b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-station .muted { font-size: 12px; }
+.pp-station-add { align-self: stretch; border-style: dashed; }
+.pp-picklist { display: flex; flex-direction: column; gap: 6px; }
+.pp-pick { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
+.pp-pick .pp-thumb { width: 72px; }
+.pp-pick-text { display: flex; flex-direction: column; min-width: 0; }
+.pp-pick-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-pick-text .muted { font-size: 12px; }
+.pp-mini-thumb { width: 64px; flex: none; }
+.pp-block-preview .pp-rink { max-height: 220px; }
+.pp-minutes input { width: 80px; text-align: center; }
+.pp-equip { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.pp-themes { margin: 0; }
+
+/* Printout: on screen it looks like the paper; in print only the paper is shown */
+.pp-print-screen { display: flex; flex-direction: column; gap: var(--space-3); }
+.pp-printbar { position: sticky; top: 0; z-index: 2; padding: var(--space-2) 0; background: var(--ground); }
+.pp-printpage { background: #fff; color: #111; padding: 32px; border-radius: var(--radius-md); max-width: 8.5in; width: 100%; margin: 0 auto; box-sizing: border-box; font-size: 12px; }
+.pp-printpage h2, .pp-printpage h3, .pp-printpage h4, .pp-printpage p { margin: 0; color: #111; }
+.pp-sheet { display: flex; flex-direction: column; gap: 12px; }
+.pp-sheet-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; border-bottom: 2px solid #111; padding-bottom: 8px; }
+.pp-sheet-head h2 { font-size: 22px; }
+.pp-sheet-team { font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; }
+.pp-sheet-when { font-weight: 600; text-align: right; }
+.pp-sheet-table { width: 100%; border-collapse: collapse; }
+.pp-sheet-table th, .pp-sheet-table td { border-bottom: 1px solid #bbb; padding: 6px 8px; text-align: left; vertical-align: top; }
+.pp-sheet-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 2px solid #111; }
+.pp-sheet-table td:nth-child(1), .pp-sheet-table td:nth-child(2) { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+.pp-sheet-table ul { margin: 2px 0 0; padding-left: 16px; }
+.pp-sheet-table tr.over td { background: #fdf0e0; }
+.pp-sheet-note { color: #444; font-style: italic; }
+.pp-print-sec h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.pp-print-sec ol, .pp-print-sec ul { margin: 0; padding-left: 18px; }
+.pp-cardpages { display: flex; flex-direction: column; gap: 16px; margin-top: 24px; break-before: page; }
+.pp-pcard { border: 1.5px solid #111; border-radius: 8px; padding: 12px; break-inside: avoid; display: flex; flex-direction: column; gap: 8px; }
+.pp-pcard header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.pp-pcard h3 { font-size: 16px; }
+.pp-pcard-time { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pp-pcard-label { font-weight: 600; color: #444; }
+.pp-pcard-body { display: grid; grid-template-columns: 52% minmax(0, 1fr); gap: 12px; align-items: start; }
+.pp-pcard-text { display: flex; flex-direction: column; gap: 6px; }
+.pp-pcard-who { font-weight: 700; }
+.pp-print-pic { border: 1px solid #ccc; border-radius: 4px; background: #e7eef4; }
+.pp-print-pic { display: flex; justify-content: center; }
+.pp-print-pic svg { width: 100%; height: auto; max-height: 2.5in; display: block; }
+@media print {
+  @page { size: letter portrait; margin: 0.5in; }
+  body.pp-printing .topbar, body.pp-printing #banners, body.pp-printing .toasts, body.pp-printing .pp-printbar, body.pp-printing .skip, body.pp-printing #private-notice { display: none !important; }
+  body.pp-printing, body.pp-printing main { background: #fff !important; padding: 0 !important; margin: 0 !important; max-width: none !important; }
+  body.pp-printing .pp-printpage { padding: 0; border-radius: 0; max-width: none; }
+  body.pp-printing * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
 /* Tablet upright and small PCs: tray above the rink, panel under it. */
 @media (max-width: 1099px) {
   .pp-editor { grid-template-columns: minmax(0, 1fr); }
@@ -162,6 +261,8 @@ body.pp-noscroll { overflow: hidden; }
   .pp-tray-teams { display: flex; margin: 0 4px 0 0; }
   .pp-trayb { flex-direction: column; gap: 0; padding: 2px 4px; min-width: 56px; font-size: 11px; text-align: center; }
   .pp-panel { position: static; max-height: none; }
+  .pp-planner { grid-template-columns: minmax(0, 1fr); }
+  .pp-plans.has-preview .pp-planbody { grid-template-columns: minmax(0, 1fr) minmax(320px, 55%); }
 }
 
 /* Phones: the screens become a row of tabs under the header. */
@@ -182,4 +283,9 @@ body.pp-noscroll { overflow: hidden; }
   .pp-cards, .pp-library.has-preview .pp-cards { grid-template-columns: minmax(0, 1fr); }
   .pp-preview { position: fixed; inset: 0; max-height: none; z-index: 50; border-radius: 0; margin: 0; }
   .pp-searchrow { flex-wrap: wrap; }
+  .pp-plans.has-preview .pp-planbody { grid-template-columns: minmax(0, 1fr); }
+  .pp-plancards { grid-template-columns: minmax(0, 1fr); }
+  .pp-run { grid-template-columns: 56px minmax(0, 1fr) auto; }
+  .pp-printpage { padding: 16px; }
+  .pp-pcard-body { grid-template-columns: minmax(0, 1fr); }
 }

@@ -1,5 +1,5 @@
 /* Practice Pilot data format, version 1. Pure functions: tested in Node (tests/unit). */
-import { SCHEMA_VERSION } from './version.js?v=1.1.3';
+import { SCHEMA_VERSION } from './version.js?v=1.2.0';
 
 /** Every data store the app keeps on the device. R0 creates them all; later releases fill them. */
 export const DATA_STORES = ['drills', 'plans', 'teams', 'media'];
@@ -42,7 +42,7 @@ export function newDrill(id, { title = 'New drill', author = '', team = '' } = {
   return {
     id, title, author, team, sourceDrillId: null, submittedAt: null,
     description: '', tags: [], ageGroups: [], level: '', visibility: 'private',
-    coachingPoints: [], setupNotes: [], videoLinks: [], goalieNotes: '',
+    coachingPoints: [], setupNotes: [], videoLinks: [], goalieNotes: '', minutes: null,
     view: { rink: 'full', flip: false }, pieces: [], start: {}, steps: [], markup: [], autoHighlight: true,
     template: false, sample: false, deletedAt: null,
   };

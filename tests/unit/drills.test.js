@@ -271,3 +271,23 @@ test('what moves in a step, together', () => {
   assert.deepEqual(D.movingIn(d, 1).map(x => x.piece.id), ['f1', 'pk', 'f2']);
   assert.deepEqual(D.movingIn(d, 2), []);
 });
+
+test('giving a player the puck: Setup for step 1, a pass in the step before later on, or a new puck', () => {
+  let d = build();                                             // f1 at 110,70 with pk on the stick
+  d = D.addPiece(d, { id: 'f2', type: 'F', team: 'red', at: [150, 20] });
+  let g = D.giveTo(d, 1, 'f2', [160, 20], 'new1');
+  assert.equal(g.how, 'setup'); assert.equal(g.puck, 'pk');
+  assert.deepEqual(g.drill.start.pk, [152.5, 20]);
+  assert.equal(D.puckWith(g.drill, 1, 'f2').id, 'pk');
+  d = D.dragPiece(D.addStep(d, 1).drill, 1, 'f1', [130, 60]);  // two steps; f1 carries in step 1
+  g = D.giveTo(d, 2, 'f2', null, 'new1');
+  assert.equal(g.how, 'pass');
+  const m = moveOf(g.drill.steps[0], 'pk');
+  assert.equal(m.line, 'pass'); assert.equal(m.when, 'after');
+  assert.equal(moveOf(g.drill.steps[0], 'f1').line, 'skate', 'f1 stops carrying');
+  assert.equal(D.puckWith(g.drill, 2, 'f2').id, 'pk');
+  const none = D.giveTo(D.removePiece(d, 'pk'), 2, 'f2', null, 'new1');
+  assert.equal(none.how, 'new');
+  assert.equal(none.drill.pieces.find(p => p.id === 'new1').fromStep, 2);
+  assert.equal(D.puckWith(none.drill, 2, 'f2').id, 'new1');
+});

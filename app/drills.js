@@ -1,9 +1,9 @@
 /* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
    Pure functions on plain drill objects (drill format v1); the editor and library call these,
    and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
-import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.1.2';
-import { onIce } from './engine/rink.js?v=1.1.2';
-import { dist } from './engine/geometry.js?v=1.1.2';
+import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.1.3';
+import { onIce } from './engine/rink.js?v=1.1.3';
+import { dist } from './engine/geometry.js?v=1.1.3';
 
 export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
 export const AGES = ['U7', 'U9', 'U11', 'U13', 'U15', 'U18'];
@@ -455,4 +455,34 @@ export function movingIn(d, k, pos = positionsByStep(d)) {
   if (!step) return [];
   return d.pieces.filter(p => { const m = moveOf(step, p.id); return m && (m.carriedBy || movesIn(d, k, p.id, pos)); })
     .map(p => ({ piece: p, move: moveOf(step, p.id) }));
+}
+
+/**
+ * Put a puck on a player's stick at the start of step k (k ≥ 1) so they can pass or shoot.
+ * The nearest puck on the ice moves there: in Setup for step 1, or by a pass to them in step k − 1.
+ * With no puck on the ice, a new one appears on their stick. toward: which side of the player it sits.
+ * → { drill, puck: id, how: 'setup' | 'pass' | 'new' }
+ */
+export function giveTo(d, k, playerId, toward, newPuckId) {
+  const pos = positionsByStep(d);
+  const at = pos[k - 1][playerId];
+  const dx = toward ? toward[0] - at[0] : 1, dy = toward ? toward[1] - at[1] : 0, len = Math.hypot(dx, dy) || 1;
+  const spot = pt([at[0] + dx / len * 2.5, at[1] + dy / len * 2.5]);
+  const on = p => (Number.isInteger(p.fromStep) ? p.fromStep : 0) <= k && (!Number.isInteger(p.untilStep) || p.untilStep >= k);
+  const pucks = d.pieces.filter(p => p.type === 'puck' && on(p) && pos[k - 1][p.id])
+    .sort((a, b) => dist(pos[k - 1][a.id], at) - dist(pos[k - 1][b.id], at));
+  if (!pucks.length) return { drill: addPiece(d, { id: newPuckId, type: 'puck', at: spot, step: k > 1 ? k : 0 }), puck: newPuckId, how: 'new' };
+  const pk = pucks[0].id;
+  const n = clone(d);
+  if (k === 1) {
+    n.start[pk] = spot;
+    const p = n.pieces.find(x => x.id === pk); delete p.fromStep;
+    return { drill: n, puck: pk, how: 'setup' };
+  }
+  const prev = n.steps[k - 2];
+  const old = (prev.moves || []).find(m => m.piece === pk);
+  if (old && old.carriedBy) dropCarry(n, k - 1, old.carriedBy);
+  prev.moves = (prev.moves || []).filter(m => m.piece !== pk);
+  prev.moves.push({ piece: pk, line: 'pass', to: spot, when: 'after' });
+  return { drill: n, puck: pk, how: 'pass' };
 }

@@ -1,6 +1,6 @@
 /* A drill's details for reading: used by the library preview and the phone view of the editor. */
-import { el } from '../ui.js?v=1.1.2';
-import { lengthLabel, videoLink } from '../drills.js?v=1.1.2';
+import { el } from '../ui.js?v=1.1.3';
+import { lengthLabel, videoLink } from '../drills.js?v=1.1.3';
 
 export function pills(d) {
   return el('div', { class: 'pp-pills' },

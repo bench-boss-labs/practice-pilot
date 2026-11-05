@@ -1,5 +1,24 @@
 [
   {
+    "version": "1.1.3",
+    "date": "2026-11-05",
+    "title": "Pass and Shoot are easier to find",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Pass and Shoot are now tools above the rink: tap Pass, tap the passer, then the teammate."
+      },
+      {
+        "type": "improved",
+        "text": "Pass and Shoot always show for a selected player. If the player doesn't have the puck, the nearest puck goes to them first."
+      },
+      {
+        "type": "fixed",
+        "text": "A player who receives a pass can shoot or pass it on without undoing the pass."
+      }
+    ]
+  },
+  {
     "version": "1.1.2",
     "date": "2026-11-05",
     "title": "Easier passing and a bigger preview",

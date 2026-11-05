@@ -387,7 +387,7 @@ test('pass and shoot by tapping: Pass then the teammate, Shoot then a spot', asy
   await dragRink(page, [120, 30], [140, 25]);                  // the receiver skates up ice in step 1
   await tapRink(page, 60, 60);                                  // select the passer
   await page.click('#pass-btn');
-  assert.match(await page.textContent('#action-hint'), /Tap the teammate/);
+  assert.match(await page.textContent('#action-hint'), /tap the teammate/i);
   await tapRink(page, 140, 25);
   await page.waitForSelector('.toast >> text=Pass to the forward in step 1');
   await saved(page);
@@ -449,6 +449,37 @@ test('library: drag the handle to resize the preview, cards become a list, expan
   assert.ok(Math.abs((await page.locator('#preview').boundingBox()).width - w1) < 4, 'size is remembered');
   await page.focus('#splitter'); await page.keyboard.press('End');
   assert.equal(await page.getAttribute('#splitter', 'aria-valuenow'), '30');
+  assert.deepEqual(page.errors, []);
+  await ctx.close();
+});
+
+test('Pass and Shoot tools above the rink: tap the passer, then the teammate; the nearest puck goes to them first', async () => {
+  const { ctx, page } = await open(env);
+  await page.click('#new-drill-btn'); await page.waitForSelector('.pp-editor');
+  const id = await editorId(page);
+  await page.click('.pp-trayb[data-type="F"]'); await tapRink(page, 60, 60); await tapRink(page, 120, 30);
+  await page.click('.pp-trayb[data-type="puck"]'); await tapRink(page, 90, 75);   // nowhere near anyone
+  await page.click('#tray-move');
+  await page.click('[data-tool="pass"]');
+  assert.match(await page.textContent('#action-hint'), /tap the player who passes/);
+  await tapRink(page, 60, 60);
+  assert.match(await page.textContent('#action-hint'), /Now tap the teammate/);
+  await tapRink(page, 120, 30);
+  await page.waitForSelector('.toast >> text=The puck starts on their stick');
+  await saved(page);
+  const d = await drill(page, id);
+  const [f1, , pk] = d.pieces.map(p => p.id);
+  assert.ok(Math.hypot(d.start[pk][0] - d.start[f1][0], d.start[pk][1] - d.start[f1][1]) < 3, 'the puck moved onto the passer’s stick');
+  assert.equal(d.steps.length, 1);
+  assert.equal(d.steps[0].moves.find(m => m.piece === pk).line, 'pass');
+  // the Piece panel always shows Pass and Shoot for a player
+  await tapRink(page, 120, 30);
+  assert.ok(await page.isVisible('#pass-btn')); assert.ok(await page.isVisible('#shoot-btn'));
+  await page.click('[data-tool="shoot"]');
+  assert.match(await page.textContent('#action-hint'), /Now tap the spot/, 'a selected player is the shooter');
+  await tapRink(page, 188, 42);
+  await saved(page);
+  assert.equal((await drill(page, id)).steps.length, 2);
   assert.deepEqual(page.errors, []);
   await ctx.close();
 });

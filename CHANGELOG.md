@@ -1,5 +1,11 @@
 # Practice Pilot — changelog
 
+## 1.1.3 — 2026-11-05 (Pass and Shoot are easier to find)
+
+- **New:** Pass and Shoot are now tools above the rink: tap Pass, tap the passer, then the teammate.
+- **Improved:** Pass and Shoot always show for a selected player. If the player doesn't have the puck, the nearest puck goes to them first.
+- **Fixed:** A player who receives a pass can shoot or pass it on without undoing the pass.
+
 ## 1.1.2 — 2026-11-05 (Easier passing and a bigger preview)
 
 - **New:** Pass and Shoot: tap the player with the puck, tap Pass and then the teammate, or Shoot and then the spot. A pass goes to where the teammate ends up and waits until they arrive.

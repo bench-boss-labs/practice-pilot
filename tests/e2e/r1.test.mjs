@@ -535,7 +535,7 @@ test('two shooters in one step: both pucks fly in the animation', async () => {
   assert.equal(d.steps.length, 1);
   // both pucks end at the net in the animation
   const ends = await page.evaluate(async () => {
-    const { frame, prepare } = await import('./app/engine/model.js?v=1.3.0');
+    const { frame, prepare } = await import('./app/engine/model.js?v=1.3.1');
     const d = await window.__pp.store.get('drills', location.hash.split('/')[1]);
     return frame(d, 1, 1, prepare(d)).pieces.filter(p => p.type === 'puck').map(p => [Math.round(p.x), Math.round(p.y)]);
   });

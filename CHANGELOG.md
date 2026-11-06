@@ -1,5 +1,11 @@
 # Practice Pilot — changelog
 
+## 1.3.1 — 2026-11-06 (Skate a route)
+
+- **New:** Drag a player along the route you want and they skate it in that step: loops, curves, around the pylons. A nearly straight drag stays a clean straight line, and the puck on their stick comes along.
+- **New:** Drag the same player again to keep going from where the route ended. Undo, or Stay still in the Piece tab, starts over.
+- **Improved:** A traced route has dots you can drag to fix one spot, and Straighten takes them all out.
+
 ## 1.3.0 — 2026-11-06 (Edit drills on your phone)
 
 - **New:** Build and change drills on a phone held sideways. The rink fills the screen, the tools run down the left (+ Piece, Move, Pass, Shoot, Draw), the steps run along the bottom, and Options opens the piece, step and details settings.

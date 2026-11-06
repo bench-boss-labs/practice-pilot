@@ -318,3 +318,57 @@ test('two players passing (Cristian’s video): the second pass never changes th
   assert.equal(next.pieces.find(p => p.id === 'p2').fromStep, 2);
   assert.equal(D.puckWith(next, 2, 'c').id, 'p2');
 });
+
+/* 1.3.1: every drag of a player traces their route. */
+const trailOf = (from, f, n = 40) => [from, ...Array.from({ length: n }, (_, i) => f((i + 1) / n))];
+
+test('tracing: a nearly straight drag stays a clean straight line', () => {
+  const d = build();
+  const t = trailOf([110, 70], u => [110 + 40 * u, 70 + Math.sin(u * 40) * 0.4]);
+  const m = moveOf(D.traceMove(d, 1, 'f1', t).steps[0], 'f1');
+  assert.deepEqual(m.bends, []);
+  assert.equal(m.to[0], 150); assert.ok(Math.abs(m.to[1] - 70) < 0.5);
+});
+
+test('tracing: a loop keeps its shape with bend points the path passes through', () => {
+  const d = build();
+  const t = trailOf([110, 70], u => [130 + 20 * Math.cos(Math.PI + u * 2 * Math.PI), 60 + 10 * Math.sin(Math.PI + u * 2 * Math.PI)]);
+  t[0] = [110, 70];
+  const n = D.traceMove(d, 1, 'f1', t), m = moveOf(n.steps[0], 'f1');
+  assert.ok(m.bends.length >= 4 && m.bends.length <= D.MAX_BENDS, `${m.bends.length} bends`);
+  assert.ok(m.bends.some(b => b[0] > 145), 'goes round the far side of the loop');
+  assert.ok(prepare(n), 'the traced drill still plays');
+});
+
+test('tracing: a long zig-zag is kept to at most 12 bend points', () => {
+  const d = build();
+  const t = trailOf([110, 70], u => [60 + 120 * u, 42 + (Math.floor(u * 30) % 2 ? 20 : -20)], 300);
+  t[0] = [110, 70];
+  const m = moveOf(D.traceMove(d, 1, 'f1', t).steps[0], 'f1');
+  assert.ok(m.bends.length <= D.MAX_BENDS);
+});
+
+test('tracing: dragging again carries on from where the route ended', () => {
+  let d = build();
+  d = D.traceMove(d, 1, 'f1', trailOf([110, 70], u => [110 + 30 * u, 70 - 30 * u]));
+  const first = moveOf(d.steps[0], 'f1');
+  assert.deepEqual(first.to, [140, 40]);
+  d = D.traceMove(d, 1, 'f1', trailOf([140, 40], u => [140 + 30 * u, 40 + 30 * u]));
+  const m = moveOf(d.steps[0], 'f1');
+  assert.deepEqual(m.to, [170, 70]);
+  assert.ok(m.bends.some(b => Math.hypot(b[0] - 140, b[1] - 40) < 1), 'the old end is now a bend on the way');
+});
+
+test('tracing: Setup places, pucks and pylons stay straight, and the puck on the stick comes along', () => {
+  const d = build(), wiggle = from => trailOf(from, u => [from[0] + 30 * u, from[1] + 10 * Math.sin(u * Math.PI)]);
+  const s = D.traceMove(d, 0, 'f1', wiggle([110, 70]));
+  assert.deepEqual(s.start.f1, [140, 70]); assert.equal(s.steps[0].moves.length, 0);
+  const pk = moveOf(D.traceMove(d, 1, 'pk', wiggle([112.5, 70])).steps[0], 'pk');
+  assert.ok(!pk.bends || !pk.bends.length, 'a dragged puck is a straight pass');
+  const n = D.traceMove(d, 1, 'f1', wiggle([110, 70]));
+  const m = moveOf(n.steps[0], 'f1');
+  assert.equal(m.line, 'skate-puck');
+  assert.ok(m.bends.length >= 1);
+  assert.equal(moveOf(n.steps[0], 'pk').carriedBy, 'f1');
+  assert.equal(JSON.stringify(d), JSON.stringify(build()), 'the input is unchanged');
+});

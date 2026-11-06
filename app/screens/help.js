@@ -1,7 +1,7 @@
 /* Help: the standard Bench Boss Labs Help screen. */
 import { renderHelp } from '../../vendor/bbl-kit/1.0.1/bbl-help.js';
-import { APP_NAME, APP_VERSION } from '../version.js?v=1.3.0';
-import { el } from '../ui.js?v=1.3.0';
+import { APP_NAME, APP_VERSION } from '../version.js?v=1.3.1';
+import { el } from '../ui.js?v=1.3.1';
 
 export function renderHelpScreen(app) {
   const b = t => el('b', {}, t);
@@ -14,7 +14,8 @@ export function renderHelpScreen(app) {
       { title: 'Build a drill', text: p('Tap ', b('+ New drill'), ' in the library. Tap a piece in the tray, then the rink, to place it. Tap ', b('+ Step'), ' and drag players to where they go; a player with the puck on their stick carries it. Every change saves by itself.') },
       { title: 'Pass or shoot', text: p('Tap ', b('➜ Pass'), ' above the rink, tap the passer, then the teammate. ', b('⇒ Shoot'), ' works the same way with a spot. If they don’t have the puck, the nearest one goes to them first.') },
       { title: 'Make two players move at once', text: p('Drag both in the same step: everything in a step moves together. The ', b('Step'), ' tab lists what’s moving.') },
-      { title: 'Curve a path, pivot or wait', text: p('Tap a moving player. Drag the dot on their line to curve it, pick ', b('Stop'), ' or ', b('Pivot'), ' as the finish, and use ', b('After skaters arrive'), ' to make a pass wait.') },
+      { title: 'Skate a route', text: p('Pick a step, then drag a player along the route you want: loops, curves, around the pylons. They skate it at an even speed over the step. Drag them again to keep going; ', b('Undo'), ' or ', b('Stay still'), ' starts over.') },
+      { title: 'Curve a path, pivot or wait', text: p('Tap a moving player. Drag a dot on their line to change its shape, pick ', b('Stop'), ' or ', b('Pivot'), ' as the finish, and use ', b('After skaters arrive'), ' to make a pass wait.') },
       { title: 'Add a callout', text: p('Select a player in a step, tap ', b('+ Callout'), ' and type the cue. Pick ', b('This step'), ' or ', b('Until the end'), '.') },
       { title: 'Find a drill', text: p('Search the library, or use the Tags, Age, Level and Rink filters. Tap a card to watch it play.') },
       { title: 'Put it on your phone’s home screen too', text: p('On a phone, the browser bar takes space from the rink. Added to the home screen (', b('Settings › This device › Install'), '), Practice Pilot opens full screen with a bigger rink.') },

@@ -1,5 +1,5 @@
 /* Written by the stamp script on every release — don't edit the version by hand. */
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.3.1';
 export const KIT_VERSION = '1.0.1';
 export const SCHEMA_VERSION = 1;
 export const APP = 'practice-pilot';

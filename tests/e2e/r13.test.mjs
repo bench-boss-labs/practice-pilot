@@ -190,3 +190,39 @@ test('upright: New drill opens the editor and asks you to turn the phone', async
   assert.deepEqual(page.errors, []);
   await ctx.close();
 });
+
+test('1.3.1: dragging a player traces their route; dragging again keeps going (tablet and phone sideways)', async () => {
+  for (const size of ['tablet', 'phoneWide']) {
+    const { ctx, page } = await open(env, { size });
+    await page.click('#new-drill-btn');
+    await page.waitForSelector('#editor-title');
+    await noToasts(page);
+    const id = await editorId(page);
+    if (size === 'tablet') await page.click('.pp-trayb[data-type="F"]');
+    else { await page.click('#rail-piece'); await page.click('.pp-trayb[data-type="F"]'); }
+    await tapRink(page, 60, 42);
+    await page.click(size === 'tablet' ? '#tray-move' : '#rail-move');
+    await page.click('#add-step');
+    // a loop around a spot, then off up the ice
+    const loop = Array.from({ length: 36 }, (_, i) => { const a = Math.PI + (i + 1) / 36 * 2 * Math.PI; return [80 + 20 * Math.cos(a), 42 + 15 * Math.sin(a)]; });
+    const pts = [[60, 42], ...loop];
+    const xy = []; for (const p of pts) xy.push(await rinkXY(page, ...p));
+    await page.mouse.move(...xy[0]); await page.mouse.down();
+    for (const p of xy.slice(1)) await page.mouse.move(...p, { steps: 2 });
+    await page.mouse.up();
+    await saved(page);
+    let m = (await drill(page, id)).steps[0].moves[0];
+    assert.ok(m.bends.length >= 4, `${size}: the loop keeps its shape (${m.bends.length} bends)`);
+    const firstTo = m.to;
+    const [a, b] = await rinkXY(page, ...firstTo), [c, e] = await rinkXY(page, firstTo[0] + 50, firstTo[1]);
+    await page.mouse.move(a, b); await page.mouse.down(); for (let i = 1; i <= 10; i++) await page.mouse.move(a + (c - a) * i / 10, b + (e - b) * i / 10); await page.mouse.up();
+    await saved(page);
+    m = (await drill(page, id)).steps[0].moves[0];
+    assert.ok(m.to[0] > firstTo[0] + 40, `${size}: the route carries on`);
+    assert.ok(m.bends.some(p => Math.hypot(p[0] - firstTo[0], p[1] - firstTo[1]) < 2.5), `${size}: through the old end`);
+    await page.click('#undo'); await saved(page);
+    assert.deepEqual((await drill(page, id)).steps[0].moves[0].to, firstTo, `${size}: undo takes back the second drag`);
+    assert.deepEqual(page.errors, []);
+    await ctx.close();
+  }
+});

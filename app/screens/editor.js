@@ -1,15 +1,15 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.3.0';
+import { el, fill, toast, dialog } from '../ui.js?v=1.3.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.3.0';
-import { Player } from '../engine/player.js?v=1.3.0';
-import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.3.0';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.3.0';
-import { VIEWS } from '../engine/rink.js?v=1.3.0';
-import { at } from '../engine/geometry.js?v=1.3.0';
-import * as D from '../drills.js?v=1.3.0';
-import { drillInfo } from './drillview.js?v=1.3.0';
+import { SCHEMA_VERSION } from '../version.js?v=1.3.1';
+import { Player } from '../engine/player.js?v=1.3.1';
+import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.3.1';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.3.1';
+import { VIEWS } from '../engine/rink.js?v=1.3.1';
+import { at } from '../engine/geometry.js?v=1.3.1';
+import * as D from '../drills.js?v=1.3.1';
+import { drillInfo } from './drillview.js?v=1.3.1';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
@@ -572,7 +572,8 @@ class Editor {
       if (!id) { if (this.sel) this.select(null); if (this.drawer) this.setDrawer(false); return; }
       const again = id === this.sel || (this.sel && this.under(pt).includes(this.sel));
       if (!again) this.select(id);
-      this.drag = { kind: 'piece', id, base: this.d, start: pt, moved: false, again };
+      const from = positionsByStep(this.d)[k][id];
+      this.drag = { kind: 'piece', id, base: this.d, start: pt, moved: false, again, trail: [from ? [...from] : pt] };
     }
     this.player.svg.setPointerCapture(e.pointerId);
     this.armGrid();
@@ -616,7 +617,8 @@ class Editor {
     if (!dr.moved && dr.kind === 'piece' && dr.id !== this.sel) this.select(dr.id);
     dr.moved = true; dr.last = pt;
     const k = this.k;
-    dr.result = dr.kind === 'piece' ? D.dragPiece(dr.base, k, dr.id, pt)
+    if (dr.kind === 'piece') dr.trail.push(pt);
+    dr.result = dr.kind === 'piece' ? D.traceMove(dr.base, k, dr.id, dr.trail)
       : D.moveBend(dr.base, k, this.sel, dr.i === 'mid' ? 0 : +dr.i, pt);
     if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = 0; if (this.drag && this.drag.result) { this.d = this.drag.result; this.player.load(this.d); } });
   }

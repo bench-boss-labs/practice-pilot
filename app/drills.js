@@ -1,9 +1,9 @@
 /* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
    Pure functions on plain drill objects (drill format v1); the editor and library call these,
    and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
-import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.3.0';
-import { onIce } from './engine/rink.js?v=1.3.0';
-import { dist } from './engine/geometry.js?v=1.3.0';
+import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.3.1';
+import { onIce } from './engine/rink.js?v=1.3.1';
+import { dist } from './engine/geometry.js?v=1.3.1';
 
 export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
 export const AGES = ['U7', 'U9', 'U11', 'U13', 'U15', 'U18'];
@@ -112,6 +112,49 @@ export function dragPiece(d, k, id, to) {
       if (m.line === 'skate') m.line = 'skate-puck';
     }
   }
+  return n;
+}
+
+export const MAX_BENDS = 12;
+export const TRACE_TOLERANCE = 1.2;   // feet: finger wobble smaller than this is straightened out
+
+/** Douglas–Peucker: the fewest points that stay within `tol` feet of the line. */
+export function simplify(points, tol = TRACE_TOLERANCE) {
+  if (points.length < 3) return points.slice();
+  const [a, b] = [points[0], points[points.length - 1]];
+  const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+  let far = 0, at = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i];
+    const off = len < 1e-6 ? dist(p, a) : Math.abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / len;
+    if (off > far) { far = off; at = i; }
+  }
+  if (far <= tol) return [a, b];
+  return [...simplify(points.slice(0, at + 1), tol).slice(0, -1), ...simplify(points.slice(at), tol)];
+}
+
+/**
+ * Drag a player (or coach) along a route in step k: they skate the path your finger traced, at an even
+ * speed over the step. trail = the finger's points, starting where the piece is drawn (its spot at the end
+ * of the step). If it already moves in this step, the route carries on from where it ended.
+ * Setup, pucks and equipment work as a plain drag (place, or a straight line).
+ */
+export function traceMove(d, k, id, trail) {
+  const piece = d.pieces.find(p => p.id === id);
+  const last = trail[trail.length - 1];
+  const n = dragPiece(d, k, id, last);
+  if (!piece || k === 0 || !(isPlayer(piece.type) || piece.type === 'coach')) return n;
+  const m = moveOf(n.steps[k - 1], id);
+  if (!m) return n;                                  // placed, not moved (the step it appears in)
+  const pos = positionsByStep(d);
+  const start = pos[k - 1][id];
+  const old = moveOf(d.steps[k - 1], id);
+  const before = old && movesIn(d, k, id, pos) ? [...(old.bends || []), pos[k][id]] : [];
+  const route = [start, ...before, ...smoothStroke(trail)];
+  let tol = TRACE_TOLERANCE, keep = simplify(route, tol);
+  while (keep.length - 2 > MAX_BENDS) { tol *= 1.4; keep = simplify(route, tol); }
+  m.to = pt(keep[keep.length - 1]);
+  m.bends = keep.slice(1, -1).map(pt);
   return n;
 }
 

@@ -1,5 +1,24 @@
 [
   {
+    "version": "1.3.0",
+    "date": "2026-11-06",
+    "title": "Edit drills on your phone",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Build and change drills on a phone held sideways. The rink fills the screen, the tools run down the left (+ Piece, Move, Pass, Shoot, Draw), the steps run along the bottom, and Options opens the piece, step and details settings."
+      },
+      {
+        "type": "new",
+        "text": "Held upright, a phone plays the drill and lets you change its details: title, purpose, setup, coaching points, tags and more. Turn it sideways to move pieces or add steps; nothing is lost when you turn it."
+      },
+      {
+        "type": "improved",
+        "text": "Rink view and Flip are in the ⋮ menu on a phone. A one-time tip suggests adding Practice Pilot to your home screen for a bigger rink."
+      }
+    ]
+  },
+  {
     "version": "1.2.1",
     "date": "2026-11-05",
     "title": "Two passers or shooters in one step",

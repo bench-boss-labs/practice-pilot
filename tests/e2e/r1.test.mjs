@@ -295,7 +295,7 @@ test('drills in the bin for 30 days are removed when the app opens; Restore samp
   await ctx.close();
 });
 
-test('a phone shows one column, a full-screen preview, and review-only editing', async () => {
+test('a phone shows one column, a full-screen preview, and details-only editing upright', async () => {
   const { ctx, page } = await open(env, { size: 'phone' });
   await page.waitForSelector('.pp-card');
   const [a, b] = await page.locator('.pp-card').evaluateAll(cs => cs.slice(0, 2).map(c => c.getBoundingClientRect().left));
@@ -303,13 +303,13 @@ test('a phone shows one column, a full-screen preview, and review-only editing',
   await page.click('.pp-card[data-id="d_samplepivot"]');
   const box = await page.locator('#preview').boundingBox();
   assert.ok(box.width >= SIZES.phone.width - 1 && box.y <= 1, 'preview is full screen');
-  assert.match(await page.textContent('#preview'), /Edit on a tablet or PC/);
+  assert.ok(await page.isVisible('#edit-drill'), 'phones can edit (1.3.0)');
   assert.ok(await noSideScroll(page));
   await page.click('#close-preview');
   await page.goto(env.server.url + '#edit/d_samplepivot');
-  await page.waitForSelector('.pp-review-player .pp-rink');
-  assert.match(await page.textContent('main'), /Edit on a tablet or PC/);
-  assert.equal(await page.locator('.pp-tray').count(), 0);
+  await page.waitForSelector('#rotate-note');
+  assert.match(await page.textContent('#rotate-note'), /Turn your phone sideways/);
+  assert.ok(!(await page.isVisible('.pp-tray')) && !(await page.isVisible('#tools')), 'no rink tools upright');
   assert.ok(await noSideScroll(page));
   assert.deepEqual(page.errors, []);
   await ctx.close();
@@ -367,7 +367,7 @@ test('500 drills: the library opens in under a second and filtering keeps up', a
 test('an update waits while the editor is open and shows once you leave', async () => {
   const { ctx, page } = await open(env);
   await page.goto(env.server.url + '#edit/d_samplepivot'); await page.waitForSelector('.pp-editor');
-  env.server.setRoot(makeVersion('1.2.9'));
+  env.server.setRoot(makeVersion('1.3.9'));
   await page.evaluate(() => window.__pp.checkUpdates());
   await page.waitForTimeout(500);
   assert.equal(await page.locator('#banners .banner').count(), 0, 'no banner while editing');
@@ -535,7 +535,7 @@ test('two shooters in one step: both pucks fly in the animation', async () => {
   assert.equal(d.steps.length, 1);
   // both pucks end at the net in the animation
   const ends = await page.evaluate(async () => {
-    const { frame, prepare } = await import('./app/engine/model.js?v=1.2.1');
+    const { frame, prepare } = await import('./app/engine/model.js?v=1.3.0');
     const d = await window.__pp.store.get('drills', location.hash.split('/')[1]);
     return frame(d, 1, 1, prepare(d)).pieces.filter(p => p.type === 'puck').map(p => [Math.round(p.x), Math.round(p.y)]);
   });

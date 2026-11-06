@@ -1,9 +1,9 @@
 /* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
    Pure functions on plain drill objects (drill format v1); the editor and library call these,
    and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
-import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.2.1';
-import { onIce } from './engine/rink.js?v=1.2.1';
-import { dist } from './engine/geometry.js?v=1.2.1';
+import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.3.0';
+import { onIce } from './engine/rink.js?v=1.3.0';
+import { dist } from './engine/geometry.js?v=1.3.0';
 
 export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
 export const AGES = ['U7', 'U9', 'U11', 'U13', 'U15', 'U18'];

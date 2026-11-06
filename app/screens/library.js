@@ -1,18 +1,18 @@
 /* Library (R1 Library deep-dive): search, filters, sort, drill cards with pictures, a playing preview,
    New drill (blank or template), Duplicate, Save as template, Delete to Recently deleted. */
-import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.2.1';
+import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.3.0';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.2.1';
-import { newDrill } from '../schema.js?v=1.2.1';
-import { Player } from '../engine/player.js?v=1.2.1';
-import { frame } from '../engine/model.js?v=1.2.1';
-import { thumbnailSVG } from '../engine/render.js?v=1.2.1';
-import { VIEWS } from '../engine/rink.js?v=1.2.1';
-import { firstRunSamples } from '../engine/samples.js?v=1.2.1';
-import * as D from '../drills.js?v=1.2.1';
-import { drillInfo, pills } from './drillview.js?v=1.2.1';
-import { reviewOnly } from './editor.js?v=1.2.1';
-import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.2.1';
+import { SCHEMA_VERSION } from '../version.js?v=1.3.0';
+import { newDrill } from '../schema.js?v=1.3.0';
+import { Player } from '../engine/player.js?v=1.3.0';
+import { frame } from '../engine/model.js?v=1.3.0';
+import { thumbnailSVG } from '../engine/render.js?v=1.3.0';
+import { VIEWS } from '../engine/rink.js?v=1.3.0';
+import { firstRunSamples } from '../engine/samples.js?v=1.3.0';
+import * as D from '../drills.js?v=1.3.0';
+import { drillInfo, pills } from './drillview.js?v=1.3.0';
+import { reviewOnly } from './editor.js?v=1.3.0';
+import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.3.0';
 
 const SHOW = [['drills', 'Drills'], ['templates', 'Templates'], ['samples', 'Samples only'], ['deleted', 'Recently deleted']];
 const SORTS = [['edited', 'Recently edited'], ['az', 'A to Z'], ['steps', 'Most steps']];
@@ -225,7 +225,7 @@ class Library {
       ? [el('p', { class: 'muted', style: 'margin:0' }, `In Recently deleted: removed for good in ${D.daysLeft(d)} days.`),
         el('div', { class: 'row' }, act('Restore', 'restore-drill', () => this.restore(d), 'primary'), act('Delete forever', 'delete-forever', () => this.deleteForever(d), 'danger'))]
       : [el('div', { class: 'row' },
-        phone || newer ? el('span', { class: 'muted' }, newer ? 'Update to edit' : 'Edit on a tablet or PC') : el('a', { class: 'btn primary', id: 'edit-drill', href: `#edit/${d.id}` }, d.template ? 'Edit template' : 'Edit'),
+        newer ? el('span', { class: 'muted' }, 'Update to edit') : el('a', { class: 'btn primary', id: 'edit-drill', href: `#edit/${d.id}` }, d.template ? 'Edit template' : 'Edit'),
         phone || d.template ? null : act('Add to plan', 'add-to-plan', () => this.addToPlan(d)),
         act('Duplicate', 'duplicate-drill', () => this.duplicate(d)),
         act('⋮', 'preview-menu', () => this.menu(d)))];

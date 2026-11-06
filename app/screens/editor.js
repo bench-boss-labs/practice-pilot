@@ -1,15 +1,15 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.2.1';
+import { el, fill, toast, dialog } from '../ui.js?v=1.3.0';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.2.1';
-import { Player } from '../engine/player.js?v=1.2.1';
-import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.2.1';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.2.1';
-import { VIEWS } from '../engine/rink.js?v=1.2.1';
-import { at } from '../engine/geometry.js?v=1.2.1';
-import * as D from '../drills.js?v=1.2.1';
-import { drillInfo } from './drillview.js?v=1.2.1';
+import { SCHEMA_VERSION } from '../version.js?v=1.3.0';
+import { Player } from '../engine/player.js?v=1.3.0';
+import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.3.0';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.3.0';
+import { VIEWS } from '../engine/rink.js?v=1.3.0';
+import { at } from '../engine/geometry.js?v=1.3.0';
+import * as D from '../drills.js?v=1.3.0';
+import { drillInfo } from './drillview.js?v=1.3.0';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
@@ -20,8 +20,13 @@ const MARK_NAMES = { orange: 'Orange', navy: 'Navy', blue: 'Blue' };
 const TOOLS = [['move', 'Move'], ['pass', '➜ Pass'], ['shoot', '⇒ Shoot'], ['pen', 'Pen'], ['arrow', 'Arrow'], ['box', 'Box'], ['text', 'Text'], ['erase', 'Eraser']];
 const ROTATES = type => !!(PIECES[type] && PIECES[type].rotate);
 
-/** Is this screen too small to edit on (a phone)? */
-export const reviewOnly = () => matchMedia('(max-width: 640px)').matches;
+const COMPACT = '(max-height: 500px) and (orientation: landscape)';
+const NARROW = '(max-width: 640px)';
+const DRAW_TOOLS = [['pen', 'Pen'], ['arrow', 'Arrow'], ['box', 'Box'], ['text', 'Text'], ['erase', 'Eraser']];
+/** A phone held upright: plans stay read-only here. */
+export const reviewOnly = () => matchMedia(NARROW).matches;
+/** How the editor lays out: 'full' (tablet, PC), 'compact' (phone held sideways) or 'portrait' (phone upright: details only). */
+export const editMode = () => (matchMedia(COMPACT).matches ? 'compact' : matchMedia(NARROW).matches ? 'portrait' : 'full');
 
 function trayIcon(type, team) {
   const svg = document.createElementNS(SVGNS, 'svg');
@@ -48,18 +53,17 @@ async function open(app, id, root) {
       el('p', {}, rec ? 'It’s in Recently deleted. Restore it from the library first.' : 'It may have been deleted.'), el('a', { class: 'btn primary', href: '#library' }, 'Back to the library')));
     return;
   }
-  const newer = rec.schemaVersion > SCHEMA_VERSION;
-  if (reviewOnly() || newer) return reviewView(app, rec, root, newer);
+  if (rec.schemaVersion > SCHEMA_VERSION) return reviewView(app, rec, root);
   const ed = new Editor(app, rec, root);
   app.cleanup = () => ed.close();
 }
 
-/* Phones (and drills from a newer version): play and read, no editing. */
-function reviewView(app, rec, root, newer) {
+/* Drills from a newer version: play and read, no editing. */
+function reviewView(app, rec, root) {
   const host = el('div', { class: 'pp-review-player' });
   fill(root, 
     el('div', { class: 'screen-head' }, el('a', { class: 'btn', href: `#library/${rec.id}` }, '‹ Library'), el('h1', { class: 't-title pp-title-cut' }, rec.title)),
-    el('div', { class: 'card notice' }, el('p', {}, newer ? 'This drill was saved by a newer version of Practice Pilot. Update to edit it.' : 'Edit on a tablet or PC. You can play the drill and read its notes here.')),
+    el('div', { class: 'card notice' }, el('p', {}, 'This drill was saved by a newer version of Practice Pilot. Update to edit it.')),
     host, drillInfo(rec));
   const p = new Player(host, rec);
   app.cleanup = () => p.destroy();
@@ -75,8 +79,13 @@ class Editor {
     this.markColour = 'orange'; this.markAll = false; this.tab = 'piece';
     this.status = 'Saved'; this.saveTimer = 0; this.saving = Promise.resolve();
     this.customTags = [];
+    this.mode = null; this.trayOpen = false; this.drawOpen = false; this.drawer = false;
     app.busy = true;
     this.build();
+    this.setMode(editMode());
+    this.mqs = [matchMedia(COMPACT), matchMedia(NARROW)];
+    this.onMode = () => this.setMode(editMode());
+    for (const m of this.mqs) m.addEventListener('change', this.onMode);
     app.store.get('meta', 'tags').then(t => { this.customTags = (t && t.value) || []; if (this.tab === 'details') this.renderPanel(); });
     this.onKey = e => this.key(e);
     document.addEventListener('keydown', this.onKey);
@@ -89,21 +98,24 @@ class Editor {
   build() {
     this.statusEl = el('span', { class: 'pp-status', 'aria-live': 'polite', id: 'save-status' }, 'Saved');
     this.titleEl = el('h1', { class: 't-section pp-title-cut', id: 'editor-title' }, this.d.title);
-    this.bUndo = el('button', { type: 'button', class: 'btn', id: 'undo', 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => this.undo() }, '↶ Undo');
-    this.bRedo = el('button', { type: 'button', class: 'btn', id: 'redo', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => this.redo() }, '↷ Redo');
+    const lbl = t => el('span', { class: 'pp-lbl' }, t);
+    this.bUndo = el('button', { type: 'button', class: 'btn', id: 'undo', 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => this.undo() }, '↶', lbl(' Undo'));
+    this.bRedo = el('button', { type: 'button', class: 'btn', id: 'redo', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => this.redo() }, '↷', lbl(' Redo'));
+    this.bOptions = el('button', { type: 'button', class: 'btn pp-only-compact', id: 'options-btn', 'aria-controls': 'panel', 'aria-expanded': 'false', onclick: () => this.setDrawer(!this.drawer) }, 'Options');
     const top = el('div', { class: 'pp-edtop' },
-      el('a', { class: 'btn', href: `#library/${this.rec.id}`, id: 'editor-back' }, '‹ Library'),
+      el('a', { class: 'btn', href: `#library/${this.rec.id}`, id: 'editor-back', 'aria-label': 'Back to the library' }, '‹', lbl(' Library')),
       el('div', { class: 'grow pp-edtitle' }, this.titleEl, this.statusEl),
-      this.bUndo, this.bRedo,
+      this.bUndo, this.bRedo, this.bOptions,
       el('button', { type: 'button', class: 'btn', id: 'drill-menu', 'aria-label': 'More drill actions', onclick: () => this.menu() }, '⋮'));
+    const rotate = el('p', { class: 'card notice pp-only-portrait', id: 'rotate-note' }, '↻ Turn your phone sideways to move pieces and add steps. You can change the drill’s details here.');
 
     this.tray = el('div', { class: 'pp-tray', id: 'tray', role: 'toolbar', 'aria-label': 'Pieces' });
     this.toolbar = el('div', { class: 'pp-tools', id: 'tools' });
     this.stepAdd = el('button', { type: 'button', class: 'pp-chip pp-chip-add', id: 'add-step', onclick: () => this.addStep() }, '+ Step');
     this.playerHost = el('div', { class: 'pp-edplayer' });
     this.panel = el('aside', { class: 'pp-panel card', id: 'panel', 'aria-label': 'Options' });
-    fill(this.root, top, el('div', { class: 'pp-editor' }, this.tray, el('div', { class: 'pp-edcentre' }, this.toolbar, this.playerHost), this.panel));
-    this.player = new Player(this.playerHost, this.d, { editing: true, chipsExtra: this.stepAdd, overlay: fr => this.overlay(fr), onStep: () => { if (this.built) { this.renderPanel(); this.renderTools(); } } });
+    fill(this.root, top, rotate, el('div', { class: 'pp-editor' }, this.tray, el('div', { class: 'pp-edcentre' }, this.toolbar, this.playerHost), this.panel));
+    this.player = new Player(this.playerHost, this.d, { editing: true, chipsExtra: this.stepAdd, overlay: fr => this.overlay(fr), onStep: () => { if (this.built) { this.renderPanel(); this.renderTools(); this.showChip(); } } });
     this.player.host.querySelector('.pp-controls').after(this.player.chips);
     this.wirePointer();
     this.built = true;
@@ -111,6 +123,50 @@ class Editor {
   }
 
   get k() { return this.player.step(); }
+
+  /** Switch layouts when the phone turns. Nothing is lost: same drill, step and selection. */
+  setMode(m) {
+    const was = this.mode;
+    if (m === was) return;
+    this.mode = m;
+    this.root.dataset.mode = m;
+    document.body.classList.toggle('pp-ed-compact', m === 'compact');
+    document.body.classList.toggle('pp-ed-portrait', m === 'portrait');
+    if (m !== 'compact') { this.trayOpen = false; this.drawOpen = false; this.drawer = false; }
+    if (m === 'portrait') { this.action = null; this.place = null; this.tool = 'move'; this.tab = 'details'; this.playerHost.dataset.tool = 'move'; }
+    this.renderTray(); this.renderTools(); this.renderPanel(); this.renderTop();
+    requestAnimationFrame(() => { if (this.player) this.player.draw(); });
+    if (m === 'compact') this.installTip();
+  }
+
+  /** The options drawer on a phone held sideways. */
+  setDrawer(open) {
+    this.drawer = !!open && this.mode === 'compact';
+    if (this.drawer) { this.trayOpen = false; this.drawOpen = false; this.renderTray(); this.renderTools(); }
+    this.panel.classList.toggle('open', this.drawer);
+    this.bOptions.setAttribute('aria-expanded', String(this.drawer));
+  }
+
+  closePops() {
+    if (!this.trayOpen && !this.drawOpen) return false;
+    this.trayOpen = false; this.drawOpen = false; this.renderTray(); this.renderTools();
+    return true;
+  }
+
+  /** Keep the current step's chip in view when the steps scroll sideways. */
+  showChip() {
+    requestAnimationFrame(() => { const c = this.player && this.player.chips.querySelector('[aria-selected="true"]'); if (c && this.mode === 'compact') c.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });
+  }
+
+  /** Once: suggest putting the app on the home screen, which gives the rink the browser bar's height. */
+  async installTip() {
+    if (matchMedia('(display-mode: standalone)').matches) return;
+    try {
+      if (await this.app.store.get('meta', 'tip-phone-install')) return;
+      await this.app.store.put('meta', { key: 'tip-phone-install', value: true });
+    } catch { return; }
+    toast('Tip: add Practice Pilot to your home screen for a bigger rink. Settings › This device › Install shows how.', { ms: 9000, scoped: true });
+  }
 
   renderTop() {
     this.titleEl.textContent = this.d.title || 'New drill';
@@ -124,29 +180,56 @@ class Editor {
     fill(this.tray, 
       el('div', { class: 'pp-tray-teams', role: 'group', 'aria-label': 'Team colour for new players' },
         ...Object.keys(TEAMS).map(t => el('button', { type: 'button', class: 'pp-swatch', 'aria-pressed': String(this.team === t), 'aria-label': `${TEAM_NAMES[t]} team`, title: `${TEAM_NAMES[t]} team`, style: `--sw:${TEAMS[t]}`, onclick: () => { this.team = t; this.renderTray(); } }))),
-      el('button', { type: 'button', class: 'pp-trayb', id: 'tray-move', 'aria-pressed': String(!this.place && this.tool === 'move'), onclick: () => this.setTool('move') }, el('span', { class: 'pp-tray-glyph', 'aria-hidden': 'true' }, '✥'), el('span', {}, 'Move')),
+      el('button', { type: 'button', class: 'pp-trayb', id: 'tray-move', 'aria-pressed': String(!this.place && this.tool === 'move'), onclick: () => { this.trayOpen = false; this.setTool('move'); } }, el('span', { class: 'pp-tray-glyph', 'aria-hidden': 'true' }, '✥'), el('span', {}, 'Move')),
       ...TRAY.map(type => el('button', { type: 'button', class: 'pp-trayb', 'data-type': type, 'aria-pressed': String(this.place === type), title: `Place: ${NAMES[type]}`, 'aria-label': `Place ${NAMES[type]}`, onclick: () => this.setPlace(type) },
         trayIcon(type, this.team), el('span', {}, type.length === 1 ? type : NAMES[type]))),
       n >= D.PIECE_WARNING ? el('p', { class: 'pp-warn', role: 'status' }, `${n} pieces: the drill may get hard to read.`) : null);
+    this.tray.classList.toggle('open', this.trayOpen);
+  }
+
+  actionHint() {
+    return el('div', { class: 'pp-actionbar', role: 'status', id: 'action-hint' },
+      el('span', { class: 'grow' }, !this.action.passer ? (this.action.kind === 'pass' ? 'Pass: tap the player who passes.' : 'Shoot: tap the player who shoots.')
+        : this.action.kind === 'pass' ? 'Now tap the teammate to pass to. The puck goes to where they end up in this step.' : 'Now tap the spot to shoot at.'),
+      el('button', { type: 'button', class: 'btn', id: 'cancel-action', onclick: () => this.cancelAction() }, 'Cancel'));
+  }
+
+  /** Markup colour, which steps it shows on, and Clear markup. */
+  markOptions() {
+    return [
+      el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Markup colour' }, ...Object.keys(MARK_COLOURS).map(c =>
+        el('button', { type: 'button', class: 'pp-swatch', 'aria-pressed': String(this.markColour === c), 'aria-label': MARK_NAMES[c], title: MARK_NAMES[c], style: `--sw:${MARK_COLOURS[c]}`, onclick: () => { this.markColour = c; this.renderTools(); } }))),
+      seg('Markup shows on', [[false, this.k ? 'This step only' : 'Setup only'], [true, 'All steps']], this.markAll, v2 => { this.markAll = v2; this.renderTools(); }),
+      this.d.markup.length ? el('button', { type: 'button', class: 'btn', id: 'clear-markup', onclick: () => { this.commit(D.clearMarkup(this.d)); toast('Markup cleared', { action: ['Undo', () => this.undo()], scoped: true }); } }, 'Clear markup') : null];
+  }
+
+  /** Phone held sideways: a column of tools down the left; pieces and drawing tools open as pop-ups. */
+  renderRail() {
+    const drawing = DRAW_TOOLS.find(([t]) => t === this.tool && !this.place);
+    const b = (id, label, on, onclick, extra = {}) => el('button', { type: 'button', class: 'pp-railb', id, 'aria-pressed': String(!!on), onclick, ...extra }, label);
+    fill(this.toolbar,
+      el('div', { class: 'pp-rail', role: 'toolbar', 'aria-label': 'Tools', 'aria-orientation': 'vertical' },
+        b('rail-piece', this.place ? `+ ${NAMES[this.place]}` : '+ Piece', this.trayOpen || this.place, () => { this.trayOpen = !this.trayOpen; this.drawOpen = false; this.setDrawer(false); this.renderTray(); this.renderTools(); }, { 'aria-expanded': String(this.trayOpen), 'aria-controls': 'tray' }),
+        b('rail-move', 'Move', !this.action && !this.place && this.tool === 'move', () => { this.action = null; this.closePops(); this.setTool('move'); }),
+        b('rail-pass', '➜ Pass', this.action && this.action.kind === 'pass', () => this.startAction('pass', null)),
+        b('rail-shoot', '⇒ Shoot', this.action && this.action.kind === 'shoot', () => this.startAction('shoot', null)),
+        b('rail-draw', drawing ? drawing[1] : 'Draw', drawing || this.drawOpen, () => { this.drawOpen = !this.drawOpen; this.trayOpen = false; this.setDrawer(false); this.renderTray(); this.renderTools(); }, { 'aria-expanded': String(this.drawOpen), 'aria-controls': 'draw-menu' })),
+      this.action ? this.actionHint() : null,
+      this.drawOpen ? el('div', { class: 'pp-pop stack', id: 'draw-menu' },
+        el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Drawing tool' }, ...DRAW_TOOLS.map(([t, label]) =>
+          el('button', { type: 'button', class: 'pp-segbtn', 'data-tool': t, 'aria-pressed': String(this.tool === t && !this.place), onclick: () => { this.drawOpen = false; this.setTool(t); } }, label))),
+        ...this.markOptions()) : null);
   }
 
   renderTools() {
-    if (this.action) {
-      fill(this.toolbar, el('div', { class: 'pp-actionbar', role: 'status', id: 'action-hint' },
-        el('span', { class: 'grow' }, !this.action.passer ? (this.action.kind === 'pass' ? 'Pass: tap the player who passes.' : 'Shoot: tap the player who shoots.')
-          : this.action.kind === 'pass' ? 'Now tap the teammate to pass to. The puck goes to where they end up in this step.' : 'Now tap the spot to shoot at.'),
-        el('button', { type: 'button', class: 'btn', id: 'cancel-action', onclick: () => this.cancelAction() }, 'Cancel')));
-      return;
-    }
+    if (this.mode === 'compact') return this.renderRail();
+    if (this.action) { fill(this.toolbar, this.actionHint()); return; }
     const marking = this.tool !== 'move';
     const v = this.d.view || { rink: 'full', flip: false };
     fill(this.toolbar, 
       el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Tool' }, ...TOOLS.map(([t, label]) =>
         el('button', { type: 'button', class: 'pp-segbtn', 'data-tool': t, 'aria-pressed': String(this.tool === t && !this.place), onclick: () => (t === 'pass' || t === 'shoot' ? this.startAction(t, null) : this.setTool(t)) }, label))),
-      marking ? el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Markup colour' }, ...Object.keys(MARK_COLOURS).map(c =>
-        el('button', { type: 'button', class: 'pp-swatch', 'aria-pressed': String(this.markColour === c), 'aria-label': MARK_NAMES[c], title: MARK_NAMES[c], style: `--sw:${MARK_COLOURS[c]}`, onclick: () => { this.markColour = c; this.renderTools(); } }))) : null,
-      marking ? seg('Markup shows on', [[false, this.k ? 'This step only' : 'Setup only'], [true, 'All steps']], this.markAll, v2 => { this.markAll = v2; this.renderTools(); }) : null,
-      marking && this.d.markup.length ? el('button', { type: 'button', class: 'btn', id: 'clear-markup', onclick: () => { this.commit(D.clearMarkup(this.d)); toast('Markup cleared', { action: ['Undo', () => this.undo()], scoped: true }); } }, 'Clear markup') : null,
+      ...(marking ? this.markOptions() : []),
       el('span', { class: 'grow' }),
       el('label', { class: 'pp-inline' }, el('span', { class: 'sr' }, 'Rink view'),
         el('select', { id: 'rink-view', onchange: e => this.commit(D.setDetails(this.d, { view: { ...v, rink: e.target.value } })) },
@@ -156,17 +239,21 @@ class Editor {
 
   setTool(t) { this.tool = t; this.place = null; this.renderTray(); this.renderTools(); this.playerHost.dataset.tool = t; }
   setPlace(type) {
+    this.trayOpen = false;
     if (this.place === type) return this.setTool('move');
     this.place = type; this.tool = 'move'; this.renderTray(); this.renderTools(); this.playerHost.dataset.tool = 'place';
   }
 
   /* ---------- the panel ---------- */
   renderPanel() {
-    const tabs = [['piece', 'Piece'], ['step', this.k ? `Step ${this.k}` : 'Setup'], ['details', 'Details']];
+    if (this.mode === 'portrait') this.tab = 'details';
+    const tabs = this.mode === 'portrait' ? [['details', 'Details']] : [['piece', 'Piece'], ['step', this.k ? `Step ${this.k}` : 'Setup'], ['details', 'Details']];
     const body = this.tab === 'piece' ? this.piecePanel() : this.tab === 'step' ? this.stepPanel() : this.detailsPanel();
     const active = document.activeElement && this.panel.contains(document.activeElement) ? document.activeElement.id : null;
     fill(this.panel, 
-      el('div', { class: 'pp-tabs', role: 'tablist' }, ...tabs.map(([t, label]) => el('button', { type: 'button', role: 'tab', class: 'pp-tab', id: `tab-${t}`, 'aria-selected': String(this.tab === t), onclick: () => { this.tab = t; this.renderPanel(); } }, label))),
+      el('div', { class: 'pp-tabs' },
+        el('div', { class: 'pp-tablist', role: 'tablist' }, ...tabs.map(([t, label]) => el('button', { type: 'button', role: 'tab', class: 'pp-tab', id: `tab-${t}`, 'aria-selected': String(this.tab === t), onclick: () => { this.tab = t; this.renderPanel(); } }, label))),
+        this.mode === 'compact' ? el('button', { type: 'button', class: 'btn btn-quiet', id: 'close-drawer', 'aria-label': 'Close options', onclick: () => this.setDrawer(false) }, '✕') : null),
       el('div', { class: 'pp-panel-body stack', role: 'tabpanel' }, ...[].concat(body)));
     if (active) { const a = document.getElementById(active); if (a) a.focus(); }
   }
@@ -224,6 +311,8 @@ class Editor {
 
   startAction(kind, passer) {
     this.action = { kind, passer: passer || null };
+    this.trayOpen = false; this.drawOpen = false;
+    if (this.drawer) this.setDrawer(false);
     this.setTool('move');
     this.renderTools();
   }
@@ -458,6 +547,8 @@ class Editor {
   down(e) {
     if (e.button > 0) return;
     if (this.player.playing) this.player.pause();
+    if (this.mode === 'portrait') return;
+    if (this.closePops()) return;      // a tap on the rink closes the pieces or drawing pop-up
     const pt = this.player.toRink(e), k = this.k;
     if (this.action) { this.doAction(pt); return; }
     if (this.place) {
@@ -478,7 +569,7 @@ class Editor {
       this.drag = { kind: 'bend', i: bend.getAttribute('data-bend'), base: this.d, start: pt, moved: false };
     } else {
       const id = this.nearest(pt, e.target);
-      if (!id) { if (this.sel) this.select(null); return; }
+      if (!id) { if (this.sel) this.select(null); if (this.drawer) this.setDrawer(false); return; }
       const again = id === this.sel || (this.sel && this.under(pt).includes(this.sel));
       if (!again) this.select(id);
       this.drag = { kind: 'piece', id, base: this.d, start: pt, moved: false, again };
@@ -544,6 +635,7 @@ class Editor {
       return;
     }
     if (dr.moved && dr.result) { this.d = dr.base; this.commit(dr.result); return; }
+    if (dr.kind === 'piece' && this.mode === 'compact') this.setDrawer(true);    // a tap (not a drag) opens its options
     if (dr.kind === 'piece' && dr.again) {
       // a second tap on pieces that overlap (a puck on a stick) selects the next one
       const ids = this.under(dr.start);
@@ -638,6 +730,8 @@ class Editor {
     document.removeEventListener('keydown', this.onKey);
     document.removeEventListener('visibilitychange', this.onHide);
     removeEventListener('pagehide', this.onHide);
+    for (const m of this.mqs || []) m.removeEventListener('change', this.onMode);
+    document.body.classList.remove('pp-ed-compact', 'pp-ed-portrait');
     this.player.destroy();
     this.app.busy = false;
     if (this.app.pendingUpdate) { this.app.pendingUpdate = null; this.app.checkUpdates(); }
@@ -685,7 +779,14 @@ class Editor {
   }
 
   async menu() {
-    const v = await dialog({ id: 'drill-actions', title: this.d.title || 'Drill', body: el('p', { class: 'muted', style: 'margin:0' }, 'Your changes are already saved.'), buttons: [
+    const view = this.d.view || { rink: 'full', flip: false };
+    const flip = el('button', { type: 'button', class: 'btn', id: 'menu-flip', 'aria-pressed': String(!!view.flip), hidden: !['half', 'zone'].includes(view.rink),
+      onclick: () => { const w = this.d.view; this.commit(D.setDetails(this.d, { view: { ...w, flip: !w.flip } })); flip.setAttribute('aria-pressed', String(!!this.d.view.flip)); } }, '⇄ Flip');
+    const rinkView = this.mode === 'compact' ? el('div', { class: 'row' },
+      el('label', { class: 'pp-inline' }, el('span', {}, 'Rink view '),
+        el('select', { id: 'menu-rink-view', onchange: e => { this.commit(D.setDetails(this.d, { view: { ...this.d.view, rink: e.target.value } })); flip.hidden = !['half', 'zone'].includes(e.target.value); } },
+          ...VIEWS.map(([val, label]) => el('option', { value: val, selected: view.rink === val }, label)))), flip) : null;
+    const v = await dialog({ id: 'drill-actions', title: this.d.title || 'Drill', body: el('div', { class: 'stack' }, rinkView, el('p', { class: 'muted', style: 'margin:0' }, 'Your changes are already saved.')), buttons: [
       { label: 'Duplicate', value: 'dup' }, { label: 'Save as template', value: 'tmpl' }, { label: 'Delete', value: 'del', kind: 'danger' }, { label: 'Close', value: null }] });
     if (!v) return;
     await this.flush();

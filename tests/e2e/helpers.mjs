@@ -8,7 +8,8 @@ import { startServer } from './server.mjs';
 const require = createRequire(import.meta.url);
 export const { chromium, devices } = require('playwright');
 export const ROOT = new URL('../../', import.meta.url).pathname;
-export const SIZES = { tablet: { width: 1280, height: 800, hasTouch: true }, pc: { width: 1440, height: 900 }, phone: { width: 412, height: 915, hasTouch: true, isMobile: true } };
+export const SIZES = { tablet: { width: 1280, height: 800, hasTouch: true }, pc: { width: 1440, height: 900 }, phone: { width: 412, height: 915, hasTouch: true, isMobile: true },
+  phoneWide: { width: 915, height: 412, hasTouch: true, isMobile: true }, phoneWide2: { width: 844, height: 390, hasTouch: true, isMobile: true }, phoneWide3: { width: 740, height: 360, hasTouch: true, isMobile: true } };
 
 /** Fonts come from Google and the test machine has no internet: those errors are expected. */
 const IGNORE = /fonts\.(googleapis|gstatic)|ERR_TUNNEL|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|Failed to load resource/;

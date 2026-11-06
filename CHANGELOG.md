@@ -1,5 +1,11 @@
 # Practice Pilot — changelog
 
+## 1.3.0 — 2026-11-06 (Edit drills on your phone)
+
+- **New:** Build and change drills on a phone held sideways. The rink fills the screen, the tools run down the left (+ Piece, Move, Pass, Shoot, Draw), the steps run along the bottom, and Options opens the piece, step and details settings.
+- **New:** Held upright, a phone plays the drill and lets you change its details: title, purpose, setup, coaching points, tags and more. Turn it sideways to move pieces or add steps; nothing is lost when you turn it.
+- **Improved:** Rink view and Flip are in the ⋮ menu on a phone. A one-time tip suggests adding Practice Pilot to your home screen for a bigger rink.
+
 ## 1.2.1 — 2026-11-05 (Two passers or shooters in one step)
 
 - **Fixed:** A second pass or shot in the same step no longer changes the first one, so two players can pass or shoot at the same time. The Pass and Shoot tools above the rink always ask you to tap the player first, even when a player is selected.

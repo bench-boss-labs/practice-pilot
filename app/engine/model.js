@@ -1,7 +1,7 @@
 /* Practice Pilot animation engine — the drill model.
    frameAt(drill, t) answers "what does the rink look like at time t?" for the editor, player,
    thumbnails and (R4) video export. Pure: no DOM. Positions are feet on the 200 × 85 sheet. */
-import { spline, poly, at, clamp, ease, dist } from './geometry.js?v=1.3.1';
+import { spline, poly, at, clamp, ease, dist } from './geometry.js?v=1.3.2';
 
 export const PIECES = {
   F: { label: 'Forward', player: true }, C: { label: 'Centre', player: true }, D: { label: 'Defence', player: true },
@@ -14,8 +14,10 @@ export const PIECES = {
 };
 export const TEAMS = { red: '#c8102e', black: '#1d232b', white: '#ffffff', blue: '#1d4ed8' };
 export const isPlayer = type => !!(PIECES[type] && PIECES[type].player);
+/** Pieces that pass, receive, shoot and carry the puck: players and coaches. */
+export const handlesPuck = type => isPlayer(type) || type === 'coach';
 export const canMove = type => !!(PIECES[type] && (PIECES[type].player || PIECES[type].moves));
-export const LINES = { player: ['skate', 'skate-puck', 'backward'], coach: ['skate'], puck: ['pass', 'shot', 'carried'] };
+export const LINES = { player: ['skate', 'skate-puck', 'backward'], coach: ['skate', 'skate-puck'], puck: ['pass', 'shot', 'carried'] };
 export const DEFAULT_SECONDS = 2;
 
 /** Timing window of a move inside its step, as fractions 0–1 (see the R1 Animation Engine deep-dive). */
@@ -44,7 +46,7 @@ export function moveOf(step, id) {
 function carrierOfMove(d, m) {
   if (!m || !m.carriedBy || m.line === 'pass' || m.line === 'shot' || m.to) return null;
   const c = pieceById(d, m.carriedBy);
-  return c && isPlayer(c.type) ? c : null;
+  return c && handlesPuck(c.type) ? c : null;
 }
 
 /**
@@ -178,7 +180,7 @@ export function frame(d, k, p, cache = {}) {
     let glow = highlight.has(piece.id);
     if (d.autoHighlight !== false && step) {
       if (piece.type === 'puck' && st.flying) glow = true;
-      if (isPlayer(piece.type) && d.pieces.some(o => o.type === 'puck' && carrierOfMove(d, moveOf(step, o.id)) && moveOf(step, o.id).carriedBy === piece.id)) glow = true;
+      if (handlesPuck(piece.type) && d.pieces.some(o => o.type === 'puck' && carrierOfMove(d, moveOf(step, o.id)) && moveOf(step, o.id).carriedBy === piece.id)) glow = true;
     }
     pieces.push({ id: piece.id, type: piece.type, team: piece.team, rotate: piece.rotate || 0, text: piece.text || '', x: st.x, y: st.y, ang: st.ang ?? 0, opacity, glow });
   }

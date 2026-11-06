@@ -1,15 +1,15 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.3.1';
+import { el, fill, toast, dialog } from '../ui.js?v=1.3.2';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.3.1';
-import { Player } from '../engine/player.js?v=1.3.1';
-import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.3.1';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.3.1';
-import { VIEWS } from '../engine/rink.js?v=1.3.1';
-import { at } from '../engine/geometry.js?v=1.3.1';
-import * as D from '../drills.js?v=1.3.1';
-import { drillInfo } from './drillview.js?v=1.3.1';
+import { SCHEMA_VERSION } from '../version.js?v=1.3.2';
+import { Player } from '../engine/player.js?v=1.3.2';
+import { PIECES, TEAMS, LINES, isPlayer, handlesPuck, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.3.2';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.3.2';
+import { VIEWS } from '../engine/rink.js?v=1.3.2';
+import { at } from '../engine/geometry.js?v=1.3.2';
+import * as D from '../drills.js?v=1.3.2';
+import { drillInfo } from './drillview.js?v=1.3.2';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
@@ -189,8 +189,8 @@ class Editor {
 
   actionHint() {
     return el('div', { class: 'pp-actionbar', role: 'status', id: 'action-hint' },
-      el('span', { class: 'grow' }, !this.action.passer ? (this.action.kind === 'pass' ? 'Pass: tap the player who passes.' : 'Shoot: tap the player who shoots.')
-        : this.action.kind === 'pass' ? 'Now tap the teammate to pass to. The puck goes to where they end up in this step.' : 'Now tap the spot to shoot at.'),
+      el('span', { class: 'grow' }, !this.action.passer ? (this.action.kind === 'pass' ? 'Pass: tap the player or coach who passes.' : 'Shoot: tap the player or coach who shoots.')
+        : this.action.kind === 'pass' ? 'Now tap who to pass to. The puck goes to where they end up in this step.' : 'Now tap the spot to shoot at.'),
       el('button', { type: 'button', class: 'btn', id: 'cancel-action', onclick: () => this.cancelAction() }, 'Cancel'));
   }
 
@@ -273,7 +273,7 @@ class Editor {
       el('button', { type: 'button', class: 'btn', id: 'rot-right', onclick: () => this.commit(D.setPiece(this.d, p.id, { rotate: (p.rotate || 0) + 15 })) }, '↻ 15°'),
       el('input', { type: 'range', id: 'rot-slider', min: 0, max: 345, step: 15, value: p.rotate || 0, 'aria-label': 'Rotation', class: 'grow', oninput: e => this.commit(D.setPiece(this.d, p.id, { rotate: +e.target.value }), { coalesce: `rot-${p.id}`, quiet: true }), onchange: () => this.renderPanel() }))));
 
-    if (isPlayer(p.type)) out.push(...this.puckActions(p, k));
+    if (handlesPuck(p.type)) out.push(...this.puckActions(p, k));
     if (k > 0 && canMove(p.type)) out.push(...this.movePanel(p, k));
     else if (k === 0 && canMove(p.type)) out.push(el('p', { class: 'muted' }, 'This is where it starts. Pick a step, then drag it to make it move.'));
     if (k > 0 && (isPlayer(p.type) || p.type === 'coach')) out.push(...this.calloutPanel(p, k));
@@ -307,7 +307,7 @@ class Editor {
     return this.d.pieces.find(x => x.type === 'puck' && pos[x.id] && Math.hypot(pos[x.id][0] - pos[id][0], pos[x.id][1] - pos[id][1]) <= 4.5) || null;
   }
 
-  selectedPlayer() { const p = this.d.pieces.find(x => x.id === this.sel); return p && isPlayer(p.type) ? p.id : null; }
+  selectedPlayer() { const p = this.d.pieces.find(x => x.id === this.sel); return p && handlesPuck(p.type) ? p.id : null; }
 
   startAction(kind, passer) {
     this.action = { kind, passer: passer || null };
@@ -323,7 +323,7 @@ class Editor {
     const { kind, passer } = this.action;
     if (!passer) {
       const id = this.nearest(pt, null, { players: true });
-      if (!id) { toast(kind === 'pass' ? 'Tap the player who passes.' : 'Tap the player who shoots.'); return; }
+      if (!id) { toast(kind === 'pass' ? 'Tap the player or coach who passes.' : 'Tap the player or coach who shoots.'); return; }
       this.action.passer = id; this.select(id); this.renderTools();
       return;
     }
@@ -331,7 +331,7 @@ class Editor {
     let receiver = null;
     if (kind === 'pass') {
       receiver = this.nearest(pt, null, { players: true, except: passer });
-      if (!receiver) { toast('Tap the player to pass to.'); return; }
+      if (!receiver) { toast('Tap the player or coach to pass to.'); return; }
     }
     let pk = this.puckFor(passer, k);
     const carrying = pk && k > 0 && (d.steps[k - 1].moves || []).some(m => m.piece === pk.id && m.carriedBy === passer);
@@ -585,7 +585,7 @@ class Editor {
     const ctm = this.player.svg.getScreenCTM(), minR = 24 / (ctm ? ctm.a : 4);
     let best = null, bestD = Infinity;
     for (const pc of this.player.current().pieces) {
-      if (pc.opacity <= 0.05 || pc.id === except || (players && !isPlayer(pc.type))) continue;
+      if (pc.opacity <= 0.05 || pc.id === except || (players && !handlesPuck(pc.type))) continue;
       const dd = Math.hypot(pc.x - pt[0], pc.y - pt[1]);
       if (dd <= Math.max(radius(pc.type) + 0.8, minR) && dd < bestD) { best = pc.id; bestD = dd; }
     }

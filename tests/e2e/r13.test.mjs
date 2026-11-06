@@ -86,7 +86,7 @@ test('build a drill from scratch sideways: place pieces, pass, shoot, a setup li
   assert.equal(d.pieces.filter(p => p.type === 'pylon').length, 1);
 
   await page.click('#rail-pass');
-  assert.match(await page.textContent('#action-hint'), /tap the player who passes/);
+  assert.match(await page.textContent('#action-hint'), /tap the player or coach who passes/);
   await tapRink(page, 60, 42); await tapRink(page, 110, 25);
   await saved(page);
   d = await drill(page, id);
@@ -225,4 +225,30 @@ test('1.3.1: dragging a player traces their route; dragging again keeps going (t
     assert.deepEqual(page.errors, []);
     await ctx.close();
   }
+});
+
+test('1.3.2: pass to a coach, the coach passes back, coach to coach, and the coach shoots', async () => {
+  const { ctx, page } = await open(env, { size: 'tablet' });
+  await page.click('#new-drill-btn');
+  await page.waitForSelector('#editor-title');
+  await noToasts(page);
+  const id = await editorId(page);
+  await page.click('.pp-trayb[data-type="F"]'); await tapRink(page, 60, 42);
+  await page.click('.pp-trayb[data-type="coach"]'); await tapRink(page, 110, 20); await tapRink(page, 110, 65);
+  await page.click('#tray-move');
+  const pass = async (from, to) => { await page.click('[data-tool="pass"]'); await tapRink(page, ...from); await tapRink(page, ...to); await saved(page); };
+  await pass([60, 42], [110, 20]);                 // player → coach
+  await pass([110, 20], [110, 65]);                // coach → coach
+  await pass([110, 65], [60, 42]);                 // coach → player
+  let d = await drill(page, id);
+  assert.equal(d.steps.length, 3, 'a step for each pass');
+  assert.ok(d.steps.every(s => s.moves.some(m => m.line === 'pass')));
+  await tapRink(page, 110, 65);
+  assert.ok(await page.isVisible('#pass-btn') && await page.isVisible('#shoot-btn'), 'a coach has Pass and Shoot in the Piece tab');
+  await page.click('[data-tool="shoot"]'); await tapRink(page, 110, 20); await tapRink(page, 186, 42.5);
+  await saved(page);
+  d = await drill(page, id);
+  assert.ok(d.steps.at(-1).moves.some(m => m.line === 'shot'), 'the coach shoots');
+  assert.deepEqual(page.errors, []);
+  await ctx.close();
 });

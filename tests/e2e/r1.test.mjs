@@ -387,7 +387,7 @@ test('pass and shoot by tapping: Pass then the teammate, Shoot then a spot', asy
   await dragRink(page, [120, 30], [140, 25]);                  // the receiver skates up ice in step 1
   await tapRink(page, 60, 60);                                  // select the passer
   await page.click('#pass-btn');
-  assert.match(await page.textContent('#action-hint'), /tap the teammate/i);
+  assert.match(await page.textContent('#action-hint'), /tap who to pass to/i);
   await tapRink(page, 140, 25);
   await page.waitForSelector('.toast >> text=Pass to the forward in step 1');
   await saved(page);
@@ -461,9 +461,9 @@ test('Pass and Shoot tools above the rink: tap the passer, then the teammate; th
   await page.click('.pp-trayb[data-type="puck"]'); await tapRink(page, 90, 75);   // nowhere near anyone
   await page.click('#tray-move');
   await page.click('[data-tool="pass"]');
-  assert.match(await page.textContent('#action-hint'), /tap the player who passes/);
+  assert.match(await page.textContent('#action-hint'), /tap the player or coach who passes/);
   await tapRink(page, 60, 60);
-  assert.match(await page.textContent('#action-hint'), /Now tap the teammate/);
+  assert.match(await page.textContent('#action-hint'), /Now tap who to pass to/);
   await tapRink(page, 120, 30);
   await page.waitForSelector('.toast >> text=The puck starts on their stick');
   await saved(page);
@@ -476,7 +476,7 @@ test('Pass and Shoot tools above the rink: tap the passer, then the teammate; th
   await tapRink(page, 120, 30);
   assert.ok(await page.isVisible('#pass-btn')); assert.ok(await page.isVisible('#shoot-btn'));
   await page.click('[data-tool="shoot"]');
-  assert.match(await page.textContent('#action-hint'), /tap the player who shoots/, 'the toolbar always asks for the shooter, even with a player selected');
+  assert.match(await page.textContent('#action-hint'), /tap the player or coach who shoots/, 'the toolbar always asks for the shooter, even with a player selected');
   await tapRink(page, 120, 30);
   assert.match(await page.textContent('#action-hint'), /Now tap the spot/);
   await tapRink(page, 188, 42);
@@ -535,7 +535,7 @@ test('two shooters in one step: both pucks fly in the animation', async () => {
   assert.equal(d.steps.length, 1);
   // both pucks end at the net in the animation
   const ends = await page.evaluate(async () => {
-    const { frame, prepare } = await import('./app/engine/model.js?v=1.3.1');
+    const { frame, prepare } = await import('./app/engine/model.js?v=1.3.2');
     const d = await window.__pp.store.get('drills', location.hash.split('/')[1]);
     return frame(d, 1, 1, prepare(d)).pieces.filter(p => p.type === 'puck').map(p => [Math.round(p.x), Math.round(p.y)]);
   });

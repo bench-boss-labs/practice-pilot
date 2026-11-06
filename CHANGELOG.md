@@ -1,5 +1,10 @@
 # Practice Pilot — changelog
 
+## 1.3.2 — 2026-11-06 (Coaches handle the puck)
+
+- **New:** Coaches can pass, receive and shoot: pass from a player to a coach, a coach to a player, or one coach to another, with the same Pass and Shoot tools.
+- **New:** A coach with a puck on their stick carries it when you drag them, with the wavy “with puck” line.
+
 ## 1.3.1 — 2026-11-06 (Skate a route)
 
 - **New:** Drag a player along the route you want and they skate it in that step: loops, curves, around the pylons. A nearly straight drag stays a clean straight line, and the puck on their stick comes along.

@@ -372,3 +372,34 @@ test('tracing: Setup places, pucks and pylons stay straight, and the puck on the
   assert.equal(moveOf(n.steps[0], 'pk').carriedBy, 'f1');
   assert.equal(JSON.stringify(d), JSON.stringify(build()), 'the input is unchanged');
 });
+
+/* 1.3.2: coaches pass, receive, shoot and carry the puck. */
+test('coaches handle the puck: player to coach, coach to player, coach to coach, shoot and carry', () => {
+  let d = D.addPiece(build(), { id: 'co1', type: 'coach', at: [150, 10] });
+  d = D.addPiece(d, { id: 'co2', type: 'coach', at: [170, 75] });
+  // player → coach: lands on the coach's stick, and the coach has it next step
+  const toCoach = D.passTo(d, 1, 'f1', 'pk', 'co1');
+  assert.equal(moveOf(toCoach.steps[0], 'pk').line, 'pass');
+  let n = D.addStep(toCoach, 1).drill;
+  assert.equal(D.puckWith(n, 2, 'co1').id, 'pk');
+  // coach carries it: the wavy line, and the puck rides along
+  const carry = D.dragPiece(n, 2, 'co1', [160, 30]);
+  assert.equal(moveOf(carry.steps[1], 'co1').line, 'skate-puck');
+  assert.equal(moveOf(carry.steps[1], 'pk').carriedBy, 'co1');
+  const f = frame(carry, 2, 0.5, prepare(carry));
+  const pc = f.pieces.find(x => x.id === 'pk'), cc = f.pieces.find(x => x.id === 'co1');
+  assert.ok(Math.hypot(pc.x - cc.x, pc.y - cc.y) < 4.5, 'the puck stays on the coach’s stick');
+  // coach → coach, then coach → player, then the coach shoots
+  const cc2 = D.passTo(n, 2, 'co1', 'pk', 'co2');
+  assert.equal(moveOf(cc2.steps[1], 'pk').line, 'pass');
+  const back = D.passTo(n, 2, 'co1', 'pk', 'f1');
+  assert.equal(moveOf(back.steps[1], 'pk').line, 'pass');
+  const shot = D.shootAt(n, 2, 'co1', 'pk', [188, 42]);
+  assert.equal(moveOf(shot.steps[1], 'pk').line, 'shot');
+  // a puck set to Carried rides with the nearest coach too
+  const near = D.setMove(D.dragPiece(n, 2, 'pk', [155, 15]), 2, 'pk', { line: 'carried' });
+  assert.equal(moveOf(near.steps[1], 'pk').carriedBy, 'co1');
+  // giving a coach a puck works like a player
+  const g = D.giveTo(d, 1, 'co2', [150, 60], 'new1');
+  assert.equal(D.puckWith(g.drill, 1, 'co2').id, g.puck);
+});

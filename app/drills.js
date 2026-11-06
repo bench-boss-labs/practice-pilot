@@ -1,9 +1,9 @@
 /* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
    Pure functions on plain drill objects (drill format v1); the editor and library call these,
    and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
-import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.3.1';
-import { onIce } from './engine/rink.js?v=1.3.1';
-import { dist } from './engine/geometry.js?v=1.3.1';
+import { PIECES, isPlayer, handlesPuck, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.3.2';
+import { onIce } from './engine/rink.js?v=1.3.2';
+import { dist } from './engine/geometry.js?v=1.3.2';
 
 export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
 export const AGES = ['U7', 'U9', 'U11', 'U13', 'U15', 'U18'];
@@ -105,7 +105,7 @@ export function dragPiece(d, k, id, to) {
   if (!m) { m = { piece: id, line: piece.type === 'puck' ? 'pass' : 'skate' }; step.moves.push(m); }
   if (m.carriedBy) { delete m.carriedBy; m.line = 'pass'; }
   m.to = to;
-  if (isPlayer(piece.type)) {
+  if (handlesPuck(piece.type)) {
     const pk = puckOnStick(d, k, id);
     if (pk && !step.moves.some(x => x.piece === pk.id)) {
       step.moves.push({ piece: pk.id, carriedBy: id });
@@ -143,7 +143,7 @@ export function traceMove(d, k, id, trail) {
   const piece = d.pieces.find(p => p.id === id);
   const last = trail[trail.length - 1];
   const n = dragPiece(d, k, id, last);
-  if (!piece || k === 0 || !(isPlayer(piece.type) || piece.type === 'coach')) return n;
+  if (!piece || k === 0 || !handlesPuck(piece.type)) return n;
   const m = moveOf(n.steps[k - 1], id);
   if (!m) return n;                                  // placed, not moved (the step it appears in)
   const pos = positionsByStep(d);
@@ -181,7 +181,7 @@ export function setMove(d, k, id, fields) {
     // a puck set to Carried rides with the nearest player
     const pos = positionsByStep(d);
     const before = pos[k - 1];
-    const players = d.pieces.filter(p => isPlayer(p.type) && before[p.id]);
+    const players = d.pieces.filter(p => handlesPuck(p.type) && before[p.id]);
     players.sort((a, b) => dist(before[a.id], before[id]) - dist(before[b.id], before[id]));
     delete m.to; delete m.bends; delete m.line;
     if (players[0]) m.carriedBy = players[0].id;
@@ -513,7 +513,7 @@ export function giveTo(d, k, playerId, toward, newPuckId) {
   const dx = toward ? toward[0] - at[0] : 1, dy = toward ? toward[1] - at[1] : 0, len = Math.hypot(dx, dy) || 1;
   const spot = pt([at[0] + dx / len * 2.5, at[1] + dy / len * 2.5]);
   const moves = id => d.steps.some(s => (s.moves || []).some(m => m.piece === id));
-  const onSomeonesStick = id => d.pieces.some(p => isPlayer(p.type) && p.id !== playerId && before[p.id] && dist(before[p.id], before[id]) <= 4.5);
+  const onSomeonesStick = id => d.pieces.some(p => handlesPuck(p.type) && p.id !== playerId && before[p.id] && dist(before[p.id], before[id]) <= 4.5);
   if (k === 1) {
     const free = d.pieces.filter(p => p.type === 'puck' && !Number.isInteger(p.fromStep) && before[p.id] && !moves(p.id) && !onSomeonesStick(p.id))
       .sort((a, b) => dist(before[a.id], at) - dist(before[b.id], at))[0];

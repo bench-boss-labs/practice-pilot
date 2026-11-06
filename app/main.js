@@ -13,6 +13,10 @@ import { renderPlanner } from './screens/planner.js?v=1.3.2';
 import { renderPrint } from './screens/print.js?v=1.3.2';
 import { renderHelpScreen } from './screens/help.js?v=1.3.2';
 import { renderSettings } from './screens/settings.js?v=1.3.2';
+import { createGoogle } from './cloud/google.js?v=1.3.2';
+import { connect, cloudState } from './cloud/team.js?v=1.3.2';
+import { thumbnailSVG } from './engine/render.js?v=1.3.2';
+import { frame } from './engine/model.js?v=1.3.2';
 
 const app = {
   store: null, team: null, reg: null, notes: [], busy: false, online: true,
@@ -137,6 +141,9 @@ async function start() {
   if (app.store.upgradeFailed) toast('The update couldn’t upgrade your drills. Nothing was lost.', { error: true, ms: 15000 });
   if (!(await app.store.count('teams'))) await app.store.save('teams', newTeam(newId('t')));
   await app.refreshTeam();
+  connect(app, createGoogle());
+  app.cloudState = await cloudState(app);
+  app.thumbOf = d => thumbnailSVG(d, frame);
   try { await restoreSamples(app, { onlyFirstRun: true }); await fillSampleSetup(app); await emptyBin(app); await emptyPlanBin(app); } catch (e) { console.error(e); }
   app.installed = app.installed || !!(await app.store.get('meta', 'installed')) || await detectInstalled();
   if (app.installed) { app.installPrompt = null; document.getElementById('install-btn').hidden = true; }

@@ -6,6 +6,7 @@ import { newId, makeBackup, backupFileName, validateBackup, restoreBackup, stora
 import { formatDate } from '../../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { renderInstallCard } from '../../vendor/bbl-kit/1.0.1/bbl-install.js';
 import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.3.2';
+import { renderTeamCard } from './teamcard.js?v=1.3.2';
 
 export function renderSettings(app, sub) {
   const tab = sub === 'device' ? 'device' : 'about';
@@ -52,7 +53,7 @@ function device(app) {
     app.store.put('settings', { key: 'theme', value: t }).catch(() => {});
     app.render();
   };
-  const teamInput = el('input', { type: 'text', id: 'team-name', value: app.team ? app.team.name : '', maxlength: '40', autocomplete: 'off' });
+  const teamInput = el('input', { type: 'text', id: 'team-name', value: app.team ? app.team.name : '', maxlength: '40', autocomplete: 'off', disabled: !!(app.cloudState && app.cloudState.libraryId) });
   teamInput.addEventListener('change', async () => {
     const name = teamInput.value.trim();
     if (!name) { teamInput.value = app.team.name; toast('A team needs a name.', { error: true }); return; }
@@ -110,9 +111,10 @@ function device(app) {
   const install = renderInstallCard({ appName: APP_NAME, prompt: app.installPrompt, installed: app.installed, onInstall: () => document.getElementById('install-btn').click() });
   return [
     install,
+    renderTeamCard(app),
     el('section', { class: 'card stack', 'aria-labelledby': 'team-title' },
       el('h2', { class: 't-section', id: 'team-title' }, 'Team'),
-      el('label', { class: 'field', for: 'team-name' }, 'Team name', teamInput, el('span', { class: 'hint' }, 'Shown at the top of the app.')),
+      el('label', { class: 'field', for: 'team-name' }, 'Team name', teamInput, el('span', { class: 'hint' }, app.cloudState && app.cloudState.libraryId ? 'Your team’s name comes from its folder in Google Drive.' : 'Shown at the top of the app.')),
       el('label', { class: 'field', for: 'ice-minutes' }, 'Ice time (minutes)', iceInput, el('span', { class: 'hint' }, 'How long a practice usually is. New plans start with this.'))),
     el('section', { class: 'card stack', 'aria-labelledby': 'theme-title' },
       el('h2', { class: 't-section', id: 'theme-title' }, 'Theme'),

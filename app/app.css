@@ -340,3 +340,7 @@ body.pp-ed-compact main { max-width: none; height: 100vh; height: 100dvh; paddin
 #close-drawer { min-width: var(--tap-min); min-height: var(--tap-min); flex: none; }
 [data-mode="compact"] .pp-editor:has(.pp-panel.open) .pp-edplayer .pp-rink { justify-self: start; }
 [data-mode="compact"] .pp-editor:has(.pp-panel.open) .pp-caption { justify-self: start; margin-left: 8px; }   /* keep the rink in view beside the open drawer */
+
+/* R3: the Google Drive and team card */
+.pp-howto summary { cursor: pointer; font-weight: 600; min-height: var(--tap-min); display: flex; align-items: center; }
+.pp-howto ol { margin: var(--space-2) 0 0; padding-left: 1.4em; display: grid; gap: var(--space-2); }

@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Practice Pilot · Google trial</title>
+<style>
+  :root { color-scheme: dark; --bg: #0B1B31; --card: #13284a; --ink: #f4f6fa; --muted: #b6c2d4; --line: #2d4570; --accent: #F26A1B; --good: #4ade80; --bad: #f87171; --warn: #fbbf24; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  h1 { font-size: 22px; margin: 4px 0 0; } h2 { font-size: 17px; margin: 0; }
+  p { margin: 0; } .muted { color: var(--muted); font-size: 14px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  section.role-helper { border-color: var(--accent); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: #1d3560; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  input { min-height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: #0d2140; color: var(--ink); font: inherit; flex: 1; min-width: 0; }
+  .res { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .ok { color: var(--good); } .no { color: var(--bad); } .wait { color: var(--warn); }
+  #log { font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; background: #07142a; border-radius: 8px; padding: 10px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+  .tag { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #1d3560; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Practice Pilot · Google trial</h1>
+  <p class="muted">A test page for R3, not part of the app. It only uses the <b>Trial team</b> folder. Run each test, then tap <b>Copy results</b> and paste them to Claude.</p>
+
+  <section>
+    <h2>0. Sign in</h2>
+    <p class="muted">Sign in with the account for this test: <b>scalisec@gmail.com</b> as a coach, or the spare helper account on the phone.</p>
+    <div class="row"><button class="primary" id="signin">Sign in with Google</button><button id="refresh" disabled>Quiet refresh</button><button id="signout" disabled>Sign out</button></div>
+    <p class="res" id="who">Not signed in.</p>
+  </section>
+
+  <section id="helper-box" class="role-helper" hidden>
+    <h2>Helper: open the shared plan <span class="tag">on the helper's phone</span></h2>
+    <p class="muted">This link came from a coach. Sign in above with the helper account, then try to open it.</p>
+    <div class="row"><button class="primary" id="h-open" disabled>Open the shared plan</button></div>
+    <p class="res" id="h-open-res"></p>
+    <div class="row"><button id="h-pick-folder" disabled>Pick the “shared” folder, then retry</button><button id="h-pick-file" disabled>Pick the plan file, then retry</button></div>
+    <p class="res" id="h-pick-res"></p>
+  </section>
+
+  <section>
+    <h2>1. Pick the team folder <span class="tag">coach</span></h2>
+    <p class="muted">Pick <b>Practice Pilot › Trial team</b> in Google's file picker. This is the one-time “join your team” step.</p>
+    <div class="row"><button class="primary" id="t1" disabled>Pick the Trial team folder</button></div>
+    <p class="res" id="t1-res"></p>
+  </section>
+
+  <section>
+    <h2>2. Write and read a drill file <span class="tag">coach</span></h2>
+    <p class="muted">Makes a <b>drills</b> folder (if it isn't there) and saves a test drill in it, then reads it back.</p>
+    <div class="row"><button class="primary" id="t2" disabled>Save a test drill</button></div>
+    <p class="res" id="t2-res"></p>
+  </section>
+
+  <section>
+    <h2>3. What can this account see in the team folder? <span class="tag">coach</span></h2>
+    <p class="muted">The key test. Run it as <b>scalisec</b> after step 2. Then, as benchbosslabs in Google Drive, drop any small file into <b>Trial team › drills</b> (and, if you can, run step 2 here signed in as benchbosslabs too), and run this again as scalisec. It lists every file and whether this account's app can open it.</p>
+    <div class="row"><button class="primary" id="t3" disabled>List and open everything</button></div>
+    <p class="res" id="t3-res"></p>
+  </section>
+
+  <section>
+    <h2>4. Edit mark and save check <span class="tag">coach</span></h2>
+    <p class="muted">Marks the test drill “being edited by you”, reads the mark back, and checks that a change by someone else would be noticed before saving.</p>
+    <div class="row"><button class="primary" id="t4" disabled>Test the edit mark</button></div>
+    <p class="res" id="t4-res"></p>
+  </section>
+
+  <section>
+    <h2>5. Share a plan with a helper <span class="tag">coach</span></h2>
+    <p class="muted">Makes a <b>shared</b> folder with a test plan in it and shares the folder with the helper as Viewer. Google emails the helper.</p>
+    <div class="row"><input id="helper-email" type="email" inputmode="email" placeholder="Helper's Google email" autocomplete="off"><button class="primary" id="t5" disabled>Share</button></div>
+    <p class="res" id="t5-res"></p>
+  </section>
+
+  <section>
+    <h2>6. How long sign-in lasts</h2>
+    <p class="muted">Google's sign-in pass lasts about an hour. About 55 minutes after signing in, tap <b>Quiet refresh</b> (step 0) and note whether Google asked anything.</p>
+    <p class="res" id="t6-res">Not signed in.</p>
+  </section>
+
+  <section>
+    <h2>Results</h2>
+    <div class="row"><button class="primary" id="copy">Copy results</button><button id="clear">Clear</button></div>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+const CFG = {
+  clientId: '288699264821-1vrufu4o104mtq1acse66ue1ejidp1or.apps.googleusercontent.com',
+  apiKey: 'AIzaSyCMijVo7mOwsI1PluwBKsJrG_zeHo_NVMY',
+  appId: '288699264821',
+};
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const API = 'https://www.googleapis.com/drive/v3';
+const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+const FOLDER = 'application/vnd.google-apps.folder';
+const FIELDS = 'id,name,mimeType,owners(emailAddress),createdTime,modifiedTime,version,appProperties,capabilities(canEdit)';
+const $ = id => document.getElementById(id);
+let token = null, tokenExp = 0, me = null, client = null;
+const store = { get: k => { try { return localStorage.getItem('pp-trial-' + k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('pp-trial-' + k, v); } catch {} } };
+
+/* ---------- log ---------- */
+const lines = [];
+function log(msg) {
+  const t = new Date().toLocaleTimeString('en-CA', { hour12: false });
+  lines.push(`[${t}] ${msg}`);
+  $('log').textContent = lines.join('\n');
+  $('log').scrollTop = 1e9;
+}
+function result(id, ok, text) { const el = $(id); el.className = 'res ' + (ok === null ? 'wait' : ok ? 'ok' : 'no'); el.textContent = (ok === null ? '… ' : ok ? '✅ ' : '❌ ') + text; log(`${id}: ${ok === null ? 'WAIT' : ok ? 'PASS' : 'FAIL'} ${text}`); }
+log(`Device: ${navigator.userAgent}`);
+log(`Page: ${location.href}`);
+
+/* ---------- Google ---------- */
+const scripts = {};
+function load(src) { return scripts[src] ||= new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = res; s.onerror = () => rej(new Error('Couldn’t load ' + src)); document.head.append(s); }); }
+
+async function call(method, url, body, headers) {
+  if (!token) throw new Error('Not signed in');
+  const res = await fetch(url, { method, body, headers: Object.assign({ Authorization: 'Bearer ' + token }, headers || {}) });
+  let j = null; try { j = await res.json(); } catch {}
+  if (!res.ok) { const e = new Error(`HTTP ${res.status}: ${(j && j.error && j.error.message) || res.statusText}`); e.status = res.status; throw e; }
+  return j;
+}
+const q = s => encodeURIComponent(s);
+async function findIn(parent, name, mime) {
+  const r = await call('GET', `${API}/files?q=${q(`'${parent}' in parents and name='${name}' and trashed=false${mime ? ` and mimeType='${mime}'` : ''}`)}&fields=files(${FIELDS})&supportsAllDrives=true`);
+  return r.files[0] || null;
+}
+async function folder(parent, name) {
+  return (await findIn(parent, name, FOLDER)) || call('POST', `${API}/files?fields=${FIELDS}`, JSON.stringify({ name, mimeType: FOLDER, parents: [parent] }), { 'Content-Type': 'application/json' });
+}
+async function createJson(parent, name, data) {
+  const boundary = 'pp' + Math.random().toString(36).slice(2);
+  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, parents: [parent], mimeType: 'application/json' })}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(data)}\r\n--${boundary}--`;
+  return call('POST', `${UPLOAD}/files?uploadType=multipart&fields=${FIELDS}`, body, { 'Content-Type': `multipart/related; boundary=${boundary}` });
+}
+async function readText(id) {
+  const res = await fetch(`${API}/files/${id}?alt=media`, { headers: { Authorization: 'Bearer ' + token } });
+  if (!res.ok) { let m = res.statusText; try { m = (await res.json()).error.message; } catch {} const e = new Error(`HTTP ${res.status}: ${m}`); e.status = res.status; throw e; }
+  return res.text();
+}
+const meta = id => call('GET', `${API}/files/${id}?fields=${FIELDS}&supportsAllDrives=true`);
+
+function signIn(quiet) {
+  return new Promise(async (resolve, reject) => {
+    try { await load('https://accounts.google.com/gsi/client'); } catch (e) { reject(e); return; }
+    client = google.accounts.oauth2.initTokenClient({
+      client_id: CFG.clientId, scope: SCOPE,
+      callback: r => { if (r.error) { reject(new Error(r.error + (r.error_description ? ': ' + r.error_description : ''))); return; } token = r.access_token; tokenExp = Date.now() + (Number(r.expires_in) || 3600) * 1000; resolve(); },
+      error_callback: e => reject(new Error((e && (e.message || e.type)) || 'Sign-in failed')),
+    });
+    client.requestAccessToken(quiet ? { prompt: '' } : { prompt: 'select_account' });
+  });
+}
+
+async function picker({ folders, title, mime }) {
+  await load('https://apis.google.com/js/api.js');
+  await new Promise((res, rej) => gapi.load('picker', { callback: res, onerror: () => rej(new Error('Couldn’t open the Google file picker')) }));
+  const P = google.picker;
+  return new Promise((resolve, reject) => {
+    const views = folders
+      ? [new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(false),
+         new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(true)]
+      : [new P.DocsView(P.ViewId.DOCS).setIncludeFolders(true).setMimeTypes(mime || 'application/json').setOwnedByMe(false)];
+    const b = new P.PickerBuilder().setTitle(title).setOAuthToken(token).setDeveloperKey(CFG.apiKey).setAppId(CFG.appId)
+      .setCallback(d => {
+        if (d.action === P.Action.PICKED) resolve(d.docs[0]);
+        else if (d.action === P.Action.CANCEL) resolve(null);
+        else if (d.action === 'error' || d.action === P.Action.ERROR) reject(new Error('The file picker reported an error'));
+      });
+    views.forEach(v => b.addView(v));
+    b.build().setVisible(true);
+  });
+}
+
+/* ---------- UI ---------- */
+function signedIn(on) {
+  for (const id of ['t1', 't2', 't3', 't4', 't5', 'refresh', 'signout', 'h-open', 'h-pick-folder', 'h-pick-file']) $(id).disabled = !on;
+  $('signin').disabled = on;
+}
+function tick() {
+  if (!token) { $('t6-res').textContent = 'Not signed in.'; return; }
+  const m = Math.max(0, Math.round((tokenExp - Date.now()) / 60000));
+  $('t6-res').textContent = `Signed in at ${store.get('signedAt') || '?'}; the pass has about ${m} minute${m === 1 ? '' : 's'} left.`;
+}
+setInterval(tick, 30000);
+
+$('signin').onclick = async () => {
+  try {
+    await signIn(false);
+    const a = await call('GET', `${API}/about?fields=user(emailAddress,displayName)`);
+    me = a.user.emailAddress;
+    store.set('signedAt', new Date().toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' }));
+    result('who', true, `Signed in as ${me}`);
+    signedIn(true); tick();
+  } catch (e) { result('who', false, `Sign-in failed: ${e.message}`); }
+};
+$('refresh').onclick = async () => {
+  const t0 = Date.now();
+  try { await signIn(true); result('t6-res', true, `Quiet refresh worked in ${((Date.now() - t0) / 1000).toFixed(1)} s. Note whether Google showed anything. New pass: about 60 minutes.`); }
+  catch (e) { result('t6-res', false, `Quiet refresh failed: ${e.message}`); }
+};
+$('signout').onclick = () => { try { google.accounts.oauth2.revoke(token, () => {}); } catch {} token = null; me = null; signedIn(false); result('who', false, 'Signed out.'); tick(); };
+
+$('t1').onclick = async () => {
+  try {
+    const f = await picker({ folders: true, title: 'Pick “Trial team” (Practice Pilot › Trial team)' });
+    if (!f) { result('t1-res', false, 'Picker closed without picking.'); return; }
+    store.set('team', f.id); store.set('teamName', f.name);
+    const m = await meta(f.id);
+    result('t1-res', true, `Picked “${m.name}”. The app can open the folder itself (can edit: ${m.capabilities && m.capabilities.canEdit}).`);
+  } catch (e) { result('t1-res', false, e.message); }
+};
+
+$('t2').onclick = async () => {
+  const team = store.get('team');
+  if (!team) { result('t2-res', false, 'Do step 1 first.'); return; }
+  try {
+    const drills = await folder(team, 'drills');
+    store.set('drills', drills.id);
+    const name = `trial-drill-${me.split('@')[0]}-${Date.now().toString(36)}.json`;
+    const f = await createJson(drills.id, name, { title: 'Trial drill', by: me, at: new Date().toISOString() });
+    store.set('myDrill', f.id);
+    const back = JSON.parse(await readText(f.id));
+    result('t2-res', back.by === me, `Saved “${name}” in Trial team › drills and read it back.`);
+  } catch (e) { result('t2-res', false, e.message); }
+};
+
+$('t3').onclick = async () => {
+  const team = store.get('team');
+  if (!team) { result('t3-res', false, 'Do step 1 first.'); return; }
+  result('t3-res', null, 'Listing…');
+  try {
+    const out = [];
+    const walk = async (parent, path) => {
+      const r = await call('GET', `${API}/files?q=${q(`'${parent}' in parents and trashed=false`)}&fields=files(${FIELDS})&pageSize=200`);
+      for (const f of r.files) {
+        if (f.mimeType === FOLDER) { out.push(`📁 ${path}${f.name}/`); await walk(f.id, `${path}${f.name}/`); continue; }
+        let can = 'can open ✅';
+        try { await readText(f.id); } catch (e) { can = `can't open ❌ (${e.message})`; }
+        out.push(`📄 ${path}${f.name} · by ${(f.owners && f.owners[0] && f.owners[0].emailAddress) || '?'} · ${can}`);
+      }
+    };
+    await walk(team, '');
+    const blocked = out.filter(l => l.includes('❌')).length;
+    result('t3-res', true, `${me} sees ${out.length} item${out.length === 1 ? '' : 's'} in the team folder${blocked ? `, ${blocked} of them can't be opened` : ''}:\n${out.join('\n') || '(nothing)'}\n\nTo test files added by others, compare with what you see in Google Drive for Trial team.`);
+  } catch (e) { result('t3-res', false, e.message); }
+};
+
+$('t4').onclick = async () => {
+  const id = store.get('myDrill');
+  if (!id) { result('t4-res', false, 'Do step 2 first.'); return; }
+  try {
+    const before = await meta(id);
+    const since = new Date().toISOString();
+    await call('PATCH', `${API}/files/${id}?fields=${FIELDS}`, JSON.stringify({ appProperties: { editingBy: me, editingSince: since } }), { 'Content-Type': 'application/json' });
+    const marked = await meta(id);
+    const okMark = marked.appProperties && marked.appProperties.editingBy === me;
+    // someone else's save, simulated: change the file's content
+    await fetch(`${UPLOAD}/files/${id}?uploadType=media`, { method: 'PATCH', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Trial drill (changed)', by: me, at: new Date().toISOString() }) });
+    const after = await meta(id);
+    const noticed = after.version !== marked.version || after.modifiedTime !== marked.modifiedTime;
+    await call('PATCH', `${API}/files/${id}`, JSON.stringify({ appProperties: { editingBy: null, editingSince: null } }), { 'Content-Type': 'application/json' });
+    result('t4-res', okMark && noticed, `Edit mark ${okMark ? 'written and read back' : 'NOT read back'} (“being edited by ${me}”). A change after opening ${noticed ? 'is noticed' : 'was NOT noticed'} (version ${before.version} → ${marked.version} → ${after.version}).`);
+  } catch (e) { result('t4-res', false, e.message); }
+};
+
+$('t5').onclick = async () => {
+  const team = store.get('team'), email = $('helper-email').value.trim();
+  if (!team) { result('t5-res', false, 'Do step 1 first.'); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { result('t5-res', false, 'Type the helper’s Google email first.'); return; }
+  try {
+    const shared = await folder(team, 'shared');
+    const plan = await createJson(shared.id, `trial-plan-${Date.now().toString(36)}.json`, { title: 'Trial plan', by: me, at: new Date().toISOString(), blocks: ['Warm-up', 'Pass, Pivot & Go', 'Water break'] });
+    await call('POST', `${API}/files/${shared.id}/permissions?sendNotificationEmail=true&emailMessage=${q('Practice Pilot trial: open the link Cristian sends you on your phone.')}`, JSON.stringify({ type: 'user', role: 'reader', emailAddress: email }), { 'Content-Type': 'application/json' });
+    const link = `${location.origin}${location.pathname}?plan=${plan.id}&folder=${shared.id}`;
+    result('t5-res', true, `Made Trial team › shared, saved a test plan in it, and shared the folder with ${email} as Viewer.\nHelper link (send it to the helper's phone):\n${link}`);
+  } catch (e) { result('t5-res', false, e.message); }
+};
+
+/* ---------- the helper's side ---------- */
+const params = new URLSearchParams(location.search);
+const planId = params.get('plan'), sharedId = params.get('folder');
+if (planId) { $('helper-box').hidden = false; log(`Helper link for plan ${planId}`); }
+async function openPlan(resId, how) {
+  try {
+    const text = await readText(planId);
+    const p = JSON.parse(text);
+    result(resId, true, `${how}: opened “${p.title}” (${p.blocks.join(', ')}) as ${me}.`);
+    return true;
+  } catch (e) { result(resId, false, `${how}: couldn't open it as ${me} (${e.message}).`); return false; }
+}
+$('h-open').onclick = () => openPlan('h-open-res', 'Straight from the link');
+$('h-pick-folder').onclick = async () => {
+  try { const f = await picker({ folders: true, title: 'Pick the “shared” folder (Shared with me › Trial team › shared)' }); if (!f) { result('h-pick-res', false, 'Picker closed.'); return; } log(`Helper picked folder “${f.name}” (${f.id === sharedId ? 'the right one' : 'a different one'})`); await openPlan('h-pick-res', 'After picking the folder'); }
+  catch (e) { result('h-pick-res', false, e.message); }
+};
+$('h-pick-file').onclick = async () => {
+  try { const f = await picker({ folders: false, title: 'Pick the trial plan file (in the “shared” folder)' }); if (!f) { result('h-pick-res', false, 'Picker closed.'); return; } log(`Helper picked file “${f.name}” (${f.id === planId ? 'the right one' : 'a different one'})`); await openPlan('h-pick-res', 'After picking the file'); }
+  catch (e) { result('h-pick-res', false, e.message); }
+};
+
+$('copy').onclick = async () => { try { await navigator.clipboard.writeText(lines.join('\n')); $('copy').textContent = 'Copied ✓'; setTimeout(() => { $('copy').textContent = 'Copy results'; }, 1500); } catch { const r = document.createRange(); r.selectNodeContents($('log')); getSelection().removeAllRanges(); getSelection().addRange(r); } };
+$('clear').onclick = () => { lines.length = 0; $('log').textContent = ''; };
+</script>
+</body>
+</html>

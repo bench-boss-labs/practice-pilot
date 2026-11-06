@@ -272,22 +272,49 @@ test('what moves in a step, together', () => {
   assert.deepEqual(D.movingIn(d, 2), []);
 });
 
-test('giving a player the puck: Setup for step 1, a pass in the step before later on, or a new puck', () => {
+test('giving a player the puck: a free puck moves to their stick for step 1; otherwise a new one appears, never a used one', () => {
   let d = build();                                             // f1 at 110,70 with pk on the stick
   d = D.addPiece(d, { id: 'f2', type: 'F', team: 'red', at: [150, 20] });
   let g = D.giveTo(d, 1, 'f2', [160, 20], 'new1');
-  assert.equal(g.how, 'setup'); assert.equal(g.puck, 'pk');
-  assert.deepEqual(g.drill.start.pk, [152.5, 20]);
-  assert.equal(D.puckWith(g.drill, 1, 'f2').id, 'pk');
-  d = D.dragPiece(D.addStep(d, 1).drill, 1, 'f1', [130, 60]);  // two steps; f1 carries in step 1
+  assert.equal(g.how, 'new', 'f1’s puck is not taken');
+  assert.deepEqual(g.drill.start.pk, [112.5, 70]);
+  assert.equal(D.puckWith(g.drill, 1, 'f2').id, 'new1');
+  d = D.addPiece(d, { id: 'pk2', type: 'puck', at: [60, 40] });  // a free puck nobody uses
+  g = D.giveTo(d, 1, 'f2', [160, 20], 'new1');
+  assert.equal(g.how, 'setup'); assert.equal(g.puck, 'pk2');
+  assert.deepEqual(g.drill.start.pk2, [152.5, 20]);
+  d = D.addStep(d, 1).drill;
   g = D.giveTo(d, 2, 'f2', null, 'new1');
-  assert.equal(g.how, 'pass');
-  const m = moveOf(g.drill.steps[0], 'pk');
-  assert.equal(m.line, 'pass'); assert.equal(m.when, 'after');
-  assert.equal(moveOf(g.drill.steps[0], 'f1').line, 'skate', 'f1 stops carrying');
-  assert.equal(D.puckWith(g.drill, 2, 'f2').id, 'pk');
-  const none = D.giveTo(D.removePiece(d, 'pk'), 2, 'f2', null, 'new1');
-  assert.equal(none.how, 'new');
-  assert.equal(none.drill.pieces.find(p => p.id === 'new1').fromStep, 2);
-  assert.equal(D.puckWith(none.drill, 2, 'f2').id, 'new1');
+  assert.equal(g.how, 'new', 'in a later step, a new puck appears instead of changing an earlier step');
+  assert.equal(g.drill.pieces.find(p => p.id === 'new1').fromStep, 2);
+  assert.deepEqual(g.drill.steps[0], d.steps[0]);
+  d = D.addPiece(d, { id: 'pile1', type: 'pile', at: [154, 24] });
+  assert.equal(D.giveTo(d, 2, 'f2', null, 'new1').how, 'pile');
+});
+
+test('two players passing (Cristian’s video): the second pass never changes the first one', () => {
+  // four skaters on the blue lines, each beside a puck pile, no loose pucks
+  let d = blank();
+  for (const [id, at] of [['a', [125, 82]], ['b', [125, 4]], ['c', [75, 4]], ['e', [75, 82]]]) {
+    d = D.addPiece(d, { id, type: 'X', team: 'red', at });
+    d = D.addPiece(d, { id: `pile-${id}`, type: 'pile', at: [at[0] + 3, at[1] + (at[1] > 40 ? 2 : -2)] });
+  }
+  d = D.addStep(d, 0).drill;
+  const passIn = (dr, k, from, to, newId) => {
+    const g = D.giveTo(dr, k, from, positionsByStep(dr)[k][to], newId);
+    return D.passTo(g.drill, k, from, g.puck, to);
+  };
+  // pass 1: a → b in step 1
+  d = passIn(d, 1, 'a', 'b', 'p1');
+  const first = JSON.stringify(d.steps[0].moves);
+  // pass 2 in the same step: c → e
+  const same = passIn(d, 1, 'c', 'e', 'p2');
+  assert.deepEqual(same.steps[0].moves.filter(m => m.piece === 'p1'), JSON.parse(first), 'the first pass is untouched');
+  assert.equal(same.steps[0].moves.find(m => m.piece === 'p2').line, 'pass');
+  assert.deepEqual(same.start.p1, d.start.p1, 'the first puck stays with the first passer');
+  // or pass 2 in step 2: c → e
+  const next = passIn(D.addStep(d, 1).drill, 2, 'c', 'e', 'p2');
+  assert.equal(JSON.stringify(next.steps[0].moves), first, 'step 1 is untouched');
+  assert.equal(next.pieces.find(p => p.id === 'p2').fromStep, 2);
+  assert.equal(D.puckWith(next, 2, 'c').id, 'p2');
 });

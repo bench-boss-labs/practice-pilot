@@ -1,8 +1,8 @@
 /* Printout (R2): page 1 is the run sheet; then a card per drill with its picture, purpose, setup,
    coaching points, who runs it and the block's note, about two cards a page. Chrome prints it or saves a PDF. */
-import { el, fill } from '../ui.js?v=1.2.0';
-import * as P from '../plans.js?v=1.2.0';
-import { blockTitle } from './plans.js?v=1.2.0';
+import { el, fill } from '../ui.js?v=1.2.1';
+import * as P from '../plans.js?v=1.2.1';
+import { blockTitle } from './plans.js?v=1.2.1';
 
 export function renderPrint(app, id) {
   const root = el('div', { class: 'pp-print-screen' }, el('p', { class: 'muted' }, 'Getting the plan ready to print…'));

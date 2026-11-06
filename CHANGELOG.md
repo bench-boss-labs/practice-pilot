@@ -1,5 +1,11 @@
 # Practice Pilot — changelog
 
+## 1.2.1 — 2026-11-05 (Two passers or shooters in one step)
+
+- **Fixed:** A second pass or shot in the same step no longer changes the first one, so two players can pass or shoot at the same time. The Pass and Shoot tools above the rink always ask you to tap the player first, even when a player is selected.
+- **Fixed:** A player without a puck gets a new one on their stick (from the pile beside them, if there is one), instead of taking a puck another player already uses.
+- **Improved:** Passing or shooting again with the same player in a step says it replaces their earlier pass or shot.
+
 ## 1.2.0 — 2026-11-05 (Practice plans)
 
 - **New:** Plans: build a practice from your drills, with minutes for each and start times worked out for you.

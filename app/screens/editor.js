@@ -1,15 +1,15 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.2.0';
+import { el, fill, toast, dialog } from '../ui.js?v=1.2.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.2.0';
-import { Player } from '../engine/player.js?v=1.2.0';
-import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.2.0';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.2.0';
-import { VIEWS } from '../engine/rink.js?v=1.2.0';
-import { at } from '../engine/geometry.js?v=1.2.0';
-import * as D from '../drills.js?v=1.2.0';
-import { drillInfo } from './drillview.js?v=1.2.0';
+import { SCHEMA_VERSION } from '../version.js?v=1.2.1';
+import { Player } from '../engine/player.js?v=1.2.1';
+import { PIECES, TEAMS, LINES, isPlayer, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.2.1';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.2.1';
+import { VIEWS } from '../engine/rink.js?v=1.2.1';
+import { at } from '../engine/geometry.js?v=1.2.1';
+import * as D from '../drills.js?v=1.2.1';
+import { drillInfo } from './drillview.js?v=1.2.1';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
@@ -142,7 +142,7 @@ class Editor {
     const v = this.d.view || { rink: 'full', flip: false };
     fill(this.toolbar, 
       el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Tool' }, ...TOOLS.map(([t, label]) =>
-        el('button', { type: 'button', class: 'pp-segbtn', 'data-tool': t, 'aria-pressed': String(this.tool === t && !this.place), onclick: () => (t === 'pass' || t === 'shoot' ? this.startAction(t, this.selectedPlayer()) : this.setTool(t)) }, label))),
+        el('button', { type: 'button', class: 'pp-segbtn', 'data-tool': t, 'aria-pressed': String(this.tool === t && !this.place), onclick: () => (t === 'pass' || t === 'shoot' ? this.startAction(t, null) : this.setTool(t)) }, label))),
       marking ? el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Markup colour' }, ...Object.keys(MARK_COLOURS).map(c =>
         el('button', { type: 'button', class: 'pp-swatch', 'aria-pressed': String(this.markColour === c), 'aria-label': MARK_NAMES[c], title: MARK_NAMES[c], style: `--sw:${MARK_COLOURS[c]}`, onclick: () => { this.markColour = c; this.renderTools(); } }))) : null,
       marking ? seg('Markup shows on', [[false, this.k ? 'This step only' : 'Setup only'], [true, 'All steps']], this.markAll, v2 => { this.markAll = v2; this.renderTools(); }) : null,
@@ -255,8 +255,10 @@ class Editor {
       const pos = positionsByStep(d);
       const g = D.giveTo(d, k, passer, receiver ? pos[k][receiver] : pt, newId('pc'));
       d = g.drill; puckId = g.puck;
-      note = g.how === 'pass' ? ` The puck goes to them in step ${k - 1} first.` : g.how === 'new' ? ' A puck was added on their stick.' : ' The puck starts on their stick.';
+      note = g.how === 'pile' ? ' A puck from the pile goes on their stick.' : g.how === 'new' ? ' A puck was added on their stick.' : ' The puck starts on their stick.';
     }
+    const earlier = (d.steps[k - 1].moves || []).find(m => m.piece === puckId && m.to && (m.line === 'pass' || m.line === 'shot'));
+    if (earlier) note += ` It replaces their earlier ${earlier.line} in this step.`;
     d = kind === 'pass' ? D.passTo(d, k, passer, puckId, receiver) : D.shootAt(d, k, passer, puckId, pt);
     this.action = null;
     this.commit(d);

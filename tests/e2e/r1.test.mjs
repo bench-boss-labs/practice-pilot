@@ -476,10 +476,70 @@ test('Pass and Shoot tools above the rink: tap the passer, then the teammate; th
   await tapRink(page, 120, 30);
   assert.ok(await page.isVisible('#pass-btn')); assert.ok(await page.isVisible('#shoot-btn'));
   await page.click('[data-tool="shoot"]');
-  assert.match(await page.textContent('#action-hint'), /Now tap the spot/, 'a selected player is the shooter');
+  assert.match(await page.textContent('#action-hint'), /tap the player who shoots/, 'the toolbar always asks for the shooter, even with a player selected');
+  await tapRink(page, 120, 30);
+  assert.match(await page.textContent('#action-hint'), /Now tap the spot/);
   await tapRink(page, 188, 42);
   await saved(page);
   assert.equal((await drill(page, id)).steps.length, 2);
+  assert.deepEqual(page.errors, []);
+  await ctx.close();
+});
+
+test('two passers in one step with puck piles (Cristian’s video): the second pass leaves the first alone', async () => {
+  const { ctx, page } = await open(env);
+  await page.click('#new-drill-btn'); await page.waitForSelector('.pp-editor');
+  const id = await editorId(page);
+  await page.selectOption('#rink-view', 'neutral');
+  await page.click('.pp-trayb[data-type="X"]');
+  for (const [x, y] of [[125, 80], [125, 6], [75, 6], [75, 80]]) await tapRink(page, x, y);
+  await page.click('.pp-trayb[data-type="pile"]');
+  for (const [x, y] of [[128, 83], [128, 3], [72, 3], [72, 83]]) await tapRink(page, x, y);
+  await page.click('#tray-move');
+  await page.click('[data-tool="pass"]'); await tapRink(page, 125, 80); await tapRink(page, 125, 6);
+  await page.waitForSelector('.toast >> text=A puck from the pile goes on their stick');
+  await saved(page);
+  const before = await drill(page, id);
+  // second pass in the same step
+  await page.click('.pp-chip[data-k="1"]');
+  await page.click('[data-tool="pass"]'); await tapRink(page, 75, 6); await tapRink(page, 75, 80);
+  await saved(page);
+  const after = await drill(page, id);
+  const firstPuck = before.steps[0].moves[0].piece;
+  assert.deepEqual(after.steps[0].moves.find(m => m.piece === firstPuck), before.steps[0].moves[0], 'first pass unchanged');
+  assert.deepEqual(after.start[firstPuck], before.start[firstPuck]);
+  assert.equal(after.steps[0].moves.filter(m => m.line === 'pass').length, 2, 'both passes in step 1');
+  assert.equal(after.steps.length, 1);
+  assert.deepEqual(page.errors, []);
+  await ctx.close();
+});
+
+test('two shooters in one step: both pucks fly in the animation', async () => {
+  const { ctx, page } = await open(env);
+  await page.click('#new-drill-btn'); await page.waitForSelector('.pp-editor');
+  const id = await editorId(page);
+  await page.selectOption('#rink-view', 'half');
+  await page.click('.pp-trayb[data-type="X"]');
+  for (const [x, y] of [[150, 20], [150, 65]]) await tapRink(page, x, y);
+  await page.click('.pp-trayb[data-type="pile"]');
+  for (const [x, y] of [[147, 16], [147, 69]]) await tapRink(page, x, y);
+  await page.click('#tray-move');
+  await page.click('[data-tool="shoot"]'); await tapRink(page, 150, 20); await tapRink(page, 188, 40);
+  await page.waitForSelector('.toast >> text=Shot in step 1');
+  await page.click('[data-tool="shoot"]'); await tapRink(page, 150, 65); await tapRink(page, 188, 45);
+  await saved(page);
+  const d = await drill(page, id);
+  const shots = d.steps[0].moves.filter(m => m.line === 'shot');
+  assert.equal(shots.length, 2, JSON.stringify(d.steps[0].moves));
+  assert.notEqual(shots[0].piece, shots[1].piece, 'two different pucks');
+  assert.equal(d.steps.length, 1);
+  // both pucks end at the net in the animation
+  const ends = await page.evaluate(async () => {
+    const { frame, prepare } = await import('./app/engine/model.js?v=1.2.1');
+    const d = await window.__pp.store.get('drills', location.hash.split('/')[1]);
+    return frame(d, 1, 1, prepare(d)).pieces.filter(p => p.type === 'puck').map(p => [Math.round(p.x), Math.round(p.y)]);
+  });
+  assert.deepEqual(ends.sort(), [[188, 40], [188, 45]]);
   assert.deepEqual(page.errors, []);
   await ctx.close();
 });

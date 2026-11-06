@@ -1,9 +1,9 @@
 /* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
    Pure functions on plain drill objects (drill format v1); the editor and library call these,
    and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
-import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.2.0';
-import { onIce } from './engine/rink.js?v=1.2.0';
-import { dist } from './engine/geometry.js?v=1.2.0';
+import { PIECES, isPlayer, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.2.1';
+import { onIce } from './engine/rink.js?v=1.2.1';
+import { dist } from './engine/geometry.js?v=1.2.1';
 
 export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
 export const AGES = ['U7', 'U9', 'U11', 'U13', 'U15', 'U18'];
@@ -459,30 +459,23 @@ export function movingIn(d, k, pos = positionsByStep(d)) {
 
 /**
  * Put a puck on a player's stick at the start of step k (k ≥ 1) so they can pass or shoot.
- * The nearest puck on the ice moves there: in Setup for step 1, or by a pass to them in step k − 1.
- * With no puck on the ice, a new one appears on their stick. toward: which side of the player it sits.
- * → { drill, puck: id, how: 'setup' | 'pass' | 'new' }
+ * Never takes a puck the drill already uses: only a free puck (one that never moves and isn't on
+ * another player's stick) can be moved, and only into Setup for step 1. Otherwise a new puck appears
+ * on their stick in this step, "from the pile" when a puck pile is beside them. Earlier steps never change.
+ * toward: which side of the player it sits. → { drill, puck: id, how: 'setup' | 'pile' | 'new' }
  */
 export function giveTo(d, k, playerId, toward, newPuckId) {
   const pos = positionsByStep(d);
-  const at = pos[k - 1][playerId];
+  const before = pos[k - 1], at = before[playerId];
   const dx = toward ? toward[0] - at[0] : 1, dy = toward ? toward[1] - at[1] : 0, len = Math.hypot(dx, dy) || 1;
   const spot = pt([at[0] + dx / len * 2.5, at[1] + dy / len * 2.5]);
-  const on = p => (Number.isInteger(p.fromStep) ? p.fromStep : 0) <= k && (!Number.isInteger(p.untilStep) || p.untilStep >= k);
-  const pucks = d.pieces.filter(p => p.type === 'puck' && on(p) && pos[k - 1][p.id])
-    .sort((a, b) => dist(pos[k - 1][a.id], at) - dist(pos[k - 1][b.id], at));
-  if (!pucks.length) return { drill: addPiece(d, { id: newPuckId, type: 'puck', at: spot, step: k > 1 ? k : 0 }), puck: newPuckId, how: 'new' };
-  const pk = pucks[0].id;
-  const n = clone(d);
+  const moves = id => d.steps.some(s => (s.moves || []).some(m => m.piece === id));
+  const onSomeonesStick = id => d.pieces.some(p => isPlayer(p.type) && p.id !== playerId && before[p.id] && dist(before[p.id], before[id]) <= 4.5);
   if (k === 1) {
-    n.start[pk] = spot;
-    const p = n.pieces.find(x => x.id === pk); delete p.fromStep;
-    return { drill: n, puck: pk, how: 'setup' };
+    const free = d.pieces.filter(p => p.type === 'puck' && !Number.isInteger(p.fromStep) && before[p.id] && !moves(p.id) && !onSomeonesStick(p.id))
+      .sort((a, b) => dist(before[a.id], at) - dist(before[b.id], at))[0];
+    if (free) { const n = clone(d); n.start[free.id] = spot; return { drill: n, puck: free.id, how: 'setup' }; }
   }
-  const prev = n.steps[k - 2];
-  const old = (prev.moves || []).find(m => m.piece === pk);
-  if (old && old.carriedBy) dropCarry(n, k - 1, old.carriedBy);
-  prev.moves = (prev.moves || []).filter(m => m.piece !== pk);
-  prev.moves.push({ piece: pk, line: 'pass', to: spot, when: 'after' });
-  return { drill: n, puck: pk, how: 'pass' };
+  const pile = d.pieces.some(p => p.type === 'pile' && before[p.id] && dist(before[p.id], at) <= 10);
+  return { drill: addPiece(d, { id: newPuckId, type: 'puck', at: spot, step: k > 1 ? k : 0 }), puck: newPuckId, how: pile ? 'pile' : 'new' };
 }

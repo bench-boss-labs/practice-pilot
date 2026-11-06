@@ -1,5 +1,6 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
+import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.3.2';
 import { el, fill, toast, dialog } from '../ui.js?v=1.3.2';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { SCHEMA_VERSION } from '../version.js?v=1.3.2';
@@ -86,6 +87,7 @@ class Editor {
     this.mqs = [matchMedia(COMPACT), matchMedia(NARROW)];
     this.onMode = () => this.setMode(editMode());
     for (const m of this.mqs) m.addEventListener('change', this.onMode);
+    if (inTeam(app)) warnMark(app, 'drills', rec.id);
     app.store.get('meta', 'tags').then(t => { this.customTags = (t && t.value) || []; if (this.tab === 'details') this.renderPanel(); });
     this.onKey = e => this.key(e);
     document.addEventListener('keydown', this.onKey);
@@ -101,11 +103,13 @@ class Editor {
     const lbl = t => el('span', { class: 'pp-lbl' }, t);
     this.bUndo = el('button', { type: 'button', class: 'btn', id: 'undo', 'aria-label': 'Undo', title: 'Undo (Ctrl+Z)', onclick: () => this.undo() }, '↶', lbl(' Undo'));
     this.bRedo = el('button', { type: 'button', class: 'btn', id: 'redo', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y)', onclick: () => this.redo() }, '↷', lbl(' Redo'));
+    this.bPublish = el('button', { type: 'button', class: 'btn primary', id: 'publish-btn', hidden: true, title: 'Publish to your team', onclick: () => this.publish() }, 'Publish');
+    this.pubEl = el('span', { class: 'pp-status pp-pub', id: 'pub-status' });
     this.bOptions = el('button', { type: 'button', class: 'btn pp-only-compact', id: 'options-btn', 'aria-controls': 'panel', 'aria-expanded': 'false', onclick: () => this.setDrawer(!this.drawer) }, 'Options');
     const top = el('div', { class: 'pp-edtop' },
       el('a', { class: 'btn', href: `#library/${this.rec.id}`, id: 'editor-back', 'aria-label': 'Back to the library' }, '‹', lbl(' Library')),
-      el('div', { class: 'grow pp-edtitle' }, this.titleEl, this.statusEl),
-      this.bUndo, this.bRedo, this.bOptions,
+      el('div', { class: 'grow pp-edtitle' }, this.titleEl, el('span', { class: 'row pp-statuses' }, this.statusEl, this.pubEl)),
+      this.bUndo, this.bRedo, this.bPublish, this.bOptions,
       el('button', { type: 'button', class: 'btn', id: 'drill-menu', 'aria-label': 'More drill actions', onclick: () => this.menu() }, '⋮'));
     const rotate = el('p', { class: 'card notice pp-only-portrait', id: 'rotate-note' }, '↻ Turn your phone sideways to move pieces and add steps. You can change the drill’s details here.');
 
@@ -173,6 +177,17 @@ class Editor {
     this.statusEl.textContent = this.status;
     this.statusEl.className = `pp-status${this.status === 'Not saved' ? ' bad' : ''}`;
     this.bUndo.disabled = !this.past.length; this.bRedo.disabled = !this.future.length;
+    this.bPublish.hidden = !canPublish(this.app, this.rec);
+    this.pubEl.textContent = pubWords(this.app, this.rec);
+  }
+
+  /** Publish this drill to the team (it saves first). Taking the other coach's version reopens the editor with it. */
+  async publish() {
+    const r = await publishFlow(this.app, 'drills', this.rec.id, { before: () => this.flush() });
+    if (!r) return;
+    const fresh = await this.app.store.get('drills', this.rec.id);
+    if (!fresh || r.took.includes(this.rec.id)) { this.app.render(); return; }
+    this.rec = fresh; this.renderTop();
   }
 
   renderTray() {
@@ -789,9 +804,11 @@ class Editor {
         el('select', { id: 'menu-rink-view', onchange: e => { this.commit(D.setDetails(this.d, { view: { ...this.d.view, rink: e.target.value } })); flip.hidden = !['half', 'zone'].includes(e.target.value); } },
           ...VIEWS.map(([val, label]) => el('option', { value: val, selected: view.rink === val }, label)))), flip) : null;
     const v = await dialog({ id: 'drill-actions', title: this.d.title || 'Drill', body: el('div', { class: 'stack' }, rinkView, el('p', { class: 'muted', style: 'margin:0' }, 'Your changes are already saved.')), buttons: [
+      ...(canDiscard(this.app, this.rec) ? [{ label: 'Discard changes', value: 'discard' }] : []),
       { label: 'Duplicate', value: 'dup' }, { label: 'Save as template', value: 'tmpl' }, { label: 'Delete', value: 'del', kind: 'danger' }, { label: 'Close', value: null }] });
     if (!v) return;
     await this.flush();
+    if (v === 'discard') { if (await discardFlow(this.app, 'drills', this.rec)) this.app.render(); return; }
     if (v === 'dup') {
       const c = D.duplicateDrill(this.rec, newId('d'));
       await this.app.store.save('drills', { ...c, thumb: this.rec.thumb });

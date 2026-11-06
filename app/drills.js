@@ -410,7 +410,8 @@ export function findDrills(drills, f = DEFAULT_FILTERS, texts = new Map()) {
   const show = new Set(f.show && f.show.length ? f.show : ['drills']);
   const out = drills.filter(d => {
     const kind = kindOf(d);
-    if (kind === 'samples' ? !(show.has('samples') || show.has('drills')) : !show.has(kind)) return false;
+    const myDraft = show.has('drafts') && d.pub && d.pub.state !== 'published' && !d.deletedAt;
+    if (!myDraft && (kind === 'samples' ? !(show.has('samples') || show.has('drills')) : !show.has(kind))) return false;
     if (f.tags.length && !f.tags.every(t => (d.tags || []).includes(t))) return false;
     if (f.ages.length && !f.ages.some(a => (d.ageGroups || []).includes(a))) return false;
     if (f.levels.length && !f.levels.includes(d.level)) return false;

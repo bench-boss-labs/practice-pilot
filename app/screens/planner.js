@@ -1,6 +1,7 @@
 /* Plan builder (R2 Plan Builder deep-dive): the plan as blocks on the left with the ice-time bar,
    and a side panel: Add drills, Details, Equipment, or the selected block's options. Saves as you go. */
 import { el, fill, toast, dialog } from '../ui.js?v=1.3.2';
+import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.3.2';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { History } from '../history.js?v=1.3.2';
 import { Player } from '../engine/player.js?v=1.3.2';
@@ -49,10 +50,11 @@ class Planner {
     this.sel = null; this.tab = 'add'; this.pick = null; this.q = '';
     this.h = new History(strip(rec), {
       onChange: (v, o) => this.changed(o),
-      save: async v => { this.rec = await this.app.store.save('plans', { ...this.rec, ...v }); },
+      save: async v => { this.rec = await this.app.store.save('plans', { ...this.rec, ...v }); if (this.bPublish) this.renderTop(); },
     });
     app.busy = true;
     this.build();
+    if (inTeam(app)) warnMark(app, 'plans', rec.id);
     this.onKey = e => this.key(e);
     document.addEventListener('keydown', this.onKey);
     this.onHide = () => { if (document.visibilityState === 'hidden') this.h.flush(); };
@@ -68,14 +70,16 @@ class Planner {
     this.statusEl = el('span', { class: 'pp-status', 'aria-live': 'polite', id: 'save-status' }, 'Saved');
     this.bUndo = el('button', { type: 'button', class: 'btn', id: 'undo', 'aria-label': 'Undo', onclick: () => this.h.undo() }, '↶ Undo');
     this.bRedo = el('button', { type: 'button', class: 'btn', id: 'redo', 'aria-label': 'Redo', onclick: () => this.h.redo() }, '↷ Redo');
+    this.bPublish = el('button', { type: 'button', class: 'btn primary', id: 'publish-btn', hidden: true, title: 'Publish to your team', onclick: () => this.publish() }, 'Publish');
+    this.pubEl = el('span', { class: 'pp-status pp-pub', id: 'pub-status' });
     this.budgetEl = el('div', { class: 'pp-budget', id: 'budget', role: 'img' });
     this.blocksEl = el('div', { class: 'pp-blocks', id: 'blocks' });
     this.panel = el('aside', { class: 'pp-panel card', id: 'plan-panel', 'aria-label': 'Options' });
     fill(this.root,
       el('div', { class: 'pp-edtop' },
         el('a', { class: 'btn', href: `#plans/${this.rec.id}`, id: 'planner-back' }, '‹ Plans'),
-        el('div', { class: 'grow pp-edtitle' }, this.titleEl, this.statusEl),
-        this.bUndo, this.bRedo,
+        el('div', { class: 'grow pp-edtitle' }, this.titleEl, el('span', { class: 'row pp-statuses' }, this.statusEl, this.pubEl)),
+        this.bUndo, this.bRedo, this.bPublish,
         el('button', { type: 'button', class: 'btn', id: 'print-btn', onclick: async () => { await this.h.flush(); location.hash = `#print/${this.rec.id}`; } }, 'Print'),
         el('button', { type: 'button', class: 'btn', id: 'plan-menu', 'aria-label': 'More plan actions', onclick: () => this.menu() }, '⋮')),
       this.budgetEl,
@@ -111,6 +115,16 @@ class Planner {
     this.statusEl.textContent = this.h.status;
     this.statusEl.className = `pp-status${this.h.status === 'Not saved' ? ' bad' : ''}`;
     this.bUndo.disabled = !this.h.past.length; this.bRedo.disabled = !this.h.future.length;
+    this.bPublish.hidden = !canPublish(this.app, this.rec);
+    this.pubEl.textContent = pubWords(this.app, this.rec);
+  }
+
+  async publish() {
+    const r = await publishFlow(this.app, 'plans', this.rec.id, { before: () => this.h.flush() });
+    if (!r) return;
+    const fresh = await this.app.store.get('plans', this.rec.id);
+    if (!fresh || r.took.includes(this.rec.id)) { this.app.render(); return; }
+    this.rec = fresh; this.renderTop();
   }
 
   renderBudget() {
@@ -342,9 +356,10 @@ class Planner {
 
   async menu() {
     const v = await dialog({ id: 'plan-actions', title: this.p.title || 'Plan', body: el('p', { class: 'muted', style: 'margin:0' }, 'Your changes are already saved.'),
-      buttons: [{ label: 'Duplicate', value: 'dup' }, { label: 'Save as template', value: 'tmpl' }, { label: 'Delete', value: 'del', kind: 'danger' }, { label: 'Close', value: null }] });
+      buttons: [...(canDiscard(this.app, this.rec) ? [{ label: 'Discard changes', value: 'discard' }] : []), { label: 'Duplicate', value: 'dup' }, { label: 'Save as template', value: 'tmpl' }, { label: 'Delete', value: 'del', kind: 'danger' }, { label: 'Close', value: null }] });
     if (!v) return;
     await this.h.flush();
+    if (v === 'discard') { if (await discardFlow(this.app, 'plans', this.rec)) this.app.render(); return; }
     if (v === 'dup') { const c = P.duplicatePlan(this.rec, newId('p')); await this.app.store.save('plans', c); toast(`“${c.title}” opened`); location.hash = `#plan/${c.id}`; }
     else if (v === 'tmpl') { await this.app.store.save('plans', P.planTemplate(this.rec, newId('p'))); toast('Saved as a template. New plan now offers it.'); }
     else if (v === 'del') {

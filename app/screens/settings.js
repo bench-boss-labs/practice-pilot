@@ -7,6 +7,7 @@ import { formatDate } from '../../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { renderInstallCard } from '../../vendor/bbl-kit/1.0.1/bbl-install.js';
 import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.3.2';
 import { renderTeamCard } from './teamcard.js?v=1.3.2';
+import { pushChanges } from '../cloud/team.js?v=1.3.2';
 
 export function renderSettings(app, sub) {
   const tab = sub === 'device' ? 'device' : 'about';
@@ -67,6 +68,10 @@ function device(app) {
     const v = Math.round(Number(iceInput.value));
     if (!(v >= 10 && v <= 180)) { iceInput.value = String(app.team.iceTimeMinutes || 50); toast('Ice time is between 10 and 180 minutes.', { error: true }); return; }
     await safeSave(() => app.store.save('teams', { ...app.team, iceTimeMinutes: v }));
+    if (app.cloudState && app.cloudState.libraryId) {   // a team setting: every coach's new plans use it
+      try { await pushChanges(app, { team: { ...app.team, iceTimeMinutes: v } }); toast(`Ice time saved for ${app.cloudState.teamName}.`); }
+      catch (e) { toast(`Saved on this device; the team didn’t get it: ${e.words || e.message}`, { error: true }); }
+    }
     await app.refreshTeam();
     toast('Saved');
   });

@@ -344,3 +344,10 @@ body.pp-ed-compact main { max-width: none; height: 100vh; height: 100dvh; paddin
 /* R3: the Google Drive and team card */
 .pp-howto summary { cursor: pointer; font-weight: 600; min-height: var(--tap-min); display: flex; align-items: center; }
 .pp-howto ol { margin: var(--space-2) 0 0; padding-left: 1.4em; display: grid; gap: var(--space-2); }
+.syncpill { min-height: 32px; padding: 2px 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.syncpill[data-state="signin"], .syncpill[data-state="error"] { border-color: var(--warn); color: var(--ink); background: var(--work-soft); }
+.syncpill[data-state="offline"] { color: var(--muted); }
+.pp-pill-draft { background: var(--accent-soft); border-color: var(--accent); }
+.pp-pill-changed { background: var(--work-soft); border-color: var(--warn); }
+.pp-statuses { gap: 8px; flex-wrap: wrap; }
+.pp-pub:empty { display: none; }

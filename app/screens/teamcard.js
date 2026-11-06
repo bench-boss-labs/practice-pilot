@@ -19,10 +19,10 @@ export function renderTeamCard(app) {
     for (const b of card.querySelectorAll('button')) b.disabled = true;
     const was = (await cloudState(app)).libraryId;
     try { await fn(); status.textContent = ''; }
-    catch (e) { console.error(e); status.textContent = problem(e); toast(problem(e), { error: true }); }
+    catch (e) { console.warn('team', e); status.textContent = problem(e); toast(problem(e), { error: true }); }
     finally {
       working = false;
-      if ((await cloudState(app)).libraryId !== was && card.isConnected) app.render();   // team changed: redraw Settings
+      if ((await cloudState(app)).libraryId !== was && card.isConnected) { app.render(); if (app.catchUp) app.catchUp(); }   // team changed: redraw Settings, catch up
       else await draw();
     }
   };

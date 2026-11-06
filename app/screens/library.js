@@ -12,6 +12,8 @@ import { firstRunSamples } from '../engine/samples.js?v=1.3.2';
 import * as D from '../drills.js?v=1.3.2';
 import { drillInfo, pills } from './drillview.js?v=1.3.2';
 import { reviewOnly } from './editor.js?v=1.3.2';
+import { inTeam, pubBadge, publishButtons } from './publishui.js?v=1.3.2';
+import { staleDrafts } from '../cloud/sync.js?v=1.3.2';
 import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.3.2';
 
 const SHOW = [['drills', 'Drills'], ['templates', 'Templates'], ['samples', 'Samples only'], ['deleted', 'Recently deleted']];
@@ -126,6 +128,7 @@ class Library {
       el('div', { class: 'screen-head' }, el('h1', { class: 't-title' }, 'Library'), el('span', { class: 'grow' }),
         el('button', { type: 'button', class: 'btn primary', id: 'new-drill-btn', onclick: () => newDrillFlow(this.app) }, '+ New drill')),
       this.welcomed ? null : this.welcomeCard(),
+      this.staleNote = el('div', { id: 'stale-drafts' }),
       el('div', { class: 'row pp-searchrow' }, this.search,
         el('label', { class: 'pp-inline' }, el('span', { class: 'sr' }, 'Sort'),
           el('select', { id: 'sort', onchange: e => { this.f.sort = e.target.value; this.savePrefs(); this.renderCards(); } }, ...SORTS.map(([v, l]) => el('option', { value: v, selected: this.f.sort === v }, l))))),
@@ -134,6 +137,12 @@ class Library {
     this.applyLayout();
     this.renderFilters(); this.renderCards();
     if (this.openId) this.openPreview(this.openId, { scroll: false });
+    if (inTeam(this.app)) staleDrafts(this.app).then(list => {
+      if (!list.length) return;
+      fill(this.staleNote, el('section', { class: 'card notice row', role: 'status' },
+        el('p', { class: 'grow', style: 'margin:0' }, `${list.length === 1 ? 'A draft hasn’t' : `${list.length} drafts haven’t`} been published for over two weeks. Drafts live only on this device; publish ${list.length === 1 ? 'it' : 'them'} so they’re safe in your team’s Drive.`),
+        el('button', { type: 'button', class: 'btn', id: 'show-drafts', onclick: () => { this.f.show = ['drafts']; this.savePrefs(); this.renderFilters(); this.renderCards(); } }, 'Show my drafts')));
+    });
   }
 
   welcomeCard() {
@@ -157,7 +166,7 @@ class Library {
       btn('f-ages', 'Age', 'ages', D.AGES.map(a => [a, a])),
       btn('f-levels', 'Level', 'levels', D.LEVELS.map(l => [l, l])),
       btn('f-rinks', 'Rink', 'rinks', RINKS),
-      btn('f-show', 'Show', 'show', SHOW),
+      btn('f-show', 'Show', 'show', inTeam(this.app) ? [...SHOW.slice(0, 1), ['drafts', 'My drafts'], ...SHOW.slice(1)] : SHOW),
       D.filtersOn(f) ? el('button', { type: 'button', class: 'btn-link', id: 'clear-filters', onclick: () => this.clear() }, 'Clear filters') : null);
   }
 
@@ -202,6 +211,7 @@ class Library {
       pic,
       el('span', { class: 'pp-card-title' }, d.title),
       el('span', { class: 'pp-pills' },
+        pubBadge(this.app, d),
         d.sample ? el('span', { class: 'pill pp-pill-sample' }, 'Sample') : null,
         d.template ? el('span', { class: 'pill pp-pill-template' }, 'Template') : null,
         ...tagList.map(t => el('span', { class: 'pill' }, t)),
@@ -223,12 +233,13 @@ class Library {
     const act = (label, idx, fn, kind = '') => el('button', { type: 'button', class: `btn ${kind}`, id: idx, onclick: fn }, label);
     const actions = d.deletedAt
       ? [el('p', { class: 'muted', style: 'margin:0' }, `In Recently deleted: removed for good in ${D.daysLeft(d)} days.`),
-        el('div', { class: 'row' }, act('Restore', 'restore-drill', () => this.restore(d), 'primary'), act('Delete forever', 'delete-forever', () => this.deleteForever(d), 'danger'))]
+        el('div', { class: 'row' }, act('Restore', 'restore-drill', () => this.restore(d), 'primary'), act('Delete forever', 'delete-forever', () => this.deleteForever(d), 'danger'), ...publishButtons(this.app, 'drills', d, () => this.reload()))]
       : [el('div', { class: 'row' },
         newer ? el('span', { class: 'muted' }, 'Update to edit') : el('a', { class: 'btn primary', id: 'edit-drill', href: `#edit/${d.id}` }, d.template ? 'Edit template' : 'Edit'),
         phone || d.template ? null : act('Add to plan', 'add-to-plan', () => this.addToPlan(d)),
         act('Duplicate', 'duplicate-drill', () => this.duplicate(d)),
-        act('⋮', 'preview-menu', () => this.menu(d)))];
+        act('⋮', 'preview-menu', () => this.menu(d))),
+        ...(publishButtons(this.app, 'drills', d, () => this.reload()).length ? [el('div', { class: 'row', id: 'publish-row' }, ...publishButtons(this.app, 'drills', d, () => this.reload()))] : [])];
     fill(this.preview, 
       el('div', { class: 'row pp-preview-head' }, el('h2', { class: 't-section grow', id: 'preview-title' }, d.title),
         phone ? null : el('button', { type: 'button', class: 'btn', id: 'expand-preview', onclick: () => { this.layout.expanded = !this.layout.expanded; this.saveLayout(); this.applyLayout(); } }, '⤢ Expand'),

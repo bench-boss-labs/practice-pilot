@@ -7,7 +7,7 @@ import { LIBRARY_PREFIX, SHARED_FOLDER, libraryName, newLibrary, checkLibrary, p
 const META = 'cloud';
 /** This device's link to Google and the team: { email, name, folderId, folderName, libraryId, teamName, version, syncedAt }. */
 export async function cloudState(app) { return ((await app.store.get('meta', META)) || {}).value || {}; }
-async function setState(app, fields) {
+export async function setState(app, fields) {
   const v = { ...(await cloudState(app)), ...fields };
   for (const [k, x] of Object.entries(v)) if (x === undefined) delete v[k];
   await app.store.put('meta', { key: META, value: v });
@@ -66,8 +66,10 @@ export async function pushChanges(app, changes) {
 
 /** Put the team library on this device: the team, then every drill and plan (this device's unpublished work is kept). */
 export async function applyLibrary(app, doc) {
+  const leaving = new Set(((await app.store.get('meta', 'pending-gone')) || { value: [] }).value);   // deleted here, not yet sent
   for (const kind of ['drills', 'plans']) {
     for (const rec of doc[kind]) {
+      if (leaving.has(rec.id)) continue;
       const mine = await app.store.get(kind, rec.id);
       if (mine && mine.pub && mine.pub.state !== 'published') continue;   // a draft or unpublished change of yours wins here
       const local = fromTeam(rec);

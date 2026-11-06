@@ -195,3 +195,120 @@ test('leave the team and sign out: everything stays on the device', async () => 
   assert.equal((await T.cloudState(a)).email, undefined);
   assert.equal(T.signedIn(a), false);
 });
+
+/* ---------- stage 2: Drafts and Publish, catching up, marks ---------- */
+import * as S from '../../app/cloud/sync.js';
+
+/** Two coaches in one team: a (benchbosslabs, set up) and b (scalisec, joined). */
+async function team() {
+  const fake = new FakeDrive();
+  const admin = 'benchbosslabs@gmail.com', coach = 'scalisec@gmail.com';
+  const folder = fake.addFolder('Bulldogs', admin, { shared: { [coach]: 'writer' } });
+  const a = await device(fake, admin, { pickQueue: [{ id: folder }] });
+  await a.store.put('drills', drill('d_shared'));
+  await T.signIn(a); await T.setupTeam(a, { dialog: yes });
+  const lib = fake.find('Practice Pilot library · Bulldogs.json');
+  const b = await device(fake, coach, { pickQueue: [{ id: lib.id }] });
+  await T.signIn(b); await T.joinTeam(b, { dialog: no });
+  for (const x of [a, b]) { x.cloudState = await T.cloudState(x); S.watchStore(x); }
+  return { fake, a, b, lib };
+}
+const answer = v => async () => v;
+
+test('drafts: a new drill stays on the device until published; then the other coach gets it on sync', async () => {
+  const { fake, a, b, lib } = await team();
+  await a.store.save('drills', drill('d_new001', { title: 'Weave' }));
+  assert.equal(S.pubState(await a.store.get('drills', 'd_new001')), 'draft');
+  assert.ok(!fake.read(lib.id).drills.some(d => d.id === 'd_new001'), 'not in the team library');
+  assert.equal(await S.syncNow(b), true);
+  assert.equal(await b.store.get('drills', 'd_new001'), null, 'the other coach can’t see a draft');
+  const r = await S.publishItems(a, 'drills', 'd_new001', { dialog: answer(null) });
+  assert.equal(r.published, 1);
+  assert.equal(S.pubState(await a.store.get('drills', 'd_new001')), 'published');
+  await S.syncNow(b);
+  assert.equal((await b.store.get('drills', 'd_new001')).title, 'Weave');
+  assert.equal(b.sync.state, 'synced');
+});
+
+test('unpublished changes: the team keeps the published version; Discard goes back to it; a mark warns others', async () => {
+  const { fake, a, b, lib } = await team();
+  const d = await a.store.get('drills', 'd_shared');
+  await a.store.save('drills', { ...d, title: 'Renamed' });
+  assert.equal(S.pubState(await a.store.get('drills', 'd_shared')), 'changed');
+  await new Promise(r => setTimeout(r, 20));
+  assert.equal(fake.read(lib.id).drills.find(x => x.id === 'd_shared').title, 'Drill d_shared', 'the team still sees the published one');
+  await S.syncNow(b);
+  const m = await S.othersMark(b, 'd_shared');
+  assert.ok(m && m.email === 'benchbosslabs@gmail.com', 'b sees that a has unpublished changes');
+  assert.equal(await S.othersMark(a, 'd_shared'), null, 'not your own mark');
+  await S.syncNow(a);
+  assert.equal((await a.store.get('drills', 'd_shared')).title, 'Renamed', 'catching up never overwrites your unpublished changes');
+  const back = await S.discardChanges(a, 'drills', 'd_shared');
+  assert.equal(back.title, 'Drill d_shared');
+  assert.equal(S.pubState(await a.store.get('drills', 'd_shared')), 'published');
+  await S.syncNow(b);
+  assert.equal(await S.othersMark(b, 'd_shared'), null, 'the mark goes with Discard');
+});
+
+test('publish check: someone else published the same drill since you started → Keep mine, Take theirs, Keep both', async () => {
+  for (const choice of ['mine', 'theirs', 'both']) {
+    const { fake, a, b, lib } = await team();
+    await a.store.save('drills', { ...(await a.store.get('drills', 'd_shared')), title: 'A’s version' });
+    await b.store.save('drills', { ...(await b.store.get('drills', 'd_shared')), title: 'B’s version' });
+    await S.publishItems(b, 'drills', 'd_shared', { dialog: answer(null) });
+    let asked = null;
+    await S.publishItems(a, 'drills', 'd_shared', { dialog: async o => { asked = o.id; return choice; } });
+    assert.equal(asked, 'publish-conflict');
+    const titles = fake.read(lib.id).drills.map(d => d.title).sort();
+    const local = (await a.store.get('drills', 'd_shared')).title;
+    if (choice === 'mine') { assert.ok(titles.includes('A’s version') && !titles.includes('B’s version')); assert.equal(local, 'A’s version'); }
+    if (choice === 'theirs') { assert.ok(titles.includes('B’s version') && !titles.includes('A’s version')); assert.equal(local, 'B’s version'); }
+    if (choice === 'both') { assert.ok(titles.includes('B’s version') && titles.includes('A’s version (my copy)')); assert.equal(local, 'B’s version'); }
+  }
+});
+
+test('publish check: deleted by someone else → put it back with your changes, or let it go', async () => {
+  const { fake, a, b, lib } = await team();
+  await a.store.save('drills', { ...(await a.store.get('drills', 'd_shared')), title: 'Kept' });
+  await b.store.delete('drills', 'd_shared');
+  await S.syncNow(b);                                   // sends the deletion
+  assert.ok(fake.read(lib.id).gone.some(g => g.id === 'd_shared'));
+  await S.publishItems(a, 'drills', 'd_shared', { dialog: answer('back') });
+  assert.equal(fake.read(lib.id).drills.find(d => d.id === 'd_shared').title, 'Kept');
+  await S.syncNow(b);
+  assert.equal((await b.store.get('drills', 'd_shared')).title, 'Kept', 'it’s back for everyone');
+});
+
+test('publishing a plan offers to publish the drafts it uses, so nobody sees a missing drill', async () => {
+  const { fake, a, lib } = await team();
+  await a.store.save('drills', drill('d_draft1', { title: 'New one' }));
+  await a.store.save('plans', stamp({ id: 'p_plan01', title: 'Tue', blocks: [{ id: 'b1', kind: 'drill', drillId: 'd_draft1', minutes: 8 }, { id: 'b2', kind: 'drill', drillId: 'd_shared', minutes: 8 }], deletedAt: null }));
+  assert.equal(await S.publishItems(a, 'plans', 'p_plan01', { dialog: answer(null) }), null, 'Cancel publishes nothing');
+  assert.ok(!fake.read(lib.id).plans.length);
+  const r = await S.publishItems(a, 'plans', 'p_plan01', { dialog: answer('all') });
+  assert.equal(r.published, 2);
+  assert.ok(fake.read(lib.id).drills.some(d => d.id === 'd_draft1') && fake.read(lib.id).plans.some(p => p.id === 'p_plan01'));
+});
+
+test('catching up: offline and a run-out pass show in the status, and nothing changes', async () => {
+  const { fake, b } = await team();
+  fake.offline = true;
+  assert.equal(await S.syncNow(b), false); assert.equal(b.sync.state, 'offline');
+  fake.offline = false; fake.expired.add('scalisec@gmail.com');
+  assert.equal(await S.syncNow(b), false); assert.equal(b.sync.state, 'signin');
+  fake.expired.clear();
+  b.busy = true;
+  assert.equal(await S.syncNow(b), false, 'waits while a drill or plan is open');
+  assert.equal(await S.syncNow(b, { force: true }), true);
+  assert.equal(S.statusWords({ state: 'signin' }), 'Sign in to sync');
+});
+
+test('samples never become drafts; drafts are offered for reminders after two weeks', async () => {
+  const { a } = await team();
+  await a.store.save('drills', drill('d_sampl1', { sample: true }));
+  assert.equal(S.pubState(await a.store.get('drills', 'd_sampl1')), null);
+  await a.store.save('drills', drill('d_old001'));
+  const r = await a.store.get('drills', 'd_old001');
+  await a.store.put('drills', { ...r, updatedAt: '2026-10-01T00:00:00.000Z' });
+  assert.deepEqual((await S.staleDrafts(a)).map(x => x.id), ['d_old001']);
+});

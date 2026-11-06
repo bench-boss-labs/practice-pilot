@@ -54,6 +54,7 @@ export function publish(doc, { drills = [], plans = [], gone = [], team } = {}, 
       const rec = { ...forTeam(r), publishedAt: at, publishedBy: by };
       const i = list.findIndex(x => x.id === r.id);
       if (i >= 0) list[i] = rec; else list.push(rec);
+      n.gone = n.gone.filter(g => g.id !== r.id);   // put back after a delete
     }
   };
   put(n.drills, drills); put(n.plans, plans);

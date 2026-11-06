@@ -4,6 +4,7 @@ import { el, fill, toast, dialog } from '../ui.js?v=1.3.2';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
 import * as P from '../plans.js?v=1.3.2';
 import { reviewOnly } from './editor.js?v=1.3.2';
+import { pubBadge, publishButtons } from './publishui.js?v=1.3.2';
 
 export const KIND_NAMES = { drill: 'Drill', stations: 'Stations', activity: 'Activity' };
 
@@ -117,6 +118,7 @@ class PlansScreen {
       return el('button', { type: 'button', class: 'pp-card pp-plancard card', 'data-id': p.id, 'aria-pressed': String(this.openId === p.id), onclick: () => this.open(p.id) },
         el('span', { class: 'pp-plancard-pics' }, ...pics.map(d => thumb(d))),
         el('span', { class: 'pp-card-title' }, p.title),
+        pubBadge(this.app, p) ? el('span', { class: 'pp-pills' }, pubBadge(this.app, p)) : null,
         el('span', { class: 'muted pp-card-meta' }, [P.dayLabel(p.date) || 'No date', `${bud.used} of ${bud.ice} min`, `${p.blocks.length} block${p.blocks.length === 1 ? '' : 's'}`].join(' · ')),
         bud.state === 'over' ? el('span', { class: 'pp-overtag' }, `${bud.used - bud.ice} min over`) : null);
     }));
@@ -136,7 +138,7 @@ class PlansScreen {
         phone ? el('span', { class: 'muted' }, 'Edit on a tablet or PC') : el('a', { class: 'btn primary', id: 'edit-plan', href: `#plan/${p.id}` }, p.template ? 'Edit template' : 'Edit'),
         el('a', { class: 'btn', id: 'print-plan', href: `#print/${p.id}` }, 'Print'),
         btn('Duplicate', 'duplicate-plan', () => this.duplicate(p)),
-        btn('⋮', 'plan-menu', () => this.menu(p)));
+        btn('⋮', 'plan-menu', () => this.menu(p)), ...publishButtons(this.app, 'plans', p, () => this.reload()));
     fill(this.preview,
       el('div', { class: 'row pp-preview-head' }, el('h2', { class: 't-section grow', id: 'plan-preview-title' }, p.title),
         el('button', { type: 'button', class: 'btn', id: 'close-plan-preview', 'aria-label': 'Close preview', onclick: () => this.close() }, '✕')),

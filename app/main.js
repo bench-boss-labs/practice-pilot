@@ -14,7 +14,8 @@ import { renderPrint } from './screens/print.js?v=1.3.2';
 import { renderHelpScreen } from './screens/help.js?v=1.3.2';
 import { renderSettings } from './screens/settings.js?v=1.3.2';
 import { createGoogle } from './cloud/google.js?v=1.3.2';
-import { connect, cloudState } from './cloud/team.js?v=1.3.2';
+import { connect, cloudState, signIn } from './cloud/team.js?v=1.3.2';
+import { watchStore, syncNow, statusWords, unpublished } from './cloud/sync.js?v=1.3.2';
 import { thumbnailSVG } from './engine/render.js?v=1.3.2';
 import { frame } from './engine/model.js?v=1.3.2';
 
@@ -93,6 +94,44 @@ function whatsNewAfterUpdate() {
   }
 }
 
+/* ---------- the team: catching up and the status in the top bar (R3) ---------- */
+/** Catch up with the team library when the app opens or comes back on screen (not while a drill or plan is open). */
+async function catchUp() {
+  if (!app.cloudState || !app.cloudState.libraryId) { renderSyncPill(); return; }
+  const changed = await syncNow(app);
+  if (changed && !app.busy && /^#?(library|plans|$)/.test(location.hash.replace('#', '') || 'library')) route();
+}
+function renderSyncPill() {
+  const b = document.getElementById('sync-pill');
+  const inTeam = !!(app.cloudState && app.cloudState.libraryId);
+  b.hidden = !inTeam;
+  if (!inTeam) return;
+  const s = app.sync || { state: 'none' };
+  b.textContent = statusWords(s) || 'Sync';
+  b.dataset.state = s.state;
+  b.setAttribute('aria-label', `${statusWords(s) || 'Sync'}. Tap for details or Sync now.`);
+}
+async function syncDialog() {
+  const s = app.sync || { state: 'none' };
+  if (s.state === 'signin') {
+    try { await signIn(app); await catchUp(); } catch (e) { toast(e.message, { error: true }); }
+    return;
+  }
+  const mine = [...await app.store.all('drills'), ...await app.store.all('plans')].filter(r => unpublished(r) && !r.deletedAt);
+  const st = app.cloudState;
+  const body = el('div', { class: 'stack' },
+    el('p', { style: 'margin:0' }, s.state === 'offline' ? 'No connection right now. Drills and plans open and play, and you can work on drafts. Publishing waits until you’re back online.'
+      : s.state === 'error' ? s.words || 'Google Drive refused.' : `Last synced ${st.syncedAt ? new Date(st.syncedAt).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'not yet'}.`),
+    el('p', { class: 'muted', style: 'margin:0' }, mine.length ? `${mine.length} draft${mine.length === 1 ? ' or change' : 's or changes'} on this device ${mine.length === 1 ? 'isn’t' : 'aren’t'} published yet.` : 'Everything you’ve made is published.'),
+    app.busy ? el('p', { class: 'muted', style: 'margin:0' }, 'Sync now catches up when you leave this drill or plan.') : null);
+  const v = await dialog({ id: 'sync-dialog', title: st.teamName, body, buttons: [{ label: 'Close', value: null }, { label: 'Sync now', value: 'sync', kind: 'primary' }] });
+  if (v === 'sync') {
+    if (app.busy) { toast('Sync waits until you leave this drill or plan.'); return; }
+    const ok = await syncNow(app, { force: true });
+    if (ok) { toast('Up to date.'); route(); } else toast(app.sync.state === 'offline' ? 'No connection right now.' : app.sync.words || statusWords(app.sync), { error: true });
+  }
+}
+
 /* ---------- start ---------- */
 async function start() {
   document.getElementById('app-version').textContent = `v${APP_VERSION}`;
@@ -144,6 +183,9 @@ async function start() {
   connect(app, createGoogle());
   app.cloudState = await cloudState(app);
   app.thumbOf = d => thumbnailSVG(d, frame);
+  watchStore(app);
+  app.renderSyncPill = renderSyncPill; app.renderTeamPill = renderSyncPill; app.catchUp = catchUp;
+  document.getElementById('sync-pill').addEventListener('click', syncDialog);
   try { await restoreSamples(app, { onlyFirstRun: true }); await fillSampleSetup(app); await emptyBin(app); await emptyPlanBin(app); } catch (e) { console.error(e); }
   app.installed = app.installed || !!(await app.store.get('meta', 'installed')) || await detectInstalled();
   if (app.installed) { app.installPrompt = null; document.getElementById('install-btn').hidden = true; }
@@ -156,11 +198,12 @@ async function start() {
   addEventListener('hashchange', route);
   route();
   whatsNewAfterUpdate();
+  catchUp();
 
   app.reg = await registerOffline('sw.js');
   watchOnline(v => app.setOnline(v));
   checkUpdates();
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdates(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checkUpdates(); catchUp(); } });
   setInterval(checkUpdates, 30 * 60 * 1000);
 }
 

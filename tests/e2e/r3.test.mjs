@@ -165,3 +165,143 @@ test('leave the team: drills stay on the device; sign out keeps the team to view
   assert.deepEqual(page.errors, []);
   await ctx.close();
 });
+
+/* ---------- stage 2: Drafts and Publish, Sync now, the check at Publish ---------- */
+
+/** A team: the tablet (benchbosslabs) set it up, the PC (scalisec) joined. */
+async function twoDevices() {
+  const fake = new FakeDrive();
+  const folder = fake.addFolder('Bulldogs', ADMIN, { shared: { [COACH]: 'writer' } });
+  const tab = await device(fake, ADMIN, { picks: [folder] });
+  await toSettings(tab.page);
+  await tab.page.click('#google-signin'); await settled(tab.page);
+  await tab.page.click('#setup-team'); await settled(tab.page);
+  const lib = fake.find('Practice Pilot library · Bulldogs.json');
+  const pc = await device(fake, COACH, { size: 'pc', picks: [lib.id] });
+  await toSettings(pc.page);
+  await pc.page.click('#google-signin'); await settled(pc.page);
+  await pc.page.click('#join-team'); await settled(pc.page);
+  return { fake, lib, tab, pc };
+}
+const syncNowOn = async page => {
+  await page.click('#sync-pill');
+  await page.click('#sync-dialog button:has-text("Sync now")');
+  await page.waitForFunction(() => /Synced/.test(document.getElementById('sync-pill').textContent));
+};
+const libDrills = (fake, lib) => fake.read(lib.id).drills.map(d => d.title).sort();
+
+test('a new drill is a Draft until you publish it; the other coach gets it with Sync now', async () => {
+  const { fake, lib, tab, pc } = await twoDevices();
+  assert.match(await tab.page.textContent('#sync-pill'), /Synced/);
+  await makeDrill(tab.page, 'Weave');
+  assert.equal(await tab.page.textContent('#pub-status'), 'Draft · only on this device');
+  assert.ok(await tab.page.isVisible('#publish-btn'));
+  assert.deepEqual(libDrills(fake, lib), [], 'not in the team yet');
+  await tab.page.goto(env.server.url + '#library');
+  await tab.page.waitForSelector('.pp-card:has-text("Weave") .pp-pill-draft');
+
+  // My drafts filter
+  await tab.page.click('#f-show'); await tab.page.click('#pick-show .pp-tagchip:has-text("Drills")'); await tab.page.click('#pick-show .pp-tagchip:has-text("My drafts")'); await tab.page.click('#pick-show button:has-text("Done")');
+  assert.equal(await tab.page.locator('.pp-card').count(), 1);
+
+  await tab.page.click('.pp-card:has-text("Weave")');
+  await tab.page.click('#publish-drill');
+  await tab.page.waitForSelector('.toast:has-text("Published to Bulldogs")');
+  assert.deepEqual(libDrills(fake, lib), ['Weave']);
+  assert.equal(await tab.page.locator('.pp-card:has-text("Weave") .pp-pill-draft').count(), 0);
+
+  await pc.page.goto(env.server.url + '#library'); await pc.page.waitForSelector('.pp-card');
+  assert.equal(await pc.page.locator('.pp-card:has-text("Weave")').count(), 0);
+  await syncNowOn(pc.page);
+  await pc.page.waitForSelector('.pp-card:has-text("Weave")');
+  assert.deepEqual(tab.page.errors, []); assert.deepEqual(pc.page.errors, []);
+  await tab.ctx.close(); await pc.ctx.close();
+});
+
+test('changing a published drill waits for Publish changes; Discard goes back; the other coach is told', async () => {
+  const { fake, lib, tab, pc } = await twoDevices();
+  await makeDrill(tab.page, 'Breakout');
+  await tab.page.click('#publish-btn'); await tab.page.waitForSelector('.toast:has-text("Published")');
+  const id = await tab.page.evaluate(() => location.hash.split('/')[1]);
+  await syncNowOn(pc.page);
+
+  // the PC changes it: the team still sees the published one
+  await pc.page.goto(env.server.url + '#edit/' + id); await pc.page.waitForSelector('#editor-title');
+  await pc.page.click('#tab-details'); await pc.page.fill('#title', 'Breakout (PC)');
+  await pc.page.waitForFunction(() => document.getElementById('pub-status').textContent === 'Unpublished changes');
+  assert.deepEqual(libDrills(fake, lib), ['Breakout']);
+
+  // the tablet hears about it when it opens the drill
+  await tab.page.goto(env.server.url + '#library'); await tab.page.waitForSelector('.pp-card');
+  await syncNowOn(tab.page);
+  await tab.page.goto(env.server.url + '#edit/' + id); await tab.page.waitForSelector('#editor-title');
+  await tab.page.waitForSelector('.toast:has-text("has unpublished changes to this drill")');
+
+  // the PC discards
+  await pc.page.click('#drill-menu'); await pc.page.click('#drill-actions button:has-text("Discard changes")');
+  await pc.page.click('#discard-confirm button:has-text("Discard changes")');
+  await pc.page.waitForFunction(() => document.getElementById('editor-title') && document.getElementById('editor-title').textContent === 'Breakout');
+  assert.match(await pc.page.textContent('#pub-status'), /Published to Bulldogs/);
+  await tab.ctx.close(); await pc.ctx.close();
+});
+
+test('both coaches change the same drill: the second to publish is asked, and Keep both keeps both', async () => {
+  const { fake, lib, tab, pc } = await twoDevices();
+  await makeDrill(tab.page, 'Shared');
+  await tab.page.click('#publish-btn'); await tab.page.waitForSelector('.toast:has-text("Published")');
+  const id = await tab.page.evaluate(() => location.hash.split('/')[1]);
+  await syncNowOn(pc.page);
+  await pc.page.goto(env.server.url + '#edit/' + id); await pc.page.waitForSelector('#editor-title');
+  await pc.page.click('#tab-details'); await pc.page.fill('#title', 'Shared (PC)');
+  await pc.page.waitForFunction(() => document.getElementById('pub-status').textContent === 'Unpublished changes');
+  await tab.page.click('#tab-details'); await tab.page.fill('#title', 'Shared (tablet)');
+  await tab.page.waitForFunction(() => document.getElementById('pub-status').textContent === 'Unpublished changes');
+  await tab.page.click('#publish-btn'); await tab.page.waitForSelector('.toast:has-text("Published")');
+  await pc.page.click('#publish-btn');
+  await pc.page.waitForSelector('#publish-conflict');
+  assert.match(await pc.page.textContent('#publish-conflict'), /benchbosslabs published changes to “Shared \(tablet\)”/);
+  await pc.page.click('#publish-conflict button:has-text("Keep both")');
+  await pc.page.waitForFunction(() => document.getElementById('editor-title') && document.getElementById('editor-title').textContent === 'Shared (tablet)');
+  assert.deepEqual(libDrills(fake, lib), ['Shared (PC) (my copy)', 'Shared (tablet)']);
+  await tab.ctx.close(); await pc.ctx.close();
+});
+
+test('publishing a plan offers to publish its draft drills too', async () => {
+  const { fake, lib, tab } = await twoDevices();
+  await makeDrill(tab.page, 'In the plan');
+  const drillId = await tab.page.evaluate(() => location.hash.split('/')[1]);
+  const planId = await tab.page.evaluate(async id => {
+    const p = { id: 'p_plantest', title: 'Tuesday', author: '', team: '', sourcePlanId: null, submittedAt: null, date: '', startTime: '', iceMinutes: null, themes: '', notes: '', blocks: [{ id: 'b_1', kind: 'drill', drillId: id, minutes: 8, note: '', helpers: [] }], extraEquipment: [], template: false, deletedAt: null, visibility: 'private' };
+    await window.__pp.store.save('plans', p); return p.id;
+  }, drillId);
+  await tab.page.goto(env.server.url + '#plan/' + planId); await tab.page.waitForSelector('#publish-btn');
+  assert.equal(await tab.page.textContent('#pub-status'), 'Draft · only on this device');
+  await tab.page.click('#publish-btn');
+  await tab.page.waitForSelector('#publish-drills');
+  await tab.page.click('#publish-drills button:has-text("Publish both")');
+  await tab.page.waitForSelector('.toast:has-text("Published")');
+  assert.deepEqual(libDrills(fake, lib), ['In the plan']);
+  assert.deepEqual(fake.read(lib.id).plans.map(p => p.title), ['Tuesday']);
+  await tab.ctx.close();
+});
+
+test('the status in the top bar: offline, Sign in to sync, and publishing offline keeps your work', async () => {
+  const { fake, tab } = await twoDevices();
+  await makeDrill(tab.page, 'Offline draft');
+  fake.offline = true;
+  await tab.page.click('#publish-btn');
+  await tab.page.waitForSelector('.toast.error, .toast[data-kind="error"], .toast:has-text("connection")');
+  assert.equal(await tab.page.textContent('#pub-status'), 'Draft · only on this device');
+  await tab.page.goto(env.server.url + '#library'); await tab.page.waitForSelector('.pp-card');
+  await tab.page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await tab.page.waitForFunction(() => document.getElementById('sync-pill').textContent === 'Offline');
+  fake.offline = false; fake.expired.add(ADMIN);
+  await tab.page.click('#sync-pill'); await tab.page.click('#sync-dialog button:has-text("Sync now")');
+  await tab.page.waitForFunction(() => document.getElementById('sync-pill').textContent === 'Sign in to sync');
+  fake.expired.clear();
+  await tab.page.evaluate(() => window.__pp.google.signOut());
+  await tab.page.click('#sync-pill');     // Sign in to sync: signs in, then catches up
+  await tab.page.waitForFunction(() => /Synced/.test(document.getElementById('sync-pill').textContent));
+  assert.deepEqual(tab.page.errors, []);
+  await tab.ctx.close();
+});

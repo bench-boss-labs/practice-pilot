@@ -1,5 +1,13 @@
 # Practice Pilot — changelog
 
+## 1.4.0 — 2026-11-06 (Your team’s library in Google Drive)
+
+- **New:** Sign in with Google in Settings › This device and join your team: pick your team’s library file once, and every coach’s published drills and plans appear on your tablet, PC and phone.
+- **New:** Drafts and Publish: a new drill or plan stays on your device as a Draft until you tap Publish. Changes to a published one wait for Publish changes, and Discard changes goes back to the team’s version.
+- **New:** If another coach published the same drill while you were working on it, Publish asks: Keep mine, Take theirs, or Keep both. Opening a drill someone else is changing tells you so.
+- **New:** The top bar shows when you last synced; tap it for Sync now. The app catches up whenever it opens.
+- **Improved:** Ice time is now a team setting, and Help explains teams, drafts and publishing.
+
 ## 1.3.2 — 2026-11-06 (Coaches handle the puck)
 
 - **New:** Coaches can pass, receive and shoot: pass from a player to a coach, a coach to a player, or one coach to another, with the same Pass and Shoot tools.

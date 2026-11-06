@@ -1,7 +1,7 @@
 /* Help: the standard Bench Boss Labs Help screen. */
 import { renderHelp } from '../../vendor/bbl-kit/1.0.1/bbl-help.js';
-import { APP_NAME, APP_VERSION } from '../version.js?v=1.3.2';
-import { el } from '../ui.js?v=1.3.2';
+import { APP_NAME, APP_VERSION } from '../version.js?v=1.4.0';
+import { el } from '../ui.js?v=1.4.0';
 
 export function renderHelpScreen(app) {
   const b = t => el('b', {}, t);

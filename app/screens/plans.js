@@ -1,10 +1,10 @@
 /* Plans (R2 Plan Builder deep-dive): the list of practice plans, a preview, and the read-only plan view
    (used by the preview and on phones). */
-import { el, fill, toast, dialog } from '../ui.js?v=1.3.2';
+import { el, fill, toast, dialog } from '../ui.js?v=1.4.0';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import * as P from '../plans.js?v=1.3.2';
-import { reviewOnly } from './editor.js?v=1.3.2';
-import { pubBadge, publishButtons } from './publishui.js?v=1.3.2';
+import * as P from '../plans.js?v=1.4.0';
+import { reviewOnly } from './editor.js?v=1.4.0';
+import { pubBadge, publishButtons } from './publishui.js?v=1.4.0';
 
 export const KIND_NAMES = { drill: 'Drill', stations: 'Stations', activity: 'Activity' };
 

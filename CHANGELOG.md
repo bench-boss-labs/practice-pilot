@@ -1,5 +1,13 @@
 # Practice Pilot — changelog
 
+## 1.4.2 — 2026-11-07 (Send a drill to anyone)
+
+- **New:** Share on a drill makes a video of it playing (MP4 on most phones), ready to text, WhatsApp or email to anyone.
+- **New:** The drill sheet: one page with the setup, a picture of each step with its caption, and the coaching points. Print it, or Save as PDF to send it.
+- **New:** Send drill file and Import: give a drill to a coach on another team who has Practice Pilot; it arrives in their Library as a copy.
+- **New:** The plan printout has a QR code on each drill card: scan it with your phone to watch that drill play.
+- **Fixed:** Pass lines are drawn so every picture of a drill can be saved as an image or video.
+
 ## 1.4.1 — 2026-11-06 (Share plans with your helpers)
 
 - **New:** Share on a plan: add your helpers by their Google email once, then share the plan and send them the link.

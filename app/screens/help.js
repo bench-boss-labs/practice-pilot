@@ -1,7 +1,7 @@
 /* Help: the standard Bench Boss Labs Help screen. */
 import { renderHelp } from '../../vendor/bbl-kit/1.0.1/bbl-help.js';
-import { APP_NAME, APP_VERSION } from '../version.js?v=1.4.1';
-import { el } from '../ui.js?v=1.4.1';
+import { APP_NAME, APP_VERSION } from '../version.js?v=1.4.2';
+import { el } from '../ui.js?v=1.4.2';
 
 export function renderHelpScreen(app) {
   const b = t => el('b', {}, t);
@@ -19,7 +19,8 @@ export function renderHelpScreen(app) {
       { title: 'Add a callout', text: p('Select a player in a step, tap ', b('+ Callout'), ' and type the cue. Pick ', b('This step'), ' or ', b('Until the end'), '.') },
       { title: 'Find a drill', text: p('Search the library, or use the Tags, Age, Level and Rink filters. Tap a card to watch it play.') },
       { title: 'Share drills with your team', text: p('In ', b('Settings › This device'), ', sign in with Google and tap ', b('Join a team'), ', then pick your team’s library file. Your coaches’ published drills and plans appear here. The top bar shows when you last synced; tap it for ', b('Sync now'), '.') },
-      { title: 'Share a plan with helpers', text: p('On a plan, tap ', b('Share'), '. Add your helpers by their Google email once, then ', b('Share with helpers'), ' and send them the link. On their phone they sign in, pick the team’s ', b('shared'), ' folder once, and see the run sheet with each drill playing, even with no signal.') },
+      { title: 'Send a drill to anyone', text: p('On a drill, tap ', b('Share'), ' (in the Library, or ⋮ in the editor). ', b('Make video'), ' records the drill playing as a video to text or email. ', b('Open the drill sheet'), ' gives a page with a picture of each step: Print, or Save as PDF to send it. ', b('Send drill file'), ' is for a coach who has Practice Pilot: they tap ', b('Import'), ' in their Library.') },
+            { title: 'Share a plan with helpers', text: p('On a plan, tap ', b('Share'), '. Add your helpers by their Google email once, then ', b('Share with helpers'), ' and send them the link. On their phone they sign in, pick the team’s ', b('shared'), ' folder once, and see the run sheet with each drill playing, even with no signal.') },
             { title: 'Drafts and Publish', text: p('A new drill or plan is a ', b('Draft'), ': only you see it, on this device, even with no signal. Tap ', b('Publish'), ' when it’s ready for the team. Changes to a published drill wait for ', b('Publish changes'), ', and ', b('Discard changes'), ' goes back to the team’s version.') },
             { title: 'Put it on your phone’s home screen too', text: p('On a phone, the browser bar takes space from the rink. Added to the home screen (', b('Settings › This device › Install'), '), Practice Pilot opens full screen with a bigger rink.') },
       { title: 'Put it on your tablet’s home screen', text: p('Tap ', b('Install'), ' at the top, or go to ', b('Settings › This device › Install'), ' for the steps on your device. It then opens like any other app.') },

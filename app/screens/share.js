@@ -1,7 +1,7 @@
 /* The Share dialog on a plan (1.4.1): the team's helpers (add, remove) and this plan's sharing (share, link, stop). */
-import { el, fill, toast, dialog } from '../ui.js?v=1.4.1';
-import { cloudState } from '../cloud/team.js?v=1.4.1';
-import { sharePlan, unsharePlan, sharedIds, listHelpers, addHelper, removeHelper, helperLink, ensureShared } from '../cloud/sharing.js?v=1.4.1';
+import { el, fill, toast, dialog } from '../ui.js?v=1.4.2';
+import { cloudState } from '../cloud/team.js?v=1.4.2';
+import { sharePlan, unsharePlan, sharedIds, listHelpers, addHelper, removeHelper, helperLink, ensureShared } from '../cloud/sharing.js?v=1.4.2';
 
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';
 

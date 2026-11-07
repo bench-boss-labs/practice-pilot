@@ -1,25 +1,26 @@
 /* Practice Pilot — start-up, screens, updates, offline status. */
-import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.4.1';
-import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.4.1';
+import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.4.2';
+import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.4.2';
 import { openStore, newId, requestPersistence, storageStatus } from '../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { checkForUpdate, showUpdateBanner, pendingWhatsNew, renderReleases, normalizeReleases } from '../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { registerOffline, applyUpdate, watchOnline, singleTab } from '../vendor/bbl-kit/1.0.1/bbl-offline.js';
 import { isStandalone, detectInstalled } from '../vendor/bbl-kit/1.0.1/bbl-install.js';
-import { el, toast, dialog, blocker } from './ui.js?v=1.4.1';
-import { renderLibrary, restoreSamples, emptyBin, fillSampleSetup } from './screens/library.js?v=1.4.1';
-import { renderEditor } from './screens/editor.js?v=1.4.1';
-import { renderPlans, emptyPlanBin } from './screens/plans.js?v=1.4.1';
-import { renderPlanner } from './screens/planner.js?v=1.4.1';
-import { renderPrint } from './screens/print.js?v=1.4.1';
-import { renderHelpScreen } from './screens/help.js?v=1.4.1';
-import { renderSettings } from './screens/settings.js?v=1.4.1';
-import { createGoogle } from './cloud/google.js?v=1.4.1';
-import { connect, cloudState, signIn } from './cloud/team.js?v=1.4.1';
-import { watchStore, syncNow, statusWords, unpublished } from './cloud/sync.js?v=1.4.1';
-import { afterPublish, refreshShared, helperState } from './cloud/sharing.js?v=1.4.1';
-import { renderJoin, renderHelper } from './screens/helper.js?v=1.4.1';
-import { thumbnailSVG } from './engine/render.js?v=1.4.1';
-import { frame } from './engine/model.js?v=1.4.1';
+import { el, toast, dialog, blocker } from './ui.js?v=1.4.2';
+import { renderLibrary, restoreSamples, emptyBin, fillSampleSetup } from './screens/library.js?v=1.4.2';
+import { renderEditor } from './screens/editor.js?v=1.4.2';
+import { renderPlans, emptyPlanBin } from './screens/plans.js?v=1.4.2';
+import { renderPlanner } from './screens/planner.js?v=1.4.2';
+import { renderPrint } from './screens/print.js?v=1.4.2';
+import { renderHelpScreen } from './screens/help.js?v=1.4.2';
+import { renderSettings } from './screens/settings.js?v=1.4.2';
+import { createGoogle } from './cloud/google.js?v=1.4.2';
+import { connect, cloudState, signIn } from './cloud/team.js?v=1.4.2';
+import { watchStore, syncNow, statusWords, unpublished } from './cloud/sync.js?v=1.4.2';
+import { afterPublish, refreshShared, helperState } from './cloud/sharing.js?v=1.4.2';
+import { renderJoin, renderHelper } from './screens/helper.js?v=1.4.2';
+import { renderDrillSheet } from './screens/drillshare.js?v=1.4.2';
+import { thumbnailSVG } from './engine/render.js?v=1.4.2';
+import { frame } from './engine/model.js?v=1.4.2';
 
 const app = {
   store: null, team: null, reg: null, notes: [], busy: false, online: true,
@@ -39,25 +40,31 @@ const app = {
 };
 window.__pp = app; // for the browser tests
 
-const SCREENS = { library: renderLibrary, edit: renderEditor, plans: renderPlans, plan: renderPlanner, print: renderPrint, help: renderHelpScreen, settings: renderSettings, join: renderJoin, helper: renderHelper };
+const SCREENS = { library: renderLibrary, edit: renderEditor, plans: renderPlans, plan: renderPlanner, print: renderPrint, help: renderHelpScreen, settings: renderSettings, join: renderJoin, helper: renderHelper, drillsheet: renderDrillSheet, drill: renderDrillLink };
+/** A QR code on the plan printout: #drill/<plan>/<drill> opens the drill playing, for a coach or a helper. */
+function renderDrillLink() {
+  const [, planId, drillId] = location.hash.replace('#', '').split('/');
+  location.replace(helperMode() ? `#helper/drill/${planId}/${drillId}` : `#library/${drillId}`);
+  return document.createElement('div');
+}
 /** A helper's phone: shared plans only (no Library, no editing). */
 const helperMode = () => !!app.helper && !(app.cloudState && app.cloudState.libraryId);
 
 function route() {
   const [screen, sub] = (location.hash.replace('#', '') || (helperMode() ? 'helper' : 'library')).split('/');
-  let name = SCREENS[screen] && (!['edit', 'plan', 'print'].includes(screen) || sub) ? screen : 'library';
-  if (helperMode() && ['library', 'edit', 'plans', 'plan', 'print'].includes(name)) name = 'helper';
+  let name = SCREENS[screen] && (!['edit', 'plan', 'print', 'drillsheet', 'drill'].includes(screen) || sub) ? screen : 'library';
+  if (helperMode() && ['library', 'edit', 'plans', 'plan', 'print', 'drillsheet'].includes(name)) name = 'helper';
   for (const a of document.querySelectorAll('#nav a')) a.hidden = helperMode() ? ['library', 'plans'].includes(a.dataset.screen) : a.dataset.screen === 'helper';
   document.getElementById('team-pill').textContent = helperMode() ? app.helper.teamName || '' : app.team ? app.team.name : '';
   if (app.cleanup) { try { app.cleanup(); } catch (e) { console.error(e); } app.cleanup = null; }
   for (const t of document.querySelectorAll('#toasts .toast.scoped')) t.remove();
-  const navName = name === 'edit' ? 'library' : ['plan', 'print'].includes(name) ? 'plans' : name === 'join' ? 'helper' : name;
+  const navName = ['edit', 'drillsheet', 'drill'].includes(name) ? 'library' : ['plan', 'print'].includes(name) ? 'plans' : name === 'join' ? 'helper' : name;
   for (const a of document.querySelectorAll('#nav a')) {
     if (a.dataset.screen === navName) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
   const main = document.getElementById('main');
   main.classList.toggle('wide', ['edit', 'library', 'plans', 'plan'].includes(name));
-  document.body.classList.toggle('pp-printing', name === 'print');
+  document.body.classList.toggle('pp-printing', name === 'print' || name === 'drillsheet');
   document.body.classList.remove('pp-noscroll');
   main.replaceChildren(...[].concat(SCREENS[name](app, sub)));
   if (app.privateLikely) main.prepend(privateNotice());

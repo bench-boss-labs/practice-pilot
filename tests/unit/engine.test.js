@@ -166,3 +166,16 @@ test('callouts move off other pieces when the spot above is taken', () => {
   const [d] = layoutCallouts([{ id: 'a', piece: 'p1', text: 'Hi', x: 100, y: 40, opacity: 1 }], [{ id: 'p1', x: 100, y: 40 }]);
   assert.equal(d.side, 'above');
 });
+
+test('1.4.2: every element of a frame has each attribute once (pictures read strictly, like the video, need it)', async () => {
+  const { frameSVG } = await import('../../app/engine/render.js');
+  const { frame, prepare } = await import('../../app/engine/model.js');
+  const { firstRunSamples } = await import('../../app/engine/samples.js');
+  for (const d of firstRunSamples()) for (let k = 0; k <= (d.steps || []).length; k++) {
+    const svg = frameSVG(d, frame(d, k, 0.5, prepare(d)), { pathsFor: k });
+    for (const tag of svg.match(/<[a-zA-Z][^>]*>/g)) {
+      const names = [...tag.matchAll(/\s([a-zA-Z:-]+)=/g)].map(m => m[1]);
+      assert.equal(new Set(names).size, names.length, `repeated attribute in ${tag.slice(0, 80)}`);
+    }
+  }
+});

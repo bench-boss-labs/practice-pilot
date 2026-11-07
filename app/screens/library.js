@@ -1,20 +1,21 @@
 /* Library (R1 Library deep-dive): search, filters, sort, drill cards with pictures, a playing preview,
    New drill (blank or template), Duplicate, Save as template, Delete to Recently deleted. */
-import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.4.1';
+import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.4.2';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.4.1';
-import { newDrill } from '../schema.js?v=1.4.1';
-import { Player } from '../engine/player.js?v=1.4.1';
-import { frame } from '../engine/model.js?v=1.4.1';
-import { thumbnailSVG } from '../engine/render.js?v=1.4.1';
-import { VIEWS } from '../engine/rink.js?v=1.4.1';
-import { firstRunSamples } from '../engine/samples.js?v=1.4.1';
-import * as D from '../drills.js?v=1.4.1';
-import { drillInfo, pills } from './drillview.js?v=1.4.1';
-import { reviewOnly } from './editor.js?v=1.4.1';
-import { inTeam, pubBadge, publishButtons } from './publishui.js?v=1.4.1';
-import { staleDrafts } from '../cloud/sync.js?v=1.4.1';
-import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.4.1';
+import { SCHEMA_VERSION } from '../version.js?v=1.4.2';
+import { newDrill } from '../schema.js?v=1.4.2';
+import { Player } from '../engine/player.js?v=1.4.2';
+import { frame } from '../engine/model.js?v=1.4.2';
+import { thumbnailSVG } from '../engine/render.js?v=1.4.2';
+import { VIEWS } from '../engine/rink.js?v=1.4.2';
+import { firstRunSamples } from '../engine/samples.js?v=1.4.2';
+import * as D from '../drills.js?v=1.4.2';
+import { drillInfo, pills } from './drillview.js?v=1.4.2';
+import { reviewOnly } from './editor.js?v=1.4.2';
+import { inTeam, pubBadge, publishButtons } from './publishui.js?v=1.4.2';
+import { staleDrafts } from '../cloud/sync.js?v=1.4.2';
+import { openShareDrill, importDrill } from './drillshare.js?v=1.4.2';
+import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.4.2';
 
 const SHOW = [['drills', 'Drills'], ['templates', 'Templates'], ['samples', 'Samples only'], ['deleted', 'Recently deleted']];
 const SORTS = [['edited', 'Recently edited'], ['az', 'A to Z'], ['steps', 'Most steps']];
@@ -126,6 +127,7 @@ class Library {
     this.preview = el('aside', { class: 'pp-preview card', id: 'preview', 'aria-label': 'Drill preview', hidden: true });
     fill(this.root, 
       el('div', { class: 'screen-head' }, el('h1', { class: 't-title' }, 'Library'), el('span', { class: 'grow' }),
+        el('button', { type: 'button', class: 'btn', id: 'import-drill', title: 'Import a drill file from another coach', onclick: () => importDrill(this.app, r => { this.openId = r.id; this.reload(); }) }, 'Import'),
         el('button', { type: 'button', class: 'btn primary', id: 'new-drill-btn', onclick: () => newDrillFlow(this.app) }, '+ New drill')),
       this.welcomed ? null : this.welcomeCard(),
       this.staleNote = el('div', { id: 'stale-drafts' }),
@@ -238,6 +240,7 @@ class Library {
         newer ? el('span', { class: 'muted' }, 'Update to edit') : el('a', { class: 'btn primary', id: 'edit-drill', href: `#edit/${d.id}` }, d.template ? 'Edit template' : 'Edit'),
         phone || d.template ? null : act('Add to plan', 'add-to-plan', () => this.addToPlan(d)),
         act('Duplicate', 'duplicate-drill', () => this.duplicate(d)),
+        act('Share', 'share-drill', () => openShareDrill(this.app, d)),
         act('⋮', 'preview-menu', () => this.menu(d))),
         ...(publishButtons(this.app, 'drills', d, () => this.reload()).length ? [el('div', { class: 'row', id: 'publish-row' }, ...publishButtons(this.app, 'drills', d, () => this.reload()))] : [])];
     fill(this.preview, 

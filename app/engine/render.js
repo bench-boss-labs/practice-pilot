@@ -1,8 +1,8 @@
 /* Practice Pilot animation engine — drawing. Builds SVG markup (strings) from a frame,
    so the same code draws the editor, the player, library cards and printed plans. */
-import { poly, at, sub, offsetPoints } from './geometry.js?v=1.4.1';
-import { TEAMS, isPlayer, positionsByStep, pathOf, movesIn, moveOf, layoutCallouts } from './model.js?v=1.4.1';
-import { rinkSVG, viewBox } from './rink.js?v=1.4.1';
+import { poly, at, sub, offsetPoints } from './geometry.js?v=1.4.2';
+import { TEAMS, isPlayer, positionsByStep, pathOf, movesIn, moveOf, layoutCallouts } from './model.js?v=1.4.2';
+import { rinkSVG, viewBox } from './rink.js?v=1.4.2';
 
 export const ACCENT = '#F26A1B';
 export const INK = '#1b2430';
@@ -32,13 +32,14 @@ export function notation(pl, line, col, w, finish) {
   if (pl.L < 0.5) return '';
   const tip = at(pl, pl.L), ang = tip.ang || 0;
   const body = sub(pl, 0, Math.max(0, pl.L - 1.6));
-  const st = `fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
+  // each attribute once: a picture read strictly (the 1.4.2 video, a saved file) refuses a repeated one
+  const base = `fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"`, st = `${base} stroke-linecap="round"`;
   let s;
   if (line === 'skate-puck') {
     const wl = Math.max(0, body.L - 1.4);
     s = `<path d="${dOf(offsetPoints(body, 0.4, d => (d < wl ? Math.sin(d / 3.2 * 2 * Math.PI) * 0.9 : 0)))}" ${st}/>`;
   } else if (line === 'pass') {
-    s = `<path d="${dOf(body.pts)}" ${st} stroke-dasharray="1.6 1.2" stroke-linecap="butt"/>`;
+    s = `<path d="${dOf(body.pts)}" ${base} stroke-dasharray="1.6 1.2" stroke-linecap="butt"/>`;
   } else if (line === 'shot') {
     s = `<path d="${dOf(offsetPoints(body, 0.5, () => 0.55))}" ${st}/><path d="${dOf(offsetPoints(body, 0.5, () => -0.55))}" ${st}/>`;
   } else {
@@ -165,9 +166,16 @@ export function frameSVG(d, fr, { pathsFor = fr.k, selected = null, idPrefix = '
     `<g class="callouts">${calloutsSVG(fr.callouts, fr.pieces)}</g>`;
 }
 
+/** Clip a picture to its view, so a picture shown wider or taller than the view never shows the rink beyond it. */
+export function clipToView(vb, inner, id) {
+  const [x, y, w, h] = vb.split(/\s+/);
+  return `<clipPath id="${id}-view"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath><g clip-path="url(#${id}-view)">${inner}</g>`;
+}
+
 /** A complete still picture of a drill (library cards, printing): Setup with every step's lines. */
 export async function thumbnailSVG(d, frameFn) {
   const fr = frameFn(d, 0, 1);
   const vb = viewBox(d.view && d.view.rink, d.view && d.view.flip);
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="${esc(d.title || 'Drill')}">${frameSVG(d, fr, { pathsFor: 0, idPrefix: 't' + Math.random().toString(36).slice(2, 7) })}</svg>`;
+  const id = 't' + Math.random().toString(36).slice(2, 7);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="${esc(d.title || 'Drill')}">${clipToView(vb, frameSVG(d, fr, { pathsFor: 0, idPrefix: id }), id)}</svg>`;
 }

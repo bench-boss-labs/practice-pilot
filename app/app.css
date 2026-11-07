@@ -356,3 +356,23 @@ body.pp-ed-compact main { max-width: none; height: 100vh; height: 100dvh; paddin
 .pp-helpers li { align-items: center; }
 #helper-link { width: 100%; }
 .pp-helper .pp-review-player .pp-rink { max-height: 60vh; }
+
+/* 1.4.2 Share a drill: the drill sheet, QR codes on the plan printout */
+.pp-dsheet { display: grid; gap: 14px; }
+.pp-ds-setup { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; align-items: start; }
+.pp-ds-setuppic svg, .pp-ds-pic svg { width: 100%; height: auto; display: block; border-radius: 8px; background: #fff; }
+.pp-ds-setuptext h4 { margin: 0 0 6px; }
+.pp-ds-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.pp-ds-step { margin: 0; break-inside: avoid; }
+.pp-ds-step figcaption { font-size: 13px; margin-top: 4px; }
+.pp-qr { margin-left: auto; display: grid; justify-items: center; gap: 2px; flex: none; }
+.pp-qr svg { width: 0.8in; height: 0.8in; background: #fff; }
+.pp-qr span { font-size: 10px; color: #475569; }
+.pp-pcard header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+@media print {
+  .pp-dsheet { color: #000; }
+  .pp-ds-setuppic svg { max-height: 3.2in; }
+  .pp-ds-pic svg { max-height: 1.45in; }
+  .pp-ds-step:nth-child(7) { break-before: page; }
+}
+@media (max-width: 640px) { .pp-ds-setup { grid-template-columns: 1fr; } .pp-ds-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

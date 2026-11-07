@@ -1,16 +1,17 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.4.1';
-import { el, fill, toast, dialog } from '../ui.js?v=1.4.1';
+import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.4.2';
+import { openShareDrill } from './drillshare.js?v=1.4.2';
+import { el, fill, toast, dialog } from '../ui.js?v=1.4.2';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.4.1';
-import { Player } from '../engine/player.js?v=1.4.1';
-import { PIECES, TEAMS, LINES, isPlayer, handlesPuck, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.4.1';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.4.1';
-import { VIEWS } from '../engine/rink.js?v=1.4.1';
-import { at } from '../engine/geometry.js?v=1.4.1';
-import * as D from '../drills.js?v=1.4.1';
-import { drillInfo } from './drillview.js?v=1.4.1';
+import { SCHEMA_VERSION } from '../version.js?v=1.4.2';
+import { Player } from '../engine/player.js?v=1.4.2';
+import { PIECES, TEAMS, LINES, isPlayer, handlesPuck, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.4.2';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.4.2';
+import { VIEWS } from '../engine/rink.js?v=1.4.2';
+import { at } from '../engine/geometry.js?v=1.4.2';
+import * as D from '../drills.js?v=1.4.2';
+import { drillInfo } from './drillview.js?v=1.4.2';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
@@ -804,11 +805,13 @@ class Editor {
         el('select', { id: 'menu-rink-view', onchange: e => { this.commit(D.setDetails(this.d, { view: { ...this.d.view, rink: e.target.value } })); flip.hidden = !['half', 'zone'].includes(e.target.value); } },
           ...VIEWS.map(([val, label]) => el('option', { value: val, selected: view.rink === val }, label)))), flip) : null;
     const v = await dialog({ id: 'drill-actions', title: this.d.title || 'Drill', body: el('div', { class: 'stack' }, rinkView, el('p', { class: 'muted', style: 'margin:0' }, 'Your changes are already saved.')), buttons: [
+      { label: 'Share…', value: 'share' },
       ...(canDiscard(this.app, this.rec) ? [{ label: 'Discard changes', value: 'discard' }] : []),
       { label: 'Duplicate', value: 'dup' }, { label: 'Save as template', value: 'tmpl' }, { label: 'Delete', value: 'del', kind: 'danger' }, { label: 'Close', value: null }] });
     if (!v) return;
     await this.flush();
     if (v === 'discard') { if (await discardFlow(this.app, 'drills', this.rec)) this.app.render(); return; }
+    if (v === 'share') { await openShareDrill(this.app, { ...this.rec, ...this.d }); return; }
     if (v === 'dup') {
       const c = D.duplicateDrill(this.rec, newId('d'));
       await this.app.store.save('drills', { ...c, thumb: this.rec.thumb });

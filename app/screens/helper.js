@@ -1,12 +1,12 @@
 /* The helper's phone (1.4.1): the team's shared plans, a plan's run sheet, each drill playing. Kept for no signal.
    #join/<file>/<folder>/<team> is the link a coach sends; #helper, #helper/plan/<id>, #helper/drill/<plan>/<drill>. */
-import { el, fill, toast } from '../ui.js?v=1.4.1';
-import { Player } from '../engine/player.js?v=1.4.1';
-import * as P from '../plans.js?v=1.4.1';
-import { planView } from './plans.js?v=1.4.1';
-import { visibleShared } from '../cloud/library.js?v=1.4.1';
-import { cloudState, signIn, signOut } from '../cloud/team.js?v=1.4.1';
-import { helperState, setHelper, helperLoad, helperPick, helperCache } from '../cloud/sharing.js?v=1.4.1';
+import { el, fill, toast } from '../ui.js?v=1.4.2';
+import { Player } from '../engine/player.js?v=1.4.2';
+import * as P from '../plans.js?v=1.4.2';
+import { planView } from './plans.js?v=1.4.2';
+import { visibleShared } from '../cloud/library.js?v=1.4.2';
+import { cloudState, signIn, signOut } from '../cloud/team.js?v=1.4.2';
+import { helperState, setHelper, helperLoad, helperPick, helperCache } from '../cloud/sharing.js?v=1.4.2';
 
 const when = iso => (iso ? new Date(iso).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '');
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';

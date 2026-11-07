@@ -1,5 +1,5 @@
 /* Practice Pilot data format, version 1. Pure functions: tested in Node (tests/unit). */
-import { SCHEMA_VERSION } from './version.js?v=1.4.1';
+import { SCHEMA_VERSION } from './version.js?v=1.4.2';
 
 /** Every data store the app keeps on the device. R0 creates them all; later releases fill them. */
 export const DATA_STORES = ['drills', 'plans', 'teams', 'media'];

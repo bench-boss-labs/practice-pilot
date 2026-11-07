@@ -1,8 +1,20 @@
 /* Printout (R2): page 1 is the run sheet; then a card per drill with its picture, purpose, setup,
    coaching points, who runs it and the block's note, about two cards a page. Chrome prints it or saves a PDF. */
-import { el, fill } from '../ui.js?v=1.4.1';
-import * as P from '../plans.js?v=1.4.1';
-import { blockTitle } from './plans.js?v=1.4.1';
+import { el, fill } from '../ui.js?v=1.4.2';
+import * as P from '../plans.js?v=1.4.2';
+import { blockTitle } from './plans.js?v=1.4.2';
+import qrcode from '../../vendor/qrcode-generator/1.4.4/qrcode.js';
+import { qrTarget } from '../drillshare-core.js?v=1.4.2';
+
+/** A QR code that opens the drill playing (decided Nov 6: on the plan printout, for coaches and helpers). */
+function qr(planId, d) {
+  if (!d) return null;
+  const q = qrcode(0, 'M'); q.addData(qrTarget(`${location.origin}${location.pathname}`, planId, d.id)); q.make();
+  const box = el('div', { class: 'pp-qr', title: 'Scan to watch this drill play' });
+  box.innerHTML = q.createSvgTag({ cellSize: 2, margin: 1, scalable: true });
+  box.append(el('span', {}, 'Scan to play'));
+  return box;
+}
 
 export function renderPrint(app, id) {
   const root = el('div', { class: 'pp-print-screen' }, el('p', { class: 'muted' }, 'Getting the plan ready to print…'));
@@ -21,7 +33,7 @@ function cards(p, lookup, sched) {
     const start = P.clock(p.startTime, s.start) || P.mmss(s.start);
     const time = b.kind === 'stations' && b.rotate !== false ? `${start} · ${b.minutesPerStation} min each` : `${start} · ${s.minutes} min`;
     const one = (d, { label, helpers = [], note = '', area = '' }) => el('article', { class: 'pp-pcard' },
-      el('header', {}, el('span', { class: 'pp-pcard-time' }, time), el('h3', {}, d ? d.title : 'Drill (deleted)'), label ? el('span', { class: 'pp-pcard-label' }, label) : null),
+      el('header', {}, el('span', { class: 'pp-pcard-time' }, time), el('h3', {}, d ? d.title : 'Drill (deleted)'), label ? el('span', { class: 'pp-pcard-label' }, label) : null, qr(p.id, d)),
       el('div', { class: 'pp-pcard-body' },
         pic(d),
         el('div', { class: 'pp-pcard-text' },

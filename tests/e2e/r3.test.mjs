@@ -305,3 +305,104 @@ test('the status in the top bar: offline, Sign in to sync, and publishing offlin
   assert.deepEqual(tab.page.errors, []);
   await tab.ctx.close();
 });
+
+/* ---------- 1.4.1: sharing plans with helpers ---------- */
+
+test('share a plan: add a helper, share; on their phone they pick the shared folder once, see the run sheet, play a drill, keep it offline', async () => {
+  const { fake, tab } = await twoDevices();
+  const HELPER = 'helper@example.com';
+  await makeDrill(tab.page, 'Helper drill');
+  const drillId = await tab.page.evaluate(() => location.hash.split('/')[1]);
+  await tab.page.evaluate(async id => {
+    await window.__pp.store.save('plans', { id: 'p_helper1', title: 'Thursday practice', author: '', team: '', sourcePlanId: null, submittedAt: null, date: '2099-01-08', startTime: '18:15', iceMinutes: null, themes: '', notes: '', blocks: [{ id: 'b_1', kind: 'drill', drillId: id, minutes: 10, note: 'Go hard', helpers: ['Sam'] }], extraEquipment: [], template: false, deletedAt: null, visibility: 'private' });
+  }, drillId);
+
+  // the coach: Plans › the plan › Share
+  await tab.page.goto(env.server.url + '#plans/p_helper1'); await tab.page.waitForSelector('#share-plan');
+  await tab.page.click('#share-plan');
+  await tab.page.waitForSelector('#share-dialog #helpers-list:has-text("No helpers yet")');
+  await tab.page.fill('#helper-email', HELPER);
+  await tab.page.click('#add-helper');
+  await tab.page.waitForSelector(`#helpers-list:has-text("${HELPER}")`);
+  assert.equal(fake.mail.at(-1).to, HELPER, 'Google emails the helper');
+  await tab.page.click('#share-plan-btn');
+  await tab.page.waitForSelector('#publish-drills');                 // its drill is a draft: publish both
+  await tab.page.click('#publish-drills button:has-text("Publish both")');
+  await tab.page.waitForSelector('#helper-link');
+  const link = await tab.page.inputValue('#helper-link');
+  assert.match(link, /#join\//);
+  await tab.page.click('#share-dialog button:has-text("Done")');
+  await tab.page.waitForSelector('.pp-pill-shared');
+
+  // the helper's phone
+  const ph = await device(fake, HELPER, { size: 'phone', picks: [fake.find('shared').id] });
+  await ph.page.goto(link);
+  await ph.page.waitForSelector('#helper-invite');
+  assert.match(await ph.page.textContent('#helper-invite'), /invited to see Bulldogs/);
+  assert.ok(await ph.page.isHidden('#nav a[data-screen="library"]'), 'no Library on a helper’s phone');
+  await ph.page.click('#helper-signin');
+  await ph.page.waitForSelector('#helper-pick');
+  await ph.page.click('#helper-pick-btn');
+  await ph.page.waitForSelector('#helper-plans a:has-text("Thursday practice")');
+  await ph.page.click('#helper-plans a:has-text("Thursday practice")');
+  await ph.page.waitForSelector('.pp-runlist');
+  assert.match(await ph.page.textContent('main'), /Go hard/);
+  assert.match(await ph.page.textContent('main'), /6:15 PM/);
+  await ph.page.click('.pp-drill-link:has-text("Helper drill")');
+  await ph.page.waitForSelector('#helper-player svg');
+  // no signal at the rink
+  fake.offline = true;
+  await ph.page.goto(env.server.url + '#helper'); await ph.page.reload();
+  await ph.page.waitForSelector('#helper-saved:has-text("Offline")');
+  assert.ok(await ph.page.isVisible('#helper-plans a:has-text("Thursday practice")'));
+  fake.offline = false;
+
+  // the coach changes the drill and publishes: the helper's copy updates (decided Nov 6)
+  await tab.page.goto(env.server.url + '#edit/' + drillId); await tab.page.waitForSelector('#editor-title');
+  await tab.page.click('#tab-details'); await tab.page.fill('#title', 'Helper drill v2');
+  await tab.page.waitForFunction(() => document.getElementById('pub-status').textContent === 'Unpublished changes');
+  await tab.page.click('#publish-btn'); await tab.page.waitForSelector('.toast:has-text("Published")');
+  await ph.page.reload(); await ph.page.waitForSelector('#helper-saved:has-text("Up to date")');
+  await ph.page.click('#helper-plans a:has-text("Thursday practice")');
+  await ph.page.waitForSelector('.pp-drill-link:has-text("Helper drill v2")');
+
+  // stop sharing, and the helper can never open the library
+  const libId = fake.find('Practice Pilot library · Bulldogs.json').id;
+  assert.equal(await ph.page.evaluate(id => window.__pp.drive.readJson(id).then(() => 'opened', e => e.status), libId), 404);
+  await tab.page.goto(env.server.url + '#plans/p_helper1'); await tab.page.waitForSelector('#share-plan');
+  await tab.page.click('#share-plan'); await tab.page.waitForSelector('#stop-sharing');
+  await tab.page.click('#stop-sharing'); await tab.page.waitForSelector('#share-plan-btn');
+  await tab.page.click('#share-dialog button:has-text("Done")');
+  await ph.page.goto(env.server.url + '#helper'); await ph.page.reload();
+  await ph.page.waitForSelector('#helper-screen:has-text("No plans shared yet")');
+  assert.deepEqual(tab.page.errors, []); assert.deepEqual(ph.page.errors, []);
+  await tab.ctx.close(); await ph.ctx.close();
+});
+
+test('a helper who is removed loses the plans; someone who isn’t a helper is told to ask the coach', async () => {
+  const { fake, tab } = await twoDevices();
+  await tab.page.evaluate(async () => { await window.__pp.store.save('plans', { id: 'p_rm', title: 'Sat', author: '', team: '', sourcePlanId: null, submittedAt: null, date: '2099-01-10', startTime: '', iceMinutes: null, themes: '', notes: '', blocks: [], extraEquipment: [], template: false, deletedAt: null, visibility: 'private' }); });
+  await tab.page.goto(env.server.url + '#plans/p_rm'); await tab.page.waitForSelector('#share-plan');
+  await tab.page.click('#share-plan'); await tab.page.waitForSelector('#share-plan-btn');
+  await tab.page.fill('#helper-email', 'gone@example.com'); await tab.page.click('#add-helper');
+  await tab.page.waitForSelector('#helpers-list:has-text("gone@example.com")');
+  await tab.page.click('#share-plan-btn'); await tab.page.waitForSelector('#helper-link');
+  const link = await tab.page.inputValue('#helper-link');
+  const ph = await device(fake, 'gone@example.com', { size: 'phone', picks: [fake.find('shared').id] });
+  await ph.page.goto(link); await ph.page.click('#helper-signin'); await ph.page.click('#helper-pick-btn');
+  await ph.page.waitForSelector('#helper-plans');
+  await tab.page.click('[data-remove="gone@example.com"]');
+  await tab.page.waitForSelector('#helpers-list:has-text("No helpers yet")');
+  await ph.page.reload();
+  await ph.page.waitForSelector('#helper-gone');
+  assert.equal(await ph.page.evaluate(() => window.__pp.store.get('meta', 'helper-cache')), null, 'the saved plans left the phone');
+
+  const other = await device(fake, 'stranger@example.com', { size: 'phone', picks: [fake.find('shared').id] });
+  await other.page.goto(link); await other.page.click('#helper-signin');
+  await other.page.waitForSelector('#helper-pick');
+  await other.page.click('#helper-pick-btn');
+  await other.page.waitForSelector('#helper-gone');
+  assert.match(await other.page.textContent('#helper-gone'), /Ask the coach to add you as a helper/);
+  assert.ok(!(await other.page.isVisible('#helper-plans')));
+  await tab.ctx.close(); await ph.ctx.close(); await other.ctx.close();
+});

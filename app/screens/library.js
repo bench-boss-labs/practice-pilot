@@ -1,20 +1,20 @@
 /* Library (R1 Library deep-dive): search, filters, sort, drill cards with pictures, a playing preview,
    New drill (blank or template), Duplicate, Save as template, Delete to Recently deleted. */
-import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.4.0';
+import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.4.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.4.0';
-import { newDrill } from '../schema.js?v=1.4.0';
-import { Player } from '../engine/player.js?v=1.4.0';
-import { frame } from '../engine/model.js?v=1.4.0';
-import { thumbnailSVG } from '../engine/render.js?v=1.4.0';
-import { VIEWS } from '../engine/rink.js?v=1.4.0';
-import { firstRunSamples } from '../engine/samples.js?v=1.4.0';
-import * as D from '../drills.js?v=1.4.0';
-import { drillInfo, pills } from './drillview.js?v=1.4.0';
-import { reviewOnly } from './editor.js?v=1.4.0';
-import { inTeam, pubBadge, publishButtons } from './publishui.js?v=1.4.0';
-import { staleDrafts } from '../cloud/sync.js?v=1.4.0';
-import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.4.0';
+import { SCHEMA_VERSION } from '../version.js?v=1.4.1';
+import { newDrill } from '../schema.js?v=1.4.1';
+import { Player } from '../engine/player.js?v=1.4.1';
+import { frame } from '../engine/model.js?v=1.4.1';
+import { thumbnailSVG } from '../engine/render.js?v=1.4.1';
+import { VIEWS } from '../engine/rink.js?v=1.4.1';
+import { firstRunSamples } from '../engine/samples.js?v=1.4.1';
+import * as D from '../drills.js?v=1.4.1';
+import { drillInfo, pills } from './drillview.js?v=1.4.1';
+import { reviewOnly } from './editor.js?v=1.4.1';
+import { inTeam, pubBadge, publishButtons } from './publishui.js?v=1.4.1';
+import { staleDrafts } from '../cloud/sync.js?v=1.4.1';
+import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.4.1';
 
 const SHOW = [['drills', 'Drills'], ['templates', 'Templates'], ['samples', 'Samples only'], ['deleted', 'Recently deleted']];
 const SORTS = [['edited', 'Recently edited'], ['az', 'A to Z'], ['steps', 'Most steps']];

@@ -1,16 +1,16 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.4.0';
-import { el, fill, toast, dialog } from '../ui.js?v=1.4.0';
+import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.4.1';
+import { el, fill, toast, dialog } from '../ui.js?v=1.4.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.4.0';
-import { Player } from '../engine/player.js?v=1.4.0';
-import { PIECES, TEAMS, LINES, isPlayer, handlesPuck, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.4.0';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.4.0';
-import { VIEWS } from '../engine/rink.js?v=1.4.0';
-import { at } from '../engine/geometry.js?v=1.4.0';
-import * as D from '../drills.js?v=1.4.0';
-import { drillInfo } from './drillview.js?v=1.4.0';
+import { SCHEMA_VERSION } from '../version.js?v=1.4.1';
+import { Player } from '../engine/player.js?v=1.4.1';
+import { PIECES, TEAMS, LINES, isPlayer, handlesPuck, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.4.1';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.4.1';
+import { VIEWS } from '../engine/rink.js?v=1.4.1';
+import { at } from '../engine/geometry.js?v=1.4.1';
+import * as D from '../drills.js?v=1.4.1';
+import { drillInfo } from './drillview.js?v=1.4.1';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];

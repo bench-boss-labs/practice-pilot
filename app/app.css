@@ -351,3 +351,8 @@ body.pp-ed-compact main { max-width: none; height: 100vh; height: 100dvh; paddin
 .pp-pill-changed { background: var(--work-soft); border-color: var(--warn); }
 .pp-statuses { gap: 8px; flex-wrap: wrap; }
 .pp-pub:empty { display: none; }
+.pp-pill-shared { background: var(--good-soft); border-color: var(--good); }
+.pp-helpers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.pp-helpers li { align-items: center; }
+#helper-link { width: 100%; }
+.pp-helper .pp-review-player .pp-rink { max-height: 60vh; }

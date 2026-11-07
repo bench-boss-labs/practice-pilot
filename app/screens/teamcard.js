@@ -1,8 +1,9 @@
 /* Settings › This device: the Google Drive and team card (R3). Sign in, set up a team (benchbosslabs only),
    join a team by picking its library once, change or leave the team, sign out. */
-import { el, toast, dialog, fill } from '../ui.js?v=1.4.0';
-import { cloudState, signIn, signOut, signedIn, setupTeam, joinTeam, leaveTeam } from '../cloud/team.js?v=1.4.0';
-import { isAdmin, LIBRARY_PREFIX } from '../cloud/library.js?v=1.4.0';
+import { el, toast, dialog, fill } from '../ui.js?v=1.4.1';
+import { cloudState, signIn, signOut, signedIn, setupTeam, joinTeam, leaveTeam } from '../cloud/team.js?v=1.4.1';
+import { isAdmin, LIBRARY_PREFIX } from '../cloud/library.js?v=1.4.1';
+import { setHelper } from '../cloud/sharing.js?v=1.4.1';
 
 const APP_ADDRESS = 'bench-boss-labs.github.io/practice-pilot';
 const when = iso => (iso ? new Date(iso).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'not yet');
@@ -33,7 +34,12 @@ export function renderTeamCard(app) {
     const inTeam = !!st.libraryId, on = signedIn(app) && !!st.email;
     const parts = [el('h2', { class: 't-section', id: 'cloud-title' }, 'Google Drive and your team')];
 
-    if (inTeam) {
+    if (!inTeam && app.helper) {
+      parts.push(el('p', {}, 'This phone is a helper’s for ', el('b', { id: 'cloud-helper-team' }, app.helper.teamName || 'a team'), on ? ['. Signed in as ', el('b', { id: 'cloud-email' }, st.email), '.'] : '. Signed out.'));
+      parts.push(el('div', { class: 'row' },
+        on ? btn('google-signout', 'Sign out', () => run('Signing out…', () => signOut(app))) : btn('google-signin', 'Sign in with Google', () => run('Signing in…', () => signIn(app)), 'primary'),
+        btn('stop-helper', 'Stop being a helper here', () => run('Removing…', async () => { await setHelper(app, null); toast('This phone no longer shows the team’s plans.'); app.render(); }))));
+    } else if (inTeam) {
       parts.push(el('dl', { class: 'kv' },
         el('dt', {}, 'Team'), el('dd', { id: 'cloud-team' }, st.teamName),
         el('dt', {}, 'Signed in as'), el('dd', { id: 'cloud-email' }, on ? st.email : 'Signed out'),

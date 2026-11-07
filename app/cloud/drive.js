@@ -67,6 +67,16 @@ export class Drive {
   writeJson(id, data) {
     return this.call('PATCH', `${UPLOAD}/files/${id}?uploadType=media&fields=${FIELDS}&supportsAllDrives=true`, { body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } });
   }
+  /** Who a file or folder is shared with. */
+  async permissions(id) {
+    const r = await this.call('GET', `${API}/files/${id}/permissions?fields=permissions(id,type,role,emailAddress,displayName)&supportsAllDrives=true`);
+    return r.permissions || [];
+  }
+  /** Share with someone; Google emails them with the message. */
+  share(id, email, role, message) {
+    return this.call('POST', `${API}/files/${id}/permissions?sendNotificationEmail=true&emailMessage=${q(message || '')}&supportsAllDrives=true&fields=id,emailAddress,role`, { body: JSON.stringify({ type: 'user', role, emailAddress: email }), headers: { 'Content-Type': 'application/json' } });
+  }
+  unshare(id, permissionId) { return this.call('DELETE', `${API}/files/${id}/permissions/${permissionId}?supportsAllDrives=true`); }
   /** Change small labels on a file (edit marks). A null value removes that label. */
   setProps(id, appProperties) {
     return this.call('PATCH', `${API}/files/${id}?fields=${FIELDS}&supportsAllDrives=true`, { body: JSON.stringify({ appProperties }), headers: { 'Content-Type': 'application/json' } });

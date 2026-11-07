@@ -1,23 +1,25 @@
 /* Practice Pilot — start-up, screens, updates, offline status. */
-import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.4.0';
-import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.4.0';
+import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.4.1';
+import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.4.1';
 import { openStore, newId, requestPersistence, storageStatus } from '../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { checkForUpdate, showUpdateBanner, pendingWhatsNew, renderReleases, normalizeReleases } from '../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { registerOffline, applyUpdate, watchOnline, singleTab } from '../vendor/bbl-kit/1.0.1/bbl-offline.js';
 import { isStandalone, detectInstalled } from '../vendor/bbl-kit/1.0.1/bbl-install.js';
-import { el, toast, dialog, blocker } from './ui.js?v=1.4.0';
-import { renderLibrary, restoreSamples, emptyBin, fillSampleSetup } from './screens/library.js?v=1.4.0';
-import { renderEditor } from './screens/editor.js?v=1.4.0';
-import { renderPlans, emptyPlanBin } from './screens/plans.js?v=1.4.0';
-import { renderPlanner } from './screens/planner.js?v=1.4.0';
-import { renderPrint } from './screens/print.js?v=1.4.0';
-import { renderHelpScreen } from './screens/help.js?v=1.4.0';
-import { renderSettings } from './screens/settings.js?v=1.4.0';
-import { createGoogle } from './cloud/google.js?v=1.4.0';
-import { connect, cloudState, signIn } from './cloud/team.js?v=1.4.0';
-import { watchStore, syncNow, statusWords, unpublished } from './cloud/sync.js?v=1.4.0';
-import { thumbnailSVG } from './engine/render.js?v=1.4.0';
-import { frame } from './engine/model.js?v=1.4.0';
+import { el, toast, dialog, blocker } from './ui.js?v=1.4.1';
+import { renderLibrary, restoreSamples, emptyBin, fillSampleSetup } from './screens/library.js?v=1.4.1';
+import { renderEditor } from './screens/editor.js?v=1.4.1';
+import { renderPlans, emptyPlanBin } from './screens/plans.js?v=1.4.1';
+import { renderPlanner } from './screens/planner.js?v=1.4.1';
+import { renderPrint } from './screens/print.js?v=1.4.1';
+import { renderHelpScreen } from './screens/help.js?v=1.4.1';
+import { renderSettings } from './screens/settings.js?v=1.4.1';
+import { createGoogle } from './cloud/google.js?v=1.4.1';
+import { connect, cloudState, signIn } from './cloud/team.js?v=1.4.1';
+import { watchStore, syncNow, statusWords, unpublished } from './cloud/sync.js?v=1.4.1';
+import { afterPublish, refreshShared, helperState } from './cloud/sharing.js?v=1.4.1';
+import { renderJoin, renderHelper } from './screens/helper.js?v=1.4.1';
+import { thumbnailSVG } from './engine/render.js?v=1.4.1';
+import { frame } from './engine/model.js?v=1.4.1';
 
 const app = {
   store: null, team: null, reg: null, notes: [], busy: false, online: true,
@@ -29,7 +31,7 @@ const app = {
   async refreshTeam() {
     const teams = await app.store.all('teams');
     app.team = teams[0];
-    document.getElementById('team-pill').textContent = app.team ? app.team.name : '';
+    document.getElementById('team-pill').textContent = helperMode() ? app.helper.teamName || '' : app.team ? app.team.name : '';
   },
   render() { route(); },
   cleanup: null, pendingUpdate: null,
@@ -37,14 +39,19 @@ const app = {
 };
 window.__pp = app; // for the browser tests
 
-const SCREENS = { library: renderLibrary, edit: renderEditor, plans: renderPlans, plan: renderPlanner, print: renderPrint, help: renderHelpScreen, settings: renderSettings };
+const SCREENS = { library: renderLibrary, edit: renderEditor, plans: renderPlans, plan: renderPlanner, print: renderPrint, help: renderHelpScreen, settings: renderSettings, join: renderJoin, helper: renderHelper };
+/** A helper's phone: shared plans only (no Library, no editing). */
+const helperMode = () => !!app.helper && !(app.cloudState && app.cloudState.libraryId);
 
 function route() {
-  const [screen, sub] = (location.hash.replace('#', '') || 'library').split('/');
-  const name = SCREENS[screen] && (!['edit', 'plan', 'print'].includes(screen) || sub) ? screen : 'library';
+  const [screen, sub] = (location.hash.replace('#', '') || (helperMode() ? 'helper' : 'library')).split('/');
+  let name = SCREENS[screen] && (!['edit', 'plan', 'print'].includes(screen) || sub) ? screen : 'library';
+  if (helperMode() && ['library', 'edit', 'plans', 'plan', 'print'].includes(name)) name = 'helper';
+  for (const a of document.querySelectorAll('#nav a')) a.hidden = helperMode() ? ['library', 'plans'].includes(a.dataset.screen) : a.dataset.screen === 'helper';
+  document.getElementById('team-pill').textContent = helperMode() ? app.helper.teamName || '' : app.team ? app.team.name : '';
   if (app.cleanup) { try { app.cleanup(); } catch (e) { console.error(e); } app.cleanup = null; }
   for (const t of document.querySelectorAll('#toasts .toast.scoped')) t.remove();
-  const navName = name === 'edit' ? 'library' : ['plan', 'print'].includes(name) ? 'plans' : name;
+  const navName = name === 'edit' ? 'library' : ['plan', 'print'].includes(name) ? 'plans' : name === 'join' ? 'helper' : name;
   for (const a of document.querySelectorAll('#nav a')) {
     if (a.dataset.screen === navName) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
@@ -54,7 +61,7 @@ function route() {
   document.body.classList.remove('pp-noscroll');
   main.replaceChildren(...[].concat(SCREENS[name](app, sub)));
   if (app.privateLikely) main.prepend(privateNotice());
-  document.title = `${name === 'library' ? '' : name === 'edit' ? 'Edit drill · ' : name === 'plan' ? 'Edit plan · ' : name === 'print' ? 'Print · ' : name[0].toUpperCase() + name.slice(1) + ' · '}${APP_NAME} · Bench Boss Labs`;
+  document.title = `${name === 'helper' || name === 'join' ? 'Shared plans · ' : name === 'library' ? '' : name === 'edit' ? 'Edit drill · ' : name === 'plan' ? 'Edit plan · ' : name === 'print' ? 'Print · ' : name[0].toUpperCase() + name.slice(1) + ' · '}${APP_NAME} · Bench Boss Labs`;
 }
 
 function privateNotice() {
@@ -97,8 +104,14 @@ function whatsNewAfterUpdate() {
 /* ---------- the team: catching up and the status in the top bar (R3) ---------- */
 /** Catch up with the team library when the app opens or comes back on screen (not while a drill or plan is open). */
 async function catchUp() {
-  if (!app.cloudState || !app.cloudState.libraryId) { renderSyncPill(); return; }
+  if (!app.cloudState || !app.cloudState.libraryId) {
+    renderSyncPill();
+    if (helperMode() && /^#?helper$/.test(location.hash || '#helper') && document.visibilityState === 'visible' && app.helperSeen) route();   // a helper's phone catches up when it comes back
+    app.helperSeen = true;
+    return;
+  }
   const changed = await syncNow(app);
+  if (changed) await refreshShared(app);
   if (changed && !app.busy && /^#?(library|plans|$)/.test(location.hash.replace('#', '') || 'library')) route();
 }
 function renderSyncPill() {
@@ -185,6 +198,8 @@ async function start() {
   app.thumbOf = d => thumbnailSVG(d, frame);
   watchStore(app);
   app.renderSyncPill = renderSyncPill; app.renderTeamPill = renderSyncPill; app.catchUp = catchUp;
+  app.afterPublish = changes => afterPublish(app, changes);
+  app.helper = await helperState(app);
   document.getElementById('sync-pill').addEventListener('click', syncDialog);
   try { await restoreSamples(app, { onlyFirstRun: true }); await fillSampleSetup(app); await emptyBin(app); await emptyPlanBin(app); } catch (e) { console.error(e); }
   app.installed = app.installed || !!(await app.store.get('meta', 'installed')) || await detectInstalled();

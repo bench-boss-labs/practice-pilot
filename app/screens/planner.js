@@ -1,14 +1,15 @@
 /* Plan builder (R2 Plan Builder deep-dive): the plan as blocks on the left with the ice-time bar,
    and a side panel: Add drills, Details, Equipment, or the selected block's options. Saves as you go. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.4.0';
-import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.4.0';
+import { el, fill, toast, dialog } from '../ui.js?v=1.4.1';
+import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.4.1';
+import { openShare } from './share.js?v=1.4.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { History } from '../history.js?v=1.4.0';
-import { Player } from '../engine/player.js?v=1.4.0';
-import * as P from '../plans.js?v=1.4.0';
-import { findDrills, DEFAULT_FILTERS, lengthLabel } from '../drills.js?v=1.4.0';
-import { reviewOnly } from './editor.js?v=1.4.0';
-import { planView, thumb, blockTitle, KIND_NAMES } from './plans.js?v=1.4.0';
+import { History } from '../history.js?v=1.4.1';
+import { Player } from '../engine/player.js?v=1.4.1';
+import * as P from '../plans.js?v=1.4.1';
+import { findDrills, DEFAULT_FILTERS, lengthLabel } from '../drills.js?v=1.4.1';
+import { reviewOnly } from './editor.js?v=1.4.1';
+import { planView, thumb, blockTitle, KIND_NAMES } from './plans.js?v=1.4.1';
 
 const COLOURS = ['#F26A1B', '#1d9e75', '#3b5ba5', '#c2417e', '#8a6d1d', '#5a6b7d'];
 const strip = r => { const { createdAt, updatedAt, updatedBy, schemaVersion, ...rest } = r; return rest; };
@@ -356,10 +357,11 @@ class Planner {
 
   async menu() {
     const v = await dialog({ id: 'plan-actions', title: this.p.title || 'Plan', body: el('p', { class: 'muted', style: 'margin:0' }, 'Your changes are already saved.'),
-      buttons: [...(canDiscard(this.app, this.rec) ? [{ label: 'Discard changes', value: 'discard' }] : []), { label: 'Duplicate', value: 'dup' }, { label: 'Save as template', value: 'tmpl' }, { label: 'Delete', value: 'del', kind: 'danger' }, { label: 'Close', value: null }] });
+      buttons: [...(inTeam(this.app) && !this.rec.template ? [{ label: 'Share with helpers…', value: 'share' }] : []), ...(canDiscard(this.app, this.rec) ? [{ label: 'Discard changes', value: 'discard' }] : []), { label: 'Duplicate', value: 'dup' }, { label: 'Save as template', value: 'tmpl' }, { label: 'Delete', value: 'del', kind: 'danger' }, { label: 'Close', value: null }] });
     if (!v) return;
     await this.h.flush();
     if (v === 'discard') { if (await discardFlow(this.app, 'plans', this.rec)) this.app.render(); return; }
+    if (v === 'share') { await openShare(this.app, this.rec, async () => { this.rec = (await this.app.store.get('plans', this.rec.id)) || this.rec; this.renderTop(); }); return; }
     if (v === 'dup') { const c = P.duplicatePlan(this.rec, newId('p')); await this.app.store.save('plans', c); toast(`“${c.title}” opened`); location.hash = `#plan/${c.id}`; }
     else if (v === 'tmpl') { await this.app.store.save('plans', P.planTemplate(this.rec, newId('p'))); toast('Saved as a template. New plan now offers it.'); }
     else if (v === 'del') {

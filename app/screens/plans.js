@@ -1,10 +1,12 @@
 /* Plans (R2 Plan Builder deep-dive): the list of practice plans, a preview, and the read-only plan view
    (used by the preview and on phones). */
-import { el, fill, toast, dialog } from '../ui.js?v=1.4.0';
+import { el, fill, toast, dialog } from '../ui.js?v=1.4.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import * as P from '../plans.js?v=1.4.0';
-import { reviewOnly } from './editor.js?v=1.4.0';
-import { pubBadge, publishButtons } from './publishui.js?v=1.4.0';
+import * as P from '../plans.js?v=1.4.1';
+import { reviewOnly } from './editor.js?v=1.4.1';
+import { pubBadge, publishButtons, inTeam } from './publishui.js?v=1.4.1';
+import { openShare } from './share.js?v=1.4.1';
+import { sharedIds } from '../cloud/sharing.js?v=1.4.1';
 
 export const KIND_NAMES = { drill: 'Drill', stations: 'Stations', activity: 'Activity' };
 
@@ -23,13 +25,13 @@ export function blockTitle(b, lookup) {
 }
 
 /** The plan as a read-only run sheet: times, blocks, helpers, equipment and setup. */
-export function planView(p, { lookup, team, onDrill }) {
+export function planView(p, { lookup, team, onDrill, helper = false }) {
   const sched = P.schedule(p, team);
   const bud = P.budget(p, team);
   const eq = P.equipment(p, lookup), extra = (p.extraEquipment || []).filter(Boolean);
   const drillLink = d => (onDrill && d ? el('button', { type: 'button', class: 'btn-link pp-drill-link', onclick: () => onDrill(d) }, d.title) : el('span', {}, d ? d.title : 'Drill (deleted)'));
   return el('div', { class: 'stack pp-planview' },
-    el('p', { class: 'muted', style: 'margin:0' }, [P.dayLabel(p.date), P.clock(p.startTime), bud.words].filter(Boolean).join(' · ')),
+    el('p', { class: 'muted', style: 'margin:0' }, [P.dayLabel(p.date), P.clock(p.startTime), helper ? `${bud.used} min` : bud.words].filter(Boolean).join(' · ')),   // a helper doesn't need the ice-time budget
     p.themes ? el('p', { class: 'pp-themes' }, el('b', {}, 'Themes: '), p.themes) : null,
     p.blocks.length ? el('ol', { class: 'pp-runlist' }, ...p.blocks.map((b, i) => {
       const s = sched[i];
@@ -83,6 +85,7 @@ class PlansScreen {
   async start() {
     const [plans, drills] = await Promise.all([this.app.store.all('plans'), this.app.store.all('drills')]);
     this.plans = plans; this.drills = new Map(drills.map(d => [d.id, d]));
+    this.shared = inTeam(this.app) ? await sharedIds(this.app) : new Set();
     this.lookup = id => this.drills.get(id) || null;
     this.build();
   }
@@ -118,7 +121,7 @@ class PlansScreen {
       return el('button', { type: 'button', class: 'pp-card pp-plancard card', 'data-id': p.id, 'aria-pressed': String(this.openId === p.id), onclick: () => this.open(p.id) },
         el('span', { class: 'pp-plancard-pics' }, ...pics.map(d => thumb(d))),
         el('span', { class: 'pp-card-title' }, p.title),
-        pubBadge(this.app, p) ? el('span', { class: 'pp-pills' }, pubBadge(this.app, p)) : null,
+        pubBadge(this.app, p) || this.shared.has(p.id) ? el('span', { class: 'pp-pills' }, pubBadge(this.app, p), this.shared.has(p.id) ? el('span', { class: 'pill pp-pill-shared' }, 'Shared with helpers') : null) : null,
         el('span', { class: 'muted pp-card-meta' }, [P.dayLabel(p.date) || 'No date', `${bud.used} of ${bud.ice} min`, `${p.blocks.length} block${p.blocks.length === 1 ? '' : 's'}`].join(' · ')),
         bud.state === 'over' ? el('span', { class: 'pp-overtag' }, `${bud.used - bud.ice} min over`) : null);
     }));
@@ -138,7 +141,8 @@ class PlansScreen {
         phone ? el('span', { class: 'muted' }, 'Edit on a tablet or PC') : el('a', { class: 'btn primary', id: 'edit-plan', href: `#plan/${p.id}` }, p.template ? 'Edit template' : 'Edit'),
         el('a', { class: 'btn', id: 'print-plan', href: `#print/${p.id}` }, 'Print'),
         btn('Duplicate', 'duplicate-plan', () => this.duplicate(p)),
-        btn('⋮', 'plan-menu', () => this.menu(p)), ...publishButtons(this.app, 'plans', p, () => this.reload()));
+        btn('⋮', 'plan-menu', () => this.menu(p)), ...publishButtons(this.app, 'plans', p, () => this.reload()),
+        inTeam(this.app) && !p.template ? btn('Share', 'share-plan', () => openShare(this.app, p, () => this.reload())) : null);
     fill(this.preview,
       el('div', { class: 'row pp-preview-head' }, el('h2', { class: 't-section grow', id: 'plan-preview-title' }, p.title),
         el('button', { type: 'button', class: 'btn', id: 'close-plan-preview', 'aria-label': 'Close preview', onclick: () => this.close() }, '✕')),
@@ -156,7 +160,7 @@ class PlansScreen {
     for (const c of this.list.querySelectorAll('.pp-card')) c.setAttribute('aria-pressed', 'false');
   }
 
-  async reload() { this.plans = await this.app.store.all('plans'); this.renderList(); if (this.openId) this.open(this.openId); }
+  async reload() { this.plans = await this.app.store.all('plans'); this.shared = inTeam(this.app) ? await sharedIds(this.app) : new Set(); this.renderList(); if (this.openId) this.open(this.openId); }
 
   async duplicate(p) {
     const c = P.duplicatePlan(p, newId('p'));

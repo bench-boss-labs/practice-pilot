@@ -1,7 +1,7 @@
 /* Help: the standard Bench Boss Labs Help screen. */
 import { renderHelp } from '../../vendor/bbl-kit/1.0.1/bbl-help.js';
-import { APP_NAME, APP_VERSION } from '../version.js?v=1.4.0';
-import { el } from '../ui.js?v=1.4.0';
+import { APP_NAME, APP_VERSION } from '../version.js?v=1.4.1';
+import { el } from '../ui.js?v=1.4.1';
 
 export function renderHelpScreen(app) {
   const b = t => el('b', {}, t);
@@ -19,7 +19,8 @@ export function renderHelpScreen(app) {
       { title: 'Add a callout', text: p('Select a player in a step, tap ', b('+ Callout'), ' and type the cue. Pick ', b('This step'), ' or ', b('Until the end'), '.') },
       { title: 'Find a drill', text: p('Search the library, or use the Tags, Age, Level and Rink filters. Tap a card to watch it play.') },
       { title: 'Share drills with your team', text: p('In ', b('Settings › This device'), ', sign in with Google and tap ', b('Join a team'), ', then pick your team’s library file. Your coaches’ published drills and plans appear here. The top bar shows when you last synced; tap it for ', b('Sync now'), '.') },
-      { title: 'Drafts and Publish', text: p('A new drill or plan is a ', b('Draft'), ': only you see it, on this device, even with no signal. Tap ', b('Publish'), ' when it’s ready for the team. Changes to a published drill wait for ', b('Publish changes'), ', and ', b('Discard changes'), ' goes back to the team’s version.') },
+      { title: 'Share a plan with helpers', text: p('On a plan, tap ', b('Share'), '. Add your helpers by their Google email once, then ', b('Share with helpers'), ' and send them the link. On their phone they sign in, pick the team’s ', b('shared'), ' folder once, and see the run sheet with each drill playing, even with no signal.') },
+            { title: 'Drafts and Publish', text: p('A new drill or plan is a ', b('Draft'), ': only you see it, on this device, even with no signal. Tap ', b('Publish'), ' when it’s ready for the team. Changes to a published drill wait for ', b('Publish changes'), ', and ', b('Discard changes'), ' goes back to the team’s version.') },
             { title: 'Put it on your phone’s home screen too', text: p('On a phone, the browser bar takes space from the rink. Added to the home screen (', b('Settings › This device › Install'), '), Practice Pilot opens full screen with a bigger rink.') },
       { title: 'Put it on your tablet’s home screen', text: p('Tap ', b('Install'), ' at the top, or go to ', b('Settings › This device › Install'), ' for the steps on your device. It then opens like any other app.') },
       { title: 'Use it at the rink with no signal', text: 'Once it has been opened online, Practice Pilot opens with no internet. Everything you make is saved on this device.' },
@@ -27,7 +28,8 @@ export function renderHelpScreen(app) {
     ],
     questions: [
       { q: 'I removed something by mistake.', a: p('Tap ', b('Undo'), ' at the top of the editor, or on the message that appears. A deleted drill stays in ', b('Show › Recently deleted'), ' for 30 days.') },
-      { q: 'Someone else changed the drill I was working on. What happens?', a: p('When you publish, Practice Pilot checks first. If another coach published the same drill since you started, it asks: ', b('Keep mine'), ', ', b('Take theirs'), ', or ', b('Keep both'), ' (yours is saved as a copy). Nothing is overwritten without asking.') },
+      { q: 'What can helpers see?', a: p('Only the plans you share, with their drills: from the last 30 days and anything still to come. Never your drafts, the library, or plans you haven’t shared. Publishing changes to a shared plan updates their copy; ', b('Stop sharing'), ' or ', b('Remove'), ' a helper in the Share dialog.') },
+            { q: 'Someone else changed the drill I was working on. What happens?', a: p('When you publish, Practice Pilot checks first. If another coach published the same drill since you started, it asks: ', b('Keep mine'), ', ', b('Take theirs'), ', or ', b('Keep both'), ' (yours is saved as a copy). Nothing is overwritten without asking.') },
       { q: 'Where are my drills kept?', a: p('On this device, and, once published, in one file in your team’s Google Drive folder. Practice Pilot can only see its own files in your Drive. Drafts stay on this device until you publish them, and they’re in this device’s Backup.') },
             { q: 'Can I edit on my phone?', a: p('Yes. Turn your phone sideways to build or change a drill: the tools run down the left, the steps along the bottom, and ', b('Options'), ' opens the piece, step and details settings. Held upright, you can play a drill and change its details (title, setup, coaching points and tags). Plans are read-only on a phone for now.') },
       { q: 'Where is my work saved?', a: 'On this device only, for now. A later update saves it to your team’s Google Drive folder so your bench staff can see it.' },

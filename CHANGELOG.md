@@ -1,5 +1,12 @@
 # Practice Pilot — changelog
 
+## 1.4.1 — 2026-11-06 (Share plans with your helpers)
+
+- **New:** Share on a plan: add your helpers by their Google email once, then share the plan and send them the link.
+- **New:** On their phone, helpers sign in, pick the team’s shared folder once, and see each shared plan’s run sheet with every drill playing, even with no signal at the rink.
+- **New:** Publishing changes to a shared plan, or to one of its drills, updates the helpers’ copy straight away. Stop sharing and Remove are in the Share dialog.
+- **Improved:** Helpers see plans still to come and from the last 30 days, never drafts or the library. Shared plans show a Shared with helpers label.
+
 ## 1.4.0 — 2026-11-06 (Your team’s library in Google Drive)
 
 - **New:** Sign in with Google in Settings › This device and join your team: pick your team’s library file once, and every coach’s published drills and plans appear on your tablet, PC and phone.

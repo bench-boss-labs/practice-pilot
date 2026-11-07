@@ -11,7 +11,7 @@ export const isAdmin = email => String(email || '').toLowerCase() === ADMIN_EMAI
 
 const clone = o => JSON.parse(JSON.stringify(o));
 const LOCAL_ONLY = ['thumb', 'pub'];
-const TEAM_FIELDS = ['id', 'name', 'colours', 'iceTimeMinutes'];
+const TEAM_FIELDS = ['id', 'name', 'colours', 'iceTimeMinutes', 'sharedFolderId', 'sharedPlansId'];
 
 /** "Practice Pilot library · U10BB Bulldogs Blue.json" */
 export const libraryName = team => `${LIBRARY_PREFIX} · ${String(team || 'Team').replace(/[\\/:*?"<>|]/g, '-').trim()}.json`;
@@ -24,7 +24,7 @@ export function forTeam(rec) {
 }
 /** A record from the library, as kept on this device. */
 export function fromTeam(rec) {
-  return { ...clone(rec), pub: { state: 'published', at: rec.publishedAt || rec.updatedAt || null } };
+  return { ...clone(rec), pub: { state: 'published', at: rec.publishId || rec.publishedAt || rec.updatedAt || null } };
 }
 export const teamPart = team => Object.fromEntries(TEAM_FIELDS.filter(f => team && f in team).map(f => [f, clone(team[f])]));
 
@@ -51,7 +51,8 @@ export function publish(doc, { drills = [], plans = [], gone = [], team } = {}, 
   const n = clone(doc);
   const put = (list, recs) => {
     for (const r of recs) {
-      const rec = { ...forTeam(r), publishedAt: at, publishedBy: by };
+      // publishId tells two publishes apart even in the same millisecond (the check at Publish compares it)
+      const rec = { ...forTeam(r), publishedAt: at, publishedBy: by, publishId: `${at}~${Math.random().toString(36).slice(2, 10)}` };
       const i = list.findIndex(x => x.id === r.id);
       if (i >= 0) list[i] = rec; else list.push(rec);
       n.gone = n.gone.filter(g => g.id !== r.id);   // put back after a delete
@@ -76,4 +77,58 @@ export function landed(doc, { drills = [], plans = [], gone = [] } = {}, at) {
 /** Drills and plans of this device that would move into a team library: not samples, not in the bin. */
 export function movable(drills, plans) {
   return { drills: drills.filter(d => !d.sample && !d.deletedAt), plans: plans.filter(p => !p.deletedAt) };
+}
+
+/* ---------- the shared-plans file (1.4.1): what helpers see ---------- */
+
+export const SHARED_FORMAT = 'practice-pilot-shared';
+export const SHARED_VERSION = 1;
+export const SHARED_DAYS = 30;          // helpers see plans still to come and from the last 30 days (decided Nov 6)
+export const sharedName = team => `Practice Pilot shared plans · ${String(team || 'Team').replace(/[\\/:*?"<>|]/g, '-').trim()}.json`;
+
+export function newShared({ team, by, at }) {
+  return { format: SHARED_FORMAT, formatVersion: SHARED_VERSION, team: { name: team && team.name || '' }, updatedAt: at, updatedBy: by, plans: [] };
+}
+export function checkShared(doc) {
+  if (!doc || doc.format !== SHARED_FORMAT) return ['not a shared-plans file'];
+  if (doc.formatVersion > SHARED_VERSION) return ['newer'];
+  return Array.isArray(doc.plans) ? [] : ['plans'];
+}
+/** Drill ids a plan uses, in order, once each. */
+export function planDrillIds(plan) {
+  const ids = [];
+  for (const b of plan.blocks || []) for (const id of [b.drillId, ...(b.stations || []).map(s => s.drillId)]) if (id && !ids.includes(id)) ids.push(id);
+  return ids;
+}
+/** Put a plan (and copies of its drills) in the shared file; sharing again replaces it. Pure. */
+export function shareInto(doc, plan, drills, by, at) {
+  const n = clone(doc);
+  const ids = planDrillIds(plan);
+  const entry = { plan: forTeam(plan), drills: drills.filter(d => ids.includes(d.id)).map(forTeam), sharedAt: at, sharedBy: by };
+  const i = n.plans.findIndex(e => e.plan.id === plan.id);
+  if (i >= 0) { entry.firstSharedAt = n.plans[i].firstSharedAt || n.plans[i].sharedAt; n.plans[i] = entry; } else { entry.firstSharedAt = at; n.plans.push(entry); }
+  n.updatedAt = at; n.updatedBy = by;
+  return n;
+}
+export function unshareFrom(doc, planId, by, at) {
+  const n = clone(doc);
+  n.plans = n.plans.filter(e => e.plan.id !== planId);
+  n.updatedAt = at; n.updatedBy = by;
+  return n;
+}
+/** Shared plans to refresh after a publish: those published, and those using a published drill. */
+export function staleShared(doc, { drills = [], plans = [] } = {}) {
+  const dIds = new Set(drills.map(d => d.id)), pIds = new Set(plans.map(p => p.id));
+  return doc.plans.filter(e => pIds.has(e.plan.id) || e.drills.some(d => dIds.has(d.id))).map(e => e.plan.id);
+}
+/** The helper's list: plans still to come (next first), then the last 30 days (newest first). */
+export function visibleShared(doc, today = new Date()) {
+  const day = d => (/^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : null);
+  const iso = x => new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const now = iso(today), cut = iso(new Date(today.getTime() - SHARED_DAYS * 86400000));
+  const when = e => day(e.plan.date) || String(e.firstSharedAt || e.sharedAt || '').slice(0, 10);
+  const live = doc.plans.filter(e => !e.plan.deletedAt && when(e) >= cut);
+  const ahead = live.filter(e => when(e) >= now).sort((a, b) => when(a).localeCompare(when(b)));
+  const past = live.filter(e => when(e) < now).sort((a, b) => when(b).localeCompare(when(a)));
+  return [...ahead, ...past];
 }

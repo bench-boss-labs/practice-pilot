@@ -1,8 +1,8 @@
 /* Practice Pilot — signing in, setting up and joining a team (R3 Sign-in, Team Library and Sync deep-dive).
    The team is a Drive folder holding one library file and a `shared` folder for helpers. */
-import { APP_VERSION } from '../version.js?v=1.4.0';
-import { Drive, DriveError } from './drive.js?v=1.4.0';
-import { LIBRARY_PREFIX, SHARED_FOLDER, libraryName, newLibrary, checkLibrary, publish, landed, fromTeam, movable, isAdmin, teamPart } from './library.js?v=1.4.0';
+import { APP_VERSION } from '../version.js?v=1.4.1';
+import { Drive, DriveError } from './drive.js?v=1.4.1';
+import { LIBRARY_PREFIX, SHARED_FOLDER, libraryName, newLibrary, checkLibrary, publish, landed, fromTeam, movable, isAdmin, teamPart } from './library.js?v=1.4.1';
 
 const META = 'cloud';
 /** This device's link to Google and the team: { email, name, folderId, folderName, libraryId, teamName, version, syncedAt }. */

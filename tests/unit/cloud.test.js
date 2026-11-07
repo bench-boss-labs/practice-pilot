@@ -312,3 +312,96 @@ test('samples never become drafts; drafts are offered for reminders after two we
   await a.store.put('drills', { ...r, updatedAt: '2026-10-01T00:00:00.000Z' });
   assert.deepEqual((await S.staleDrafts(a)).map(x => x.id), ['d_old001']);
 });
+
+/* ---------- 1.4.1: sharing plans with helpers ---------- */
+import * as SH from '../../app/cloud/sharing.js';
+
+/** A team with a shared plan ready: a = benchbosslabs (set up), b = scalisec (coach), helper = a third account. */
+async function sharingTeam() {
+  const t = await team();
+  const { a, b, fake } = t;
+  for (const x of [a, b]) x.afterPublish = ch => SH.afterPublish(x, ch);
+  await a.store.save('drills', drill('d_shdrl1', { title: 'Pivot' }));
+  await a.store.save('plans', stamp({ id: 'p_share1', title: 'Tuesday', date: '2099-01-06', blocks: [{ id: 'b1', kind: 'drill', drillId: 'd_shdrl1', minutes: 8 }, { id: 'b2', kind: 'drill', drillId: 'd_shared', minutes: 8 }], deletedAt: null }));
+  const shared = fake.find('shared');
+  return { ...t, shared };
+}
+async function helperDevice(fake, email, link) {
+  const h = await device(fake, email);
+  await T.signIn(h);
+  const [, fileId, folderId, teamName] = /#join\/([^/]+)\/([^/]+)\/(.*)$/.exec(link);
+  await SH.setHelper(h, { fileId, folderId, teamName: decodeURIComponent(teamName), email });
+  return h;
+}
+
+test('library file names, the shared file, and the helper’s 30-day list', () => {
+  assert.equal(L.sharedName('U10BB Bulldogs Blue'), 'Practice Pilot shared plans · U10BB Bulldogs Blue.json');
+  let doc = L.newShared({ team: { name: 'T' }, by: 'C', at: 'T0' });
+  const plan = (id, date, deletedAt = null) => ({ id, title: id, date, blocks: [{ id: 'b', kind: 'drill', drillId: 'd1' }], deletedAt });
+  doc = L.shareInto(doc, plan('p_old', '2026-09-01'), [{ id: 'd1' }, { id: 'd2' }], 'C', '2026-09-01T00:00:00Z');
+  doc = L.shareInto(doc, plan('p_recent', '2026-11-01'), [{ id: 'd1' }], 'C', 'T');
+  doc = L.shareInto(doc, plan('p_next', '2026-11-10'), [{ id: 'd1' }], 'C', 'T');
+  doc = L.shareInto(doc, plan('p_later', '2026-11-20'), [{ id: 'd1' }], 'C', 'T');
+  assert.deepEqual(doc.plans[0].drills.map(d => d.id), ['d1'], 'only the drills the plan uses');
+  assert.deepEqual(L.visibleShared(doc, new Date('2026-11-06T12:00:00')).map(e => e.plan.id), ['p_next', 'p_later', 'p_recent']);
+  assert.deepEqual(L.staleShared(doc, { drills: [{ id: 'd1' }] }).length, 4);
+  assert.deepEqual(L.staleShared(doc, { plans: [{ id: 'p_next' }] }), ['p_next']);
+  assert.equal(L.unshareFrom(doc, 'p_next', 'C', 'T2').plans.length, 3);
+});
+
+test('share a plan: it’s published first, helpers get it, and a changed drill updates their copy', async () => {
+  const { fake, a } = await sharingTeam();
+  const link = await SH.sharePlan(a, 'p_share1', { dialog: answer('all') });
+  assert.match(link, /#join\/[^/]+\/[^/]+\/Bulldogs$/);
+  assert.equal(S.pubState(await a.store.get('plans', 'p_share1')), 'published', 'shared = published');
+  const file = fake.find('Practice Pilot shared plans · Bulldogs.json');
+  assert.deepEqual(fake.read(file.id).plans[0].drills.map(d => d.title).sort(), ['Drill d_shared', 'Pivot']);
+  assert.equal(fake.read(fake.find('Practice Pilot library · Bulldogs.json').id).team.sharedPlansId, file.id, 'every coach can find it');
+  // a change to one of its drills, published, reaches the shared copy right away (decided Nov 6)
+  await a.store.save('drills', { ...(await a.store.get('drills', 'd_shdrl1')), title: 'Pivot and go' });
+  await S.publishItems(a, 'drills', 'd_shdrl1', { dialog: answer(null) });
+  assert.ok(fake.read(file.id).plans[0].drills.some(d => d.title === 'Pivot and go'));
+  // stop sharing
+  await SH.unsharePlan(a, 'p_share1');
+  assert.equal(fake.read(file.id).plans.length, 0);
+});
+
+test('helpers: add by email (Google emails them), list, remove; any coach can, after picking the shared folder once', async () => {
+  const { fake, a, b, shared } = await sharingTeam();
+  await SH.sharePlan(a, 'p_share1', { dialog: answer('all') });
+  assert.equal(await SH.addHelper(a, ' Helper@Example.com '), 'helper@example.com');
+  assert.equal(fake.mail.at(-1).to, 'helper@example.com');
+  assert.match(fake.mail.at(-1).message, /helper for Bulldogs/);
+  // the second coach: their app can't reach the folder until they pick it
+  await S.syncNow(b, { force: true });
+  b.pickQueue.push({ id: shared.id });
+  const list = await SH.listHelpers(b);
+  assert.deepEqual(list.map(h => h.email), ['helper@example.com']);
+  await SH.addHelper(b, 'second@example.com');
+  await SH.removeHelper(b, (await SH.listHelpers(b)).find(h => h.email === 'helper@example.com').id);
+  assert.deepEqual((await SH.listHelpers(a)).map(h => h.email), ['second@example.com']);
+  await assert.rejects(SH.addHelper(a, 'not an email'), /Google email/);
+});
+
+test('a helper’s phone: pick the shared folder once, see the plans, keep them with no signal, lose them when removed', async () => {
+  const { fake, a, shared } = await sharingTeam();
+  const link = await SH.sharePlan(a, 'p_share1', { dialog: answer('all') });
+  await SH.addHelper(a, 'helper@example.com');
+  const h = await helperDevice(fake, 'helper@example.com', link);
+  assert.equal((await SH.helperLoad(h)).state, 'pick', 'the link alone isn’t enough (Nov 6 trial)');
+  h.pickQueue.push({ id: fake.find('Bulldogs').id });
+  await assert.rejects(SH.helperPick(h), /isn’t Bulldogs’s shared folder/);
+  h.pickQueue.push({ id: shared.id });
+  const r = await SH.helperPick(h);
+  assert.equal(r.state, 'ok');
+  assert.deepEqual(r.doc.plans.map(e => e.plan.title), ['Tuesday']);
+  await assert.rejects(h.drive.readJson(fake.find('Practice Pilot library · Bulldogs.json').id), e => e.status === 404, 'a helper can’t open the library');
+  fake.offline = true;
+  const off = await SH.helperLoad(h);
+  assert.equal(off.state, 'offline'); assert.equal(off.doc.plans.length, 1, 'kept for no signal');
+  fake.offline = false;
+  fake.unshare(shared.id, 'helper@example.com');
+  const gone = await SH.helperLoad(h);
+  assert.equal(gone.state, 'gone');
+  assert.equal(await SH.helperCache(h), null, 'the saved plans leave the phone');
+});

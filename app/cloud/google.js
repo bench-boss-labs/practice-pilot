@@ -49,12 +49,15 @@ export function createGoogle() {
       try { if (t && window.google && window.google.accounts) window.google.accounts.oauth2.revoke(t, () => {}); } catch {}
     },
     /** Google's file picker. kind 'folder' (set up a team) or 'library' (join a team). → { id, name } or null. */
-    async pick({ kind, title }) {
+    async pick({ kind, title, folderId }) {
       await load('https://apis.google.com/js/api.js');
       await new Promise((res, rej) => window.gapi.load('picker', { callback: res, onerror: () => rej(new Error('Couldn’t open Google’s file picker.')) }));
       const P = window.google.picker;
       return new Promise((resolve, reject) => {
-        const views = kind === 'folder'
+        const views = kind === 'shared'
+          ? [new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(false).setQuery('shared'),
+             ...(folderId ? [new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setParent(folderId)] : [])]
+          : kind === 'folder'
           ? [new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(true),
              new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(false)]
           : [new P.DocsView(P.ViewId.DOCS).setMimeTypes('application/json').setQuery('Practice Pilot library').setOwnedByMe(false),

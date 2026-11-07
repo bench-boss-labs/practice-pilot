@@ -1,5 +1,28 @@
 [
   {
+    "version": "1.4.1",
+    "date": "2026-11-06",
+    "title": "Share plans with your helpers",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Share on a plan: add your helpers by their Google email once, then share the plan and send them the link."
+      },
+      {
+        "type": "new",
+        "text": "On their phone, helpers sign in, pick the team’s shared folder once, and see each shared plan’s run sheet with every drill playing, even with no signal at the rink."
+      },
+      {
+        "type": "new",
+        "text": "Publishing changes to a shared plan, or to one of its drills, updates the helpers’ copy straight away. Stop sharing and Remove are in the Share dialog."
+      },
+      {
+        "type": "improved",
+        "text": "Helpers see plans still to come and from the last 30 days, never drafts or the library. Shared plans show a Shared with helpers label."
+      }
+    ]
+  },
+  {
     "version": "1.4.0",
     "date": "2026-11-06",
     "title": "Your team’s library in Google Drive",

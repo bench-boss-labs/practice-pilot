@@ -2,8 +2,8 @@
    Nothing made or changed on this device reaches the team until it's published. Catching up happens when the
    app opens or comes back on screen, and with Sync now. */
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { checkLibrary, fromTeam } from './library.js?v=1.4.0';
-import { cloudState, setState, signedIn, pushChanges, applyLibrary } from './team.js?v=1.4.0';
+import { checkLibrary, fromTeam } from './library.js?v=1.4.1';
+import { cloudState, setState, signedIn, pushChanges, applyLibrary } from './team.js?v=1.4.1';
 
 const CACHE = 'library-cache', GONE = 'pending-gone';
 const BIN_DAYS = 30;
@@ -169,7 +169,7 @@ export async function publishItems(app, kind, id, { dialog }) {
     const theirs = fresh[k].find(x => x.id === r.id);
     const wasGone = fresh.gone.find(g => g.id === r.id);
     const what = k === 'drills' ? 'drill' : 'plan';
-    if (pubState(r) === 'changed' && theirs && r.pub.at && theirs.publishedAt !== r.pub.at) {
+    if (pubState(r) === 'changed' && theirs && r.pub.at && (theirs.publishId || theirs.publishedAt) !== r.pub.at) {
       const v = await dialog({ id: 'publish-conflict', title: `${theirs.publishedBy || 'Another coach'} changed this ${what}`,
         body: `${theirs.publishedBy || 'Another coach'} published changes to “${theirs.title}” (${when(theirs.publishedAt)}) since you started yours. Which do you want to keep?`,
         buttons: [{ label: 'Take theirs', value: 'theirs' }, { label: 'Keep both', value: 'both' }, { label: 'Keep mine', value: 'mine', kind: 'primary' }] });
@@ -202,6 +202,7 @@ export async function publishItems(app, kind, id, { dialog }) {
     }
     await applyLibrary(app, back);
     await mark(app, [...changes.drills, ...changes.plans].map(r => r.id), false);
+    if (app.afterPublish) { try { await app.afterPublish(changes); } catch (e) { console.warn('shared copy', e); app.sharedLag = true; } }
     await setState(app, { syncedAt: new Date().toISOString() });
     setStatus(app, { state: 'synced', at: new Date().toISOString() });
   }

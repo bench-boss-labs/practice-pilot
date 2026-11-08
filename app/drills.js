@@ -1,10 +1,10 @@
 /* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
    Pure functions on plain drill objects (drill format v1); the editor and library call these,
    and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
-import { PIECES, isPlayer, handlesPuck, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.5.0';
-import { onIce } from './engine/rink.js?v=1.5.0';
-import { aroundTheBoards } from './engine/boards.js?v=1.5.0';
-import { dist } from './engine/geometry.js?v=1.5.0';
+import { PIECES, isPlayer, handlesPuck, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.5.1';
+import { onIce } from './engine/rink.js?v=1.5.1';
+import { aroundTheBoards } from './engine/boards.js?v=1.5.1';
+import { dist } from './engine/geometry.js?v=1.5.1';
 
 export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
 export const AGES = ['U8/U9', 'U10', 'U11', 'U12', 'U13', 'U14+'];
@@ -410,7 +410,7 @@ export function searchText(d) {
 export const DEFAULT_FILTERS = { q: '', tags: [], ages: [], levels: [], rinks: [], show: ['drills'], sort: 'edited' };
 
 /** Which list a drill belongs to for the Show filter. */
-export const kindOf = d => (d.deletedAt ? 'deleted' : d.template ? 'templates' : d.sample ? 'samples' : 'drills');
+export const kindOf = d => (d.isClub ? 'club' : d.deletedAt ? 'deleted' : d.template ? 'templates' : d.sample ? 'samples' : 'drills');
 
 /** Filter and sort drills. Samples count as drills unless Show says otherwise; the bin shows only when picked. */
 export function findDrills(drills, f = DEFAULT_FILTERS, texts = new Map()) {

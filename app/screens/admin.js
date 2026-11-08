@@ -1,9 +1,13 @@
 /* Admin (1.5.0): the Bench Boss Labs account sets up teams — name, logo, colours, coaches — and keeps their
    sharing right. #admin (teams), #admin/new, #admin/team/<library id>. Coaches join from #team/<lib>/<folder>/<name>. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.5.0';
-import { cloudState, signIn, signedIn, joinTeam } from '../cloud/team.js?v=1.5.0';
-import { isAdmin, validEmail } from '../cloud/library.js?v=1.5.0';
-import * as A from '../cloud/admin.js?v=1.5.0';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.1';
+import { cloudState, signIn, signedIn, joinTeam } from '../cloud/team.js?v=1.5.1';
+import { isAdmin, validEmail } from '../cloud/library.js?v=1.5.1';
+import * as A from '../cloud/admin.js?v=1.5.1';
+import * as C from '../cloud/club.js?v=1.5.1';
+import { thumbnailSVG } from '../engine/render.js?v=1.5.1';
+import { frame } from '../engine/model.js?v=1.5.1';
+import { Player } from '../engine/player.js?v=1.5.1';
 
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';
 const when = iso => (iso ? new Date(iso).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
@@ -44,6 +48,7 @@ export function renderAdmin(app, sub) {
       return;
     }
     if (kind === 'new') return drawForm(app, root, null);
+    if (kind === 'club') return drawClub(app, root);
     if (kind === 'team' && id) return drawTeam(app, root, id);
     return drawList(app, root);
   })().catch(e => { console.warn('admin', e); fill(root, el('div', { class: 'card notice', id: 'admin-problem' }, el('p', {}, problem(e)), el('a', { class: 'btn', href: '#admin' }, 'Back to teams'))); });
@@ -68,7 +73,7 @@ async function drawList(app, root) {
         info.needsUpdate ? el('span', { class: 'pill pp-pill-warn' }, 'Sharing needs updating') : null),
       el('span', { class: 'pp-colourpair', 'aria-hidden': 'true' }, el('i', { style: `background:${t.mainColour || '#1d3560'}` }), el('i', { style: `background:${t.secondColour || '#ffffff'}` })));
   };
-  fill(root,
+  fill(root, adminTabs('teams'),
     el('div', { class: 'row' }, el('h1', { class: 't-title grow', style: 'margin:0' }, 'Teams'),
       el('a', { class: 'btn primary', href: '#admin/new', id: 'new-team' }, '+ New team'),
       el('button', { type: 'button', class: 'btn', id: 'adopt-team', onclick: async () => {
@@ -82,6 +87,63 @@ async function drawList(app, root) {
     gone.length ? el('details', { class: 'pp-howto', id: 'archived-teams' }, el('summary', {}, `Archived (${gone.length})`),
       el('ul', { class: 'pp-helpers' }, ...gone.map(t => el('li', { class: 'row' }, el('span', { class: 'grow' }, t.name),
         el('button', { type: 'button', class: 'btn', 'data-restore': t.name, onclick: async () => { await A.restoreTeam(app, t); toast(`${t.name} is back. Add its coaches again.`); app.render(); } }, 'Restore'))))) : null);
+}
+
+/** Teams | Club library */
+function adminTabs(on) {
+  return el('nav', { class: 'pp-seg pp-admintabs', 'aria-label': 'Admin' },
+    el('a', { href: '#admin', class: 'btn', 'aria-current': on === 'teams' ? 'page' : null, id: 'admin-tab-teams' }, 'Teams'),
+    el('a', { href: '#admin/club', class: 'btn', 'aria-current': on === 'club' ? 'page' : null, id: 'admin-tab-club' }, 'Club library'));
+}
+
+/* ---------- the club library (1.5.1) ---------- */
+
+/** Watch a drill play, in a dialog. */
+function watch(d) {
+  const host = el('div', { class: 'pp-preview-player', style: 'min-height:260px' });
+  const shown = dialog({ id: 'watch-drill', title: d.title, body: host, buttons: [{ label: 'Close', value: null, kind: 'primary' }] });
+  const p = new Player(host, d);
+  shown.then(() => p.destroy());
+}
+const thumb = d => { const box = el('div', { class: 'pp-thumb pp-thumb-sm' }); thumbnailSVG(d, frame).then(svg => { box.innerHTML = svg; }); return box; };
+
+async function drawClub(app, root) {
+  fill(root, adminTabs('club'), el('p', { class: 'muted' }, 'Getting the club library…'));
+  const status = el('p', { class: 'status-line', id: 'admin-status', role: 'status', 'aria-live': 'polite' });
+  let busy = false;
+  const run = async (words, fn) => {
+    if (busy) return; busy = true; status.textContent = words;
+    try { await fn(); status.textContent = ''; } catch (e) { console.warn('club', e); status.textContent = problem(e); } finally { busy = false; }
+  };
+  const [{ doc }, reqs, mine] = await Promise.all([C.loadClub(app), C.listRequests(app), app.store.all('drills')]);
+  const row = (d, ...buttons) => el('li', { class: 'row pp-clubrow' }, thumb(d), el('div', { class: 'grow stack', style: 'gap:2px' }, ...[].concat(d._label)), ...buttons);
+  const requests = reqs.length ? el('ul', { class: 'pp-clublist', id: 'club-requests' }, ...reqs.map(r => row({ ...r.drill, _label: [el('b', {}, r.drill.title), el('span', { class: 'muted' }, `${r.entry.name} · ${r.req.by} · ${new Date(r.req.at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`)] },
+      el('button', { type: 'button', class: 'btn', onclick: () => watch(r.drill) }, 'Watch'),
+      el('button', { type: 'button', class: 'btn primary', 'data-add': r.drill.title, onclick: () => run('Adding…', async () => { await C.approveRequest(app, r); toast(`“${r.drill.title}” is in the club library.`); app.render(); }) }, 'Add'),
+      el('button', { type: 'button', class: 'btn', 'data-decline': r.drill.title, onclick: () => run('Declining…', async () => { await C.declineRequest(app, r); toast(`Declined “${r.drill.title}”.`); app.render(); }) }, 'Decline'))))
+    : el('p', { class: 'muted', id: 'club-requests', style: 'margin:0' }, 'No requests. Coaches ask from a drill’s Share button.');
+  const drills = doc.drills.length ? el('ul', { class: 'pp-clublist', id: 'club-drills' }, ...doc.drills.slice().sort((a, b) => a.title.localeCompare(b.title)).map(d => row({ ...d, _label: [el('b', {}, d.title), el('span', { class: 'muted' }, `From ${d.club && d.club.team ? d.club.team : '—'} · added ${new Date(d.club.addedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`)] },
+      el('button', { type: 'button', class: 'btn', onclick: () => watch(d) }, 'Watch'),
+      el('button', { type: 'button', class: 'btn danger', 'data-remove-club': d.title, onclick: () => run('Removing…', async () => { await C.removeFromClub(app, d.id); toast(`“${d.title}” is out of the club library. Copies teams imported stay.`); app.render(); }) }, 'Remove'))))
+    : el('p', { class: 'muted', id: 'club-drills', style: 'margin:0' }, 'The club library is empty.');
+  const own = mine.filter(d => !d.deletedAt && !d.template && !doc.drills.some(x => x.id === d.id)).sort((a, b) => a.title.localeCompare(b.title));
+  const pick = el('select', { id: 'own-drill', 'aria-label': 'One of your drills' }, el('option', { value: '' }, 'Choose one of your drills…'), ...own.map(d => el('option', { value: d.id }, d.title)));
+  fill(root, adminTabs('club'),
+    el('h1', { class: 't-title', style: 'margin:0' }, 'Club library'),
+    el('p', { class: 'hint', style: 'margin:0' }, 'Drills every team can import. Coaches see the drills only, not which team sent them.'),
+    status,
+    el('section', { class: 'card stack' }, el('h2', { class: 't-section' }, `Requests${reqs.length ? ` (${reqs.length})` : ''}`), requests),
+    el('section', { class: 'card stack' }, el('h2', { class: 't-section' }, `In the club library (${doc.drills.length})`), drills,
+      el('div', { class: 'row' }, pick, el('button', { type: 'button', class: 'btn', id: 'add-own', onclick: () => run('Adding…', async () => {
+        const d = own.find(x => x.id === pick.value);
+        if (!d) throw new Error('Choose one of your drills first.');
+        await C.addOwnDrill(app, d); toast(`“${d.title}” is in the club library.`); app.render();
+      }) }, 'Add to the club library'))),
+    el('section', { class: 'card stack' }, el('h2', { class: 't-section' }, 'Who can see it'),
+      el('p', { class: 'hint', style: 'margin:0' }, 'Every coach on every team can read the club library. Coaches you add from now on get it automatically; coaches removed from a team keep it.'),
+      el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn', id: 'share-club', onclick: () => run('Giving coaches access…', async () => {
+        const n = await C.shareClub(app); toast(n ? `${n} coach${n === 1 ? '' : 'es'} can now see the club library.` : 'Every coach can already see the club library.');
+      }) }, 'Give every coach access'))));
 }
 
 /* ---------- new team / the team's look ---------- */

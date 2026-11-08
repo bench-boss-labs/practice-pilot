@@ -1,7 +1,7 @@
 /* Help: the standard Bench Boss Labs Help screen. */
 import { renderHelp } from '../../vendor/bbl-kit/1.0.1/bbl-help.js';
-import { APP_NAME, APP_VERSION } from '../version.js?v=1.5.0';
-import { el } from '../ui.js?v=1.5.0';
+import { APP_NAME, APP_VERSION } from '../version.js?v=1.5.1';
+import { el } from '../ui.js?v=1.5.1';
 
 export function renderHelpScreen(app) {
   const b = t => el('b', {}, t);
@@ -23,7 +23,8 @@ export function renderHelpScreen(app) {
       { title: 'Share drills with your team', text: p('Open the link in your invitation email, sign in with Google and tap ', b('Pick the team files'), '. In Google’s picker, select both of your team’s Practice Pilot files, then tap Select. (Or ', b('Settings › This device › Join a team'), '.) Your coaches’ published drills and plans appear here. The top bar shows when you last synced; tap it for ', b('Sync now'), '.') },
       { title: 'Send a drill to anyone', text: p('On a drill, tap ', b('Share'), ' (in the Library, or ⋮ in the editor) and tick what to send: a ', b('Video to watch'), ', a ', b('Printable sheet'), ' (a picture of the page), or a ', b('File for another coach'), ' (they tap ', b('Import'), ' in their Library). ', b('Make and send'), ' sends them together. ', b('Print the sheet instead'), ' opens the page to print or Save as PDF.') },
             { title: 'Share a plan with helpers', text: p('Add your helpers once in ', b('Settings › This device › Helpers'), ', by their Google email. Then on a plan, tap ', b('Share'), ', ', b('Share with helpers'), ' and ', b('Send link'), '. On their phone they sign in, pick the team’s ', b('shared plans'), ' file once, and see the run sheet with each drill playing, even with no signal.') },
-            { title: 'Admin (Bench Boss Labs)', text: p('Signed in as Bench Boss Labs, ', b('Admin'), ' sets up teams: name, logo and colours, coaches (Google emails them a link to join), helpers, ', b('Adopt a folder'), ' for a team made outside Admin, and ', b('Archive'), '. Team colours set the colour of new players.') },
+            { title: 'Club library', text: p('Drills every team can use. Library › ', b('Show › Club library'), ' lists them (the first time, pick the club library file in Google’s picker). ', b('Import to my team'), ' makes your own draft copy. To suggest one of yours, tap ', b('Share'), ' on it and tick ', b('Add to the club library'), '.') },
+      { title: 'Admin (Bench Boss Labs)', text: p('Signed in as Bench Boss Labs, ', b('Admin'), ' sets up teams: name, logo and colours, coaches (Google emails them a link to join), helpers, ', b('Adopt a folder'), ' for a team made outside Admin, and ', b('Archive'), '. Team colours set the colour of new players.') },
       { title: 'Drafts and Publish', text: p('A new drill or plan is a ', b('Draft'), ': only you see it, on this device, even with no signal. Tap ', b('Publish'), ' when it’s ready for the team. Changes to a published drill wait for ', b('Publish changes'), ', and ', b('Discard changes'), ' goes back to the team’s version.') },
             { title: 'Put it on your phone’s home screen too', text: p('On a phone, the browser bar takes space from the rink. Added to the home screen (', b('Settings › This device › Install'), '), Practice Pilot opens full screen with a bigger rink.') },
       { title: 'Put it on your tablet’s home screen', text: p('Tap ', b('Install'), ' at the top, or go to ', b('Settings › This device › Install'), ' for the steps on your device. It then opens like any other app.') },

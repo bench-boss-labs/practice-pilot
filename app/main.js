@@ -1,28 +1,29 @@
 /* Practice Pilot — start-up, screens, updates, offline status. */
-import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.5.0';
-import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.5.0';
+import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.5.1';
+import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.5.1';
 import { openStore, newId, requestPersistence, storageStatus } from '../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { checkForUpdate, showUpdateBanner, pendingWhatsNew, renderReleases, normalizeReleases } from '../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { registerOffline, applyUpdate, watchOnline, singleTab } from '../vendor/bbl-kit/1.0.1/bbl-offline.js';
 import { isStandalone, detectInstalled } from '../vendor/bbl-kit/1.0.1/bbl-install.js';
-import { el, toast, dialog, blocker } from './ui.js?v=1.5.0';
-import { renderLibrary, restoreSamples, emptyBin, fillSampleSetup } from './screens/library.js?v=1.5.0';
-import { renderEditor } from './screens/editor.js?v=1.5.0';
-import { renderPlans, emptyPlanBin } from './screens/plans.js?v=1.5.0';
-import { renderPlanner } from './screens/planner.js?v=1.5.0';
-import { renderPrint } from './screens/print.js?v=1.5.0';
-import { renderHelpScreen } from './screens/help.js?v=1.5.0';
-import { renderSettings } from './screens/settings.js?v=1.5.0';
-import { createGoogle } from './cloud/google.js?v=1.5.0';
-import { connect, cloudState, signIn } from './cloud/team.js?v=1.5.0';
-import { watchStore, syncNow, statusWords, unpublished } from './cloud/sync.js?v=1.5.0';
-import { afterPublish, refreshShared, helperState } from './cloud/sharing.js?v=1.5.0';
-import { renderJoin, renderHelper } from './screens/helper.js?v=1.5.0';
-import { renderDrillSheet } from './screens/drillshare.js?v=1.5.0';
-import { renderAdmin, renderTeamJoin } from './screens/admin.js?v=1.5.0';
-import { isAdmin } from './cloud/library.js?v=1.5.0';
-import { thumbnailSVG } from './engine/render.js?v=1.5.0';
-import { frame } from './engine/model.js?v=1.5.0';
+import { el, toast, dialog, blocker } from './ui.js?v=1.5.1';
+import { renderLibrary, restoreSamples, emptyBin, fillSampleSetup } from './screens/library.js?v=1.5.1';
+import { renderEditor } from './screens/editor.js?v=1.5.1';
+import { renderPlans, emptyPlanBin } from './screens/plans.js?v=1.5.1';
+import { renderPlanner } from './screens/planner.js?v=1.5.1';
+import { renderPrint } from './screens/print.js?v=1.5.1';
+import { renderHelpScreen } from './screens/help.js?v=1.5.1';
+import { renderSettings } from './screens/settings.js?v=1.5.1';
+import { createGoogle } from './cloud/google.js?v=1.5.1';
+import { connect, cloudState, signIn } from './cloud/team.js?v=1.5.1';
+import { watchStore, syncNow, statusWords, unpublished } from './cloud/sync.js?v=1.5.1';
+import { afterPublish, refreshShared, helperState } from './cloud/sharing.js?v=1.5.1';
+import { refreshClub } from './cloud/club.js?v=1.5.1';
+import { renderJoin, renderHelper } from './screens/helper.js?v=1.5.1';
+import { renderDrillSheet } from './screens/drillshare.js?v=1.5.1';
+import { renderAdmin, renderTeamJoin } from './screens/admin.js?v=1.5.1';
+import { isAdmin } from './cloud/library.js?v=1.5.1';
+import { thumbnailSVG } from './engine/render.js?v=1.5.1';
+import { frame } from './engine/model.js?v=1.5.1';
 
 const app = {
   store: null, team: null, reg: null, notes: [], busy: false, online: true,
@@ -131,6 +132,7 @@ async function catchUp() {
   }
   const changed = await syncNow(app);
   if (changed) await refreshShared(app);
+  refreshClub(app).catch(() => {});                // the club library (1.5.1), quietly
   if (changed && !app.busy && /^#?(library|plans|$)/.test(location.hash.replace('#', '') || 'library')) route();
 }
 function renderSyncPill() {

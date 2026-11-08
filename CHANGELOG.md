@@ -1,5 +1,11 @@
 # Practice Pilot — changelog
 
+## 1.5.1 — 2026-11-08 (Club library)
+
+- **New:** Club library: drills every team can import. In the Library, Show › Club library; Import to my team makes your own draft copy.
+- **New:** Suggest a drill for the club library from its Share dialog: tick Add to the club library.
+- **New:** Admin › Club library (Bench Boss Labs): add or decline requests, add your own drills, remove drills, and give every coach access.
+
 ## 1.5.0 — 2026-11-08 (Admin: teams set up end to end)
 
 - **New:** Admin (Bench Boss Labs account): make a team with a name, logo and colours; the app makes its folder and files in Google Drive.

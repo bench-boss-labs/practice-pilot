@@ -11,7 +11,7 @@ export const isAdmin = email => String(email || '').toLowerCase() === ADMIN_EMAI
 
 const clone = o => JSON.parse(JSON.stringify(o));
 const LOCAL_ONLY = ['thumb', 'pub'];
-const TEAM_FIELDS = ['id', 'name', 'colours', 'iceTimeMinutes', 'sharedFolderId', 'sharedPlansId', 'logo', 'mainColour', 'secondColour'];
+const TEAM_FIELDS = ['id', 'name', 'colours', 'iceTimeMinutes', 'sharedFolderId', 'sharedPlansId', 'logo', 'mainColour', 'secondColour', 'clubFileId'];
 
 /** "Practice Pilot library · U10BB Bulldogs Blue.json" */
 export const libraryName = team => `${LIBRARY_PREFIX} · ${String(team || 'Team').replace(/[\\/:*?"<>|]/g, '-').trim()}.json`;
@@ -179,3 +179,44 @@ export function peopleOf(perms, role) {
     .sort((a, b) => a.email.localeCompare(b.email));
 }
 export const validEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e || '').trim());
+
+/* ---------- the club drill library (1.5.1): drills every coach can import ---------- */
+
+export const CLUB_FORMAT = 'practice-pilot-club';
+export const CLUB_VERSION = 1;
+export const CLUB_FILE = 'Practice Pilot club library.json';
+export const CLUB_FOLDER = 'Club library';
+export function newClub(at) { return { format: CLUB_FORMAT, formatVersion: CLUB_VERSION, updatedAt: at, drills: [] }; }
+export function checkClub(doc) {
+  if (!doc || doc.format !== CLUB_FORMAT) return ['not a club library'];
+  if (doc.formatVersion > CLUB_VERSION) return ['newer'];
+  return Array.isArray(doc.drills) ? [] : ['drills'];
+}
+/**
+ * Put a drill in the club library (adding it again replaces it). `from` records who sent it — the team and
+ * coach — kept but not shown for now (decided Nov 8). Pure.
+ */
+export function clubAdd(doc, drill, from, at) {
+  const n = clone(doc);
+  const rec = { ...forTeam(drill), club: { ...from, addedAt: at } };
+  delete rec.publishedAt; delete rec.publishedBy; delete rec.publishId; delete rec.clubRequest;
+  const i = n.drills.findIndex(d => d.id === drill.id);
+  if (i >= 0) n.drills[i] = rec; else n.drills.push(rec);
+  n.updatedAt = at;
+  return n;
+}
+export function clubRemove(doc, drillId, at) { const n = clone(doc); n.drills = n.drills.filter(d => d.id !== drillId); n.updatedAt = at; return n; }
+
+/** A coach's request to add a published drill to the club library, kept in the team's library file. Pure. */
+export function addRequest(doc, req) {
+  const n = clone(doc);
+  n.requests = [...(n.requests || []).filter(r => r.drillId !== req.drillId), req];
+  return n;
+}
+export function dropRequest(doc, drillId) { const n = clone(doc); n.requests = (n.requests || []).filter(r => r.drillId !== drillId); return n; }
+/** A club drill copied into a team: a new id, a draft, remembering where it came from. Pure. */
+export function importCopy(clubDrill, id, at) {
+  const c = clone(clubDrill);
+  delete c.club;
+  return { ...c, id, sourceDrillId: clubDrill.id, sample: false, template: false, deletedAt: null, createdAt: at, updatedAt: at };
+}

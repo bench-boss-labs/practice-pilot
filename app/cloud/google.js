@@ -65,7 +65,7 @@ export function createGoogle() {
         const views = kind === 'folder'
           ? [new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(true),
              new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(false)]
-          : kind === 'plans' ? files('Practice Pilot shared plans') : files('Practice Pilot');
+          : kind === 'plans' ? files('Practice Pilot shared plans') : kind === 'club' ? files('Practice Pilot club library') : files('Practice Pilot');
         const b = new P.PickerBuilder().setTitle(title).setOAuthToken(pass && pass.token).setDeveloperKey(GOOGLE.apiKey).setAppId(GOOGLE.appId)
           .setCallback(d => {
             if (d.action === P.Action.PICKED) { const all = d.docs.map(x => ({ id: x.id, name: x.name })); resolve(multi ? all : all[0]); }

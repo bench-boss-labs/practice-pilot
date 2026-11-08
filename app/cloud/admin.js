@@ -1,11 +1,11 @@
 /* Practice Pilot — Admin (1.5.0, design deep-dive Nov 8): the Bench Boss Labs account sets teams up end to end.
    One admin file lists the teams; each team is a folder with its library file and shared-plans file side by side.
    Coaches are Editors on the team folder and pick both files once; helpers are Viewers on the shared-plans file. */
-import { APP_VERSION } from '../version.js?v=1.5.0';
-import { FOLDER } from './drive.js?v=1.5.0';
-import { cloudState, setState, applyLibrary } from './team.js?v=1.5.0';
+import { APP_VERSION } from '../version.js?v=1.5.1';
+import { FOLDER } from './drive.js?v=1.5.1';
+import { cloudState, setState, applyLibrary } from './team.js?v=1.5.1';
 import { ADMIN_FILE, ROOT_FOLDER, newAdmin, checkAdmin, putTeam, peopleOf, validEmail, isAdmin, libraryName, sharedName,
-  newLibrary, newShared, checkLibrary, checkShared, publish, teamLook, SHARED_FOLDER } from './library.js?v=1.5.0';
+  newLibrary, newShared, checkLibrary, checkShared, publish, teamLook, SHARED_FOLDER } from './library.js?v=1.5.1';
 
 const err = (words, status) => Object.assign(new Error(words), { status, words });
 const now = () => new Date().toISOString();
@@ -82,7 +82,8 @@ export async function createTeam(app, { name, logo, mainColour, secondColour }) 
 }
 async function makeFiles(app, st, { folderId, name, look, at }) {
   const plans = await app.drive.createJson(folderId, sharedName(name), newShared({ team: { name }, by: who(st), at }));
-  const team = { id: `team_${Math.random().toString(36).slice(2, 10)}`, name, iceTimeMinutes: 50, colours: ['red', 'black'], sharedPlansId: plans.id, ...teamLook(look || {}) };
+  const { doc: admin } = await loadAdmin(app);
+  const team = { id: `team_${Math.random().toString(36).slice(2, 10)}`, name, iceTimeMinutes: 50, colours: ['red', 'black'], sharedPlansId: plans.id, ...(admin.clubFileId ? { clubFileId: admin.clubFileId } : {}), ...teamLook(look || {}) };
   const lib = await app.drive.createJson(folderId, libraryName(name), newLibrary({ team, by: who(st), at, appVersion: APP_VERSION }));
   const entry = { libraryId: lib.id, folderId, name };
   await saveAdmin(app, d => putTeam(d, entry, at));
@@ -146,6 +147,12 @@ export async function addCoach(app, entry, email) {
   const e = String(email || '').trim().toLowerCase();
   if (!validEmail(e)) throw err('Type the coach’s Google email address.');
   await app.drive.share(entry.folderId, e, 'writer', `You’re a coach on ${entry.name} in Practice Pilot. On your phone or tablet, open ${coachLink(entry)} and sign in with this Google account.`);
+  // the club library (1.5.1): Viewer on its file, no second email
+  const { doc: admin } = await loadAdmin(app);
+  if (admin.clubFileId && await reach(app, admin.clubFileId)) {
+    const have = peopleOf(await app.drive.permissions(admin.clubFileId), 'reader').some(p => p.email === e);
+    if (!have) await app.drive.share(admin.clubFileId, e, 'reader', '', { notify: false });
+  }
   return e;
 }
 export async function removeCoach(app, entry, permissionId) { await mustBeAdmin(app); await app.drive.unshare(entry.folderId, permissionId); }

@@ -401,3 +401,12 @@ body.pp-ed-compact main { max-width: none; height: 100vh; height: 100dvh; paddin
 .pp-teampill-sample { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #0b1b31; color: #fff; box-shadow: inset 4px 0 0 var(--team-main); border: 1px solid var(--team-main); font-weight: 600; }
 .pp-teampill-sample img { width: 20px; height: 20px; border-radius: 4px; background: #fff; object-fit: contain; }
 .pp-print-logo { width: 40px; height: 40px; object-fit: contain; }
+
+/* 1.5.1 club library */
+.pp-pill-club { background: #dbeafe; color: #1e3a8a; }
+.pp-admintabs { display: flex; gap: 6px; }
+.pp-admintabs a[aria-current="page"] { background: var(--accent, #F26A1B); border-color: var(--accent, #F26A1B); color: #fff; }
+.pp-clublist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pp-clubrow { align-items: center; flex-wrap: wrap; }
+.pp-thumb-sm { width: 120px; flex: none; border-radius: 8px; overflow: hidden; }
+.pp-thumb-sm svg { display: block; width: 100%; height: auto; }

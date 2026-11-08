@@ -1,9 +1,9 @@
 /* Practice Pilot — sharing plans with helpers (1.4.1 deep-dive, decided Nov 6; reworked in 1.5.0).
    One shared-plans file beside the team's library file holds each shared plan with copies of its drills.
    Helpers are Viewers on that file (not a folder: the Nov 8 trial), and pick it once on their phone. */
-import { peopleOf, validEmail, newShared, checkShared, shareInto, unshareFrom, staleShared, planDrillIds, sharedName } from './library.js?v=1.5.0';
-import { cloudState, setState, signedIn, pushChanges } from './team.js?v=1.5.0';
-import { publishItems, unpublished } from './sync.js?v=1.5.0';
+import { peopleOf, validEmail, newShared, checkShared, shareInto, unshareFrom, staleShared, planDrillIds, sharedName } from './library.js?v=1.5.1';
+import { cloudState, setState, signedIn, pushChanges } from './team.js?v=1.5.1';
+import { publishItems, unpublished } from './sync.js?v=1.5.1';
 
 const CACHE = 'shared-cache';
 export const HELPER = 'helper';

@@ -1,5 +1,24 @@
 [
   {
+    "version": "1.5.1",
+    "date": "2026-11-08",
+    "title": "Club library",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Club library: drills every team can import. In the Library, Show › Club library; Import to my team makes your own draft copy."
+      },
+      {
+        "type": "new",
+        "text": "Suggest a drill for the club library from its Share dialog: tick Add to the club library."
+      },
+      {
+        "type": "new",
+        "text": "Admin › Club library (Bench Boss Labs): add or decline requests, add your own drills, remove drills, and give every coach access."
+      }
+    ]
+  },
+  {
     "version": "1.5.0",
     "date": "2026-11-08",
     "title": "Admin: teams set up end to end",

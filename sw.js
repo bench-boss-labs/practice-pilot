@@ -1,5 +1,5 @@
 /* Practice Pilot service worker. The version below is written by the stamp script. */
-const CACHE = 'practice-pilot-1.5.0';
+const CACHE = 'practice-pilot-1.5.1';
 const V = CACHE.slice('practice-pilot-'.length);
 const KIT = 'vendor/bbl-kit/1.0.1/';
 importScripts(KIT + 'bbl-sw.js');
@@ -46,6 +46,7 @@ BBLsw.start({
     `app/screens/share.js?v=${V}`,
     `app/screens/admin.js?v=${V}`,
     `app/cloud/admin.js?v=${V}`,
+    `app/cloud/club.js?v=${V}`,
     `app/screens/helperscard.js?v=${V}`,
     `app/screens/helper.js?v=${V}`,
     `app/drillshare-core.js?v=${V}`,

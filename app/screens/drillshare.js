@@ -1,13 +1,14 @@
 /* Share a drill (1.4.2): one dialog makes an MP4 video, opens the drill sheet (Print → Save as PDF), or saves a
    drill file another coach can import. Everything is made on the device; only sending needs a connection. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.5.0';
-import { frame, prepare } from '../engine/model.js?v=1.5.0';
-import { frameSVG, clipToView } from '../engine/render.js?v=1.5.0';
-import { viewBoxOf } from '../engine/rink.js?v=1.5.0';
-import { APP_VERSION } from '../version.js?v=1.5.0';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.1';
+import { frame, prepare } from '../engine/model.js?v=1.5.1';
+import { frameSVG, clipToView } from '../engine/render.js?v=1.5.1';
+import { viewBoxOf } from '../engine/rink.js?v=1.5.1';
+import { APP_VERSION } from '../version.js?v=1.5.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import * as X from '../drillshare-core.js?v=1.5.0';
-import { agesOf } from '../drills.js?v=1.5.0';
+import * as X from '../drillshare-core.js?v=1.5.1';
+import { agesOf } from '../drills.js?v=1.5.1';
+import { requestClub } from '../cloud/club.js?v=1.5.1';
 
 const teamOf = app => (app.helper && app.helper.teamName) || (app.team && app.team.name) || '';
 /** The team's logo and main colour for pictures and videos (not on a helper's phone). */
@@ -241,7 +242,10 @@ export async function openShareDrill(app, d) {
   const pickVideo = choice('pick-video', 'Video to watch', !type ? 'This browser can’t make videos. Try Chrome on your phone or tablet.' : !(d.steps || []).length ? 'Add a step first: the video shows the drill playing.' : `The drill playing once, about ${Math.round(tl.total)} seconds. It takes about that long to make.`, true, !canVideo);
   const pickSheet = choice('pick-sheet', 'Printable sheet', 'A picture of the page: the setup, each step and the coaching points.', true);
   const pickFile = choice('pick-file', 'File for another coach', 'For a coach on another team who has Practice Pilot: they import it into their Library.', false);
-  const on = l => l.querySelector('input').checked;
+  // 1.5.1: ask Bench Boss Labs to add it to the club library (coaches on a team, not samples)
+  const clubOk = !app.helper && !!(app.cloudState && app.cloudState.libraryId) && !d.sample && !d.template;
+  const pickClub = clubOk ? choice('pick-club', 'Add to the club library', 'Asks Bench Boss Labs to add it, so every team can import it. It’s published first if it has to be.', false) : null;
+  const on = l => !!l && l.querySelector('input').checked;
   let ctrl = null, made = null;
 
   const sendMade = async () => {
@@ -256,7 +260,7 @@ export async function openShareDrill(app, d) {
         el('span', { class: 'muted' }, made.words));
       return;
     }
-    const n = [pickVideo, pickSheet, pickFile].filter(on).length;
+    const n = [pickVideo, pickSheet, pickFile, pickClub].filter(on).length;
     fill(actions, el('button', { type: 'button', class: 'btn primary', id: 'make-send', disabled: !n, onclick: makeAndSend }, 'Make and send'));
   }
   async function makeAndSend() {
@@ -273,8 +277,12 @@ export async function openShareDrill(app, d) {
       }
       if (on(pickSheet)) { status.textContent = 'Making the sheet…'; files.push(await makeSheetImage(d, { team, look: lookOf(app) })); words.push('sheet picture'); }
       if (on(pickFile)) { files.push(new File([JSON.stringify(X.makeDrillFile(d, { appVersion: APP_VERSION, team }))], X.drillFileName(d), { type: 'application/json' })); words.push('drill file'); }
-      made = { files, words: `Ready: ${words.join(' + ')}.` };
-      status.textContent = '';
+      if (on(pickClub)) {
+        status.textContent = 'Asking for the club library…';
+        if (await requestClub(app, d.id, { dialog })) { toast(`Asked Bench Boss Labs to add “${d.title}” to the club library.`); pickClub.querySelector('input').checked = false; }
+      }
+      made = files.length ? { files, words: `Ready: ${words.join(' + ')}.` } : null;
+      status.textContent = files.length ? '' : 'Sent to Bench Boss Labs.';
     } catch (e) { status.textContent = e.name === 'AbortError' ? 'Stopped.' : e.message; made = null; }
     finally { bar.hidden = true; ctrl = null; draw(); }
     // straight to the share sheet when it was quick; after a video the device wants a fresh tap (Send)
@@ -284,7 +292,7 @@ export async function openShareDrill(app, d) {
 
   const body = el('div', { class: 'stack' },
     el('h3', { class: 't-label', style: 'margin:0' }, 'What do you want to send?'),
-    el('div', { class: 'stack pp-sendpicks' }, pickVideo, pickSheet, pickFile),
+    el('div', { class: 'stack pp-sendpicks' }, pickVideo, pickSheet, pickFile, pickClub),
     actions, bar, status,
     el('p', { style: 'margin:0' }, el('a', { href: `#drillsheet/${d.id}`, id: 'print-sheet-link', onclick: () => { if (ctrl) ctrl.abort(); const done = document.querySelector('#sharedrill-dialog .dfoot .btn'); if (done) done.click(); } }, 'Print the sheet instead')));
   await dialog({ id: 'sharedrill-dialog', title: `Share “${d.title}”`, body, buttons: [{ label: 'Done', value: null, kind: 'primary' }] });

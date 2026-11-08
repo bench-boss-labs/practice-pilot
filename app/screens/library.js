@@ -1,21 +1,23 @@
 /* Library (R1 Library deep-dive): search, filters, sort, drill cards with pictures, a playing preview,
    New drill (blank or template), Duplicate, Save as template, Delete to Recently deleted. */
-import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.5.0';
+import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.5.1';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.5.0';
-import { newDrill } from '../schema.js?v=1.5.0';
-import { Player } from '../engine/player.js?v=1.5.0';
-import { frame } from '../engine/model.js?v=1.5.0';
-import { thumbnailSVG } from '../engine/render.js?v=1.5.0';
-import { VIEWS } from '../engine/rink.js?v=1.5.0';
-import { firstRunSamples } from '../engine/samples.js?v=1.5.0';
-import * as D from '../drills.js?v=1.5.0';
-import { drillInfo, pills } from './drillview.js?v=1.5.0';
-import { reviewOnly } from './editor.js?v=1.5.0';
-import { inTeam, pubBadge, publishButtons } from './publishui.js?v=1.5.0';
-import { staleDrafts } from '../cloud/sync.js?v=1.5.0';
-import { openShareDrill, importDrill } from './drillshare.js?v=1.5.0';
-import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.5.0';
+import { SCHEMA_VERSION } from '../version.js?v=1.5.1';
+import { newDrill } from '../schema.js?v=1.5.1';
+import { Player } from '../engine/player.js?v=1.5.1';
+import { frame } from '../engine/model.js?v=1.5.1';
+import { thumbnailSVG } from '../engine/render.js?v=1.5.1';
+import { VIEWS } from '../engine/rink.js?v=1.5.1';
+import { firstRunSamples } from '../engine/samples.js?v=1.5.1';
+import * as D from '../drills.js?v=1.5.1';
+import { drillInfo, pills } from './drillview.js?v=1.5.1';
+import { reviewOnly } from './editor.js?v=1.5.1';
+import { inTeam, pubBadge, publishButtons } from './publishui.js?v=1.5.1';
+import { staleDrafts } from '../cloud/sync.js?v=1.5.1';
+import * as C from '../cloud/club.js?v=1.5.1';
+import { clubCache } from '../cloud/club.js?v=1.5.1';
+import { openShareDrill, importDrill } from './drillshare.js?v=1.5.1';
+import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.5.1';
 
 const SHOW = [['drills', 'Drills'], ['templates', 'Templates'], ['samples', 'Samples only'], ['deleted', 'Recently deleted']];
 const SORTS = [['edited', 'Recently edited'], ['az', 'A to Z'], ['steps', 'Most steps']];
@@ -78,7 +80,7 @@ class Library {
   async start() {
     const [drills, prefs, welcomed, layout] = await Promise.all([this.app.store.all('drills'), this.app.store.get('meta', 'library-prefs'), this.app.store.get('meta', 'welcomed'), this.app.store.get('meta', 'library-layout')]);
     this.layout = { pct: 55, expanded: false, ...((layout && layout.value) || {}) };
-    this.drills = drills;
+    this.drills = [...drills, ...(await this.clubDrills())];
     this.f = { ...D.DEFAULT_FILTERS, ...((prefs && prefs.value) || {}) };
     this.welcomed = !!welcomed;
     this.build();
@@ -168,7 +170,7 @@ class Library {
       btn('f-ages', 'Age', 'ages', D.AGES.map(a => [a, a])),
       btn('f-levels', 'Level', 'levels', D.LEVELS.map(l => [l, l])),
       btn('f-rinks', 'Rink', 'rinks', RINKS),
-      btn('f-show', 'Show', 'show', inTeam(this.app) ? [...SHOW.slice(0, 1), ['drafts', 'My drafts'], ...SHOW.slice(1)] : SHOW),
+      btn('f-show', 'Show', 'show', inTeam(this.app) ? [...SHOW.slice(0, 1), ['drafts', 'My drafts'], ['club', 'Club library'], ...SHOW.slice(1)] : SHOW),
       D.filtersOn(f) ? el('button', { type: 'button', class: 'btn-link', id: 'clear-filters', onclick: () => this.clear() }, 'Clear filters') : null);
   }
 
@@ -189,6 +191,11 @@ class Library {
   renderCards() {
     const list = D.findDrills(this.drills, this.f, this.texts);
     const total = this.drills.filter(d => D.kindOf(d) === 'drills' || D.kindOf(d) === 'samples').length;
+    if (this.f.show.includes('club') && !this.drills.some(d => d.isClub) && inTeam(this.app)) {
+      this.countLine.textContent = 'Club library';
+      this.clubNotice().then(n => fill(this.grid, n));
+      if (!list.length) return;
+    }
     const bin = this.f.show.includes('deleted');
     this.countLine.textContent = D.filtersOn(this.f) || this.f.show.join() !== 'drills' ? `${list.length} of ${total} drill${total === 1 ? '' : 's'}` : `${list.length} drill${list.length === 1 ? '' : 's'}`;
     if (!list.length) {
@@ -213,7 +220,7 @@ class Library {
       pic,
       el('span', { class: 'pp-card-title' }, d.title),
       el('span', { class: 'pp-pills' },
-        pubBadge(this.app, d),
+        d.isClub ? el('span', { class: 'pill pp-pill-club' }, 'Club') : pubBadge(this.app, d),
         d.sample ? el('span', { class: 'pill pp-pill-sample' }, 'Sample') : null,
         d.template ? el('span', { class: 'pill pp-pill-template' }, 'Template') : null,
         ...tagList.map(t => el('span', { class: 'pill' }, t)),
@@ -221,7 +228,34 @@ class Library {
       el('span', { class: 'muted pp-card-meta' }, d.deletedAt ? `Deleted · ${D.daysLeft(d)} days left` : d.schemaVersion > SCHEMA_VERSION ? 'Update to edit' : `Edited ${shortDate(d.updatedAt)}`));
   }
 
-  async reload() { this.drills = await this.app.store.all('drills'); this.texts.clear(); this.renderFilters(); this.renderCards(); if (this.openId) this.openPreview(this.openId, { scroll: false }); }
+  /** Club library drills (1.5.1), from this device's copy; shown with Show › Club library. */
+  async clubDrills() {
+    if (!inTeam(this.app)) return [];
+    const doc = await clubCache(this.app);
+    return doc ? doc.drills.map(d => ({ ...d, id: `club:${d.id}`, clubId: d.id, isClub: true })) : [];
+  }
+  /** Show › Club library with nothing on this device yet: catch up, or pick the club file once. */
+  async clubNotice() {
+    const box = el('section', { class: 'card empty', id: 'club-notice' }, el('p', {}, 'Getting the club library…'));
+    C.refreshClub(this.app).then(async state => {
+      if (state === 'ok') { this.drills = [...(await this.app.store.all('drills')), ...(await this.clubDrills())]; this.renderCards(); return; }
+      fill(box, el('p', {}, state === 'pick' ? 'One more step, just this once: pick the club library file in Google’s file picker.' : state === 'none' ? 'Your team doesn’t have the club library yet. Bench Boss Labs turns it on.' : state === 'signin' ? 'Sign in to see the club library.' : 'No connection: the club library shows once you’re back online.'),
+        state === 'pick' ? el('button', { type: 'button', class: 'btn primary', id: 'pick-club', onclick: async () => {
+          try { if (await C.pickClub(this.app)) { this.drills = [...(await this.app.store.all('drills')), ...(await this.clubDrills())]; this.renderCards(); } } catch (e) { toast(e.words || e.message, { error: true }); }
+        } }, 'Open the club library') : null);
+    }).catch(e => fill(box, el('p', {}, e.words || e.message)));
+    return box;
+  }
+  async importClub(d) {
+    const { isClub, clubId, ...orig } = d;
+    const c = await C.importClubDrill(this.app, { ...orig, id: clubId }, newId('d'), x => thumbnailSVG(x, frame));
+    toast(`“${c.title}” is in your Library as a draft. Edit it, then publish it for your team.`);
+    this.f.show = ['drills']; this.savePrefs(); this.openId = c.id;
+    this.drills = [...(await this.app.store.all('drills')), ...(await this.clubDrills())];
+    this.renderFilters(); this.renderCards(); this.openPreview(c.id);
+  }
+
+  async reload() { this.drills = [...(await this.app.store.all('drills')), ...(await this.clubDrills())]; this.texts.clear(); this.renderFilters(); this.renderCards(); if (this.openId) this.openPreview(this.openId, { scroll: false }); }
 
   openPreview(id, { scroll = true } = {}) {
     const d = this.drills.find(x => x.id === id);
@@ -233,7 +267,10 @@ class Library {
     const host = el('div', { class: 'pp-preview-player' });
     const phone = reviewOnly(), newer = d.schemaVersion > SCHEMA_VERSION;
     const act = (label, idx, fn, kind = '') => el('button', { type: 'button', class: `btn ${kind}`, id: idx, onclick: fn }, label);
-    const actions = d.deletedAt
+    const actions = d.isClub
+      ? [el('div', { class: 'row' }, act('Import to my team', 'import-club', () => this.importClub(d), 'primary')),
+        el('p', { class: 'muted', style: 'margin:0' }, 'From the club library. Import makes your own copy to edit; it starts as a draft.')]
+      : d.deletedAt
       ? [el('p', { class: 'muted', style: 'margin:0' }, `In Recently deleted: removed for good in ${D.daysLeft(d)} days.`),
         el('div', { class: 'row' }, act('Restore', 'restore-drill', () => this.restore(d), 'primary'), act('Delete forever', 'delete-forever', () => this.deleteForever(d), 'danger'), ...publishButtons(this.app, 'drills', d, () => this.reload()))]
       : [el('div', { class: 'row' },

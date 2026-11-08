@@ -1,11 +1,10 @@
 /* Settings › This device: the Google Drive and team card (R3). Sign in, set up a team (benchbosslabs only),
    join a team by picking its library once, change or leave the team, sign out. */
-import { el, toast, dialog, fill } from '../ui.js?v=1.4.3';
-import { cloudState, signIn, signOut, signedIn, setupTeam, joinTeam, leaveTeam } from '../cloud/team.js?v=1.4.3';
-import { isAdmin, LIBRARY_PREFIX } from '../cloud/library.js?v=1.4.3';
-import { setHelper } from '../cloud/sharing.js?v=1.4.3';
+import { el, toast, dialog, fill } from '../ui.js?v=1.5.0';
+import { cloudState, signIn, signOut, signedIn, setupTeam, joinTeam, leaveTeam } from '../cloud/team.js?v=1.5.0';
+import { isAdmin, LIBRARY_PREFIX } from '../cloud/library.js?v=1.5.0';
+import { setHelper } from '../cloud/sharing.js?v=1.5.0';
 
-const APP_ADDRESS = 'bench-boss-labs.github.io/practice-pilot';
 const when = iso => (iso ? new Date(iso).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'not yet');
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';
 
@@ -52,11 +51,8 @@ export function renderTeamCard(app) {
           if (v === 'yes') { await leaveTeam(app); toast(`Left ${st.teamName}. Its drills stay on this device.`); }
         })),
         on ? btn('google-signout', 'Sign out', () => run('Signing out…', async () => { await signOut(app); toast('Signed out. The team’s drills stay on this device to view.'); })) : null));
-      parts.push(el('details', { class: 'pp-howto' }, el('summary', {}, 'How to add a coach'),
-        el('ol', {},
-          el('li', {}, 'In Google Drive, signed in as benchbosslabs, share the team folder (', el('b', {}, st.folderName || st.teamName), ') with the coach as ', el('b', {}, 'Editor'), '.'),
-          el('li', {}, `Send them the app’s address: ${APP_ADDRESS}`),
-          el('li', {}, 'They open Settings › This device, sign in with Google and tap ', el('b', {}, 'Join a team'), '.'))));
+      parts.push(isAdmin(st.email) ? el('div', { class: 'row' }, el('a', { class: 'btn', href: '#admin', id: 'open-admin' }, 'Open Admin'), el('span', { class: 'hint' }, 'Add coaches and change the team’s name, logo and colours.'))
+        : el('p', { class: 'hint', style: 'margin:0' }, 'New coaches are added by Bench Boss Labs; Google emails them a link to join.'));
     } else if (on) {
       parts.push(el('p', {}, 'Signed in as ', el('b', { id: 'cloud-email' }, st.email), '. Join your team to share drills and plans with your other coaches and devices.'));
       parts.push(el('div', { class: 'row' },

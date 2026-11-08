@@ -1,8 +1,8 @@
 /* Settings › This device › Helpers (1.4.3): the team's helpers, moved here from the plan's Share dialog.
    Helpers see every plan shared with the team, on their phone; they can't see drafts or change anything. */
-import { el, fill, toast } from '../ui.js?v=1.4.3';
-import { signedIn } from '../cloud/team.js?v=1.4.3';
-import { listHelpers, addHelper, removeHelper } from '../cloud/sharing.js?v=1.4.3';
+import { el, fill, toast } from '../ui.js?v=1.5.0';
+import { signedIn } from '../cloud/team.js?v=1.5.0';
+import { listHelpers, addHelper, removeHelper } from '../cloud/sharing.js?v=1.5.0';
 
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';
 
@@ -23,17 +23,17 @@ export function renderHelpersCard(app) {
   }
   async function draw() {
     const hs = await listHelpers(app);
-    if (!hs) { fill(list, el('p', { class: 'muted', style: 'margin:0' }, 'Pick the team’s shared folder to see its helpers.'), showBtn()); addRow.hidden = true; return; }
+    if (!hs) { fill(list, el('p', { class: 'muted', style: 'margin:0' }, 'Pick the team’s shared-plans file to see its helpers.'), showBtn()); addRow.hidden = true; return; }
     addRow.hidden = false;
     fill(list, hs.length ? el('ul', { class: 'pp-helpers' }, ...hs.map(h => el('li', { class: 'row' },
       el('span', { class: 'grow' }, h.email),
       el('button', { type: 'button', class: 'btn', 'data-remove': h.email, onclick: () => run(`Removing ${h.email}…`, async () => { await removeHelper(app, h.id); toast(`${h.email} is no longer a helper.`); await draw(); }) }, 'Remove'))))
       : el('p', { class: 'muted', style: 'margin:0' }, 'No helpers yet. Add one by their Google email.'));
   }
-  const showBtn = () => el('button', { type: 'button', class: 'btn', id: 'show-helpers', onclick: () => run('Opening the team’s shared folder…', draw) }, 'Show helpers');
+  const showBtn = () => el('button', { type: 'button', class: 'btn', id: 'show-helpers', onclick: () => run('Opening the team’s shared plans…', draw) }, 'Show helpers');
 
   if (!signedIn(app)) fill(list, el('p', { class: 'muted', style: 'margin:0' }, 'Sign in to see and add helpers.'));
-  else if (st.sharedFolderId) run('Getting the team’s helpers…', draw);
+  else if (st.sharedPlansId) run('Getting the team’s helpers…', draw);
   else fill(list, showBtn());
 
   return el('section', { class: 'card stack', id: 'helpers-card', 'aria-labelledby': 'helpers-title' },

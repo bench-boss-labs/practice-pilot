@@ -1,9 +1,9 @@
-/* Practice Pilot — sharing plans with helpers (1.4.1 deep-dive, decided Nov 6).
-   One shared-plans file in the team's `shared` folder holds each shared plan with copies of its drills.
-   Helpers are Viewers on the `shared` folder, and pick it once on their phone. */
-import { SHARED_FOLDER, newShared, checkShared, shareInto, unshareFrom, staleShared, planDrillIds, sharedName } from './library.js?v=1.4.3';
-import { cloudState, setState, signedIn, pushChanges } from './team.js?v=1.4.3';
-import { publishItems, unpublished } from './sync.js?v=1.4.3';
+/* Practice Pilot — sharing plans with helpers (1.4.1 deep-dive, decided Nov 6; reworked in 1.5.0).
+   One shared-plans file beside the team's library file holds each shared plan with copies of its drills.
+   Helpers are Viewers on that file (not a folder: the Nov 8 trial), and pick it once on their phone. */
+import { peopleOf, validEmail, newShared, checkShared, shareInto, unshareFrom, staleShared, planDrillIds, sharedName } from './library.js?v=1.5.0';
+import { cloudState, setState, signedIn, pushChanges } from './team.js?v=1.5.0';
+import { publishItems, unpublished } from './sync.js?v=1.5.0';
 
 const CACHE = 'shared-cache';
 export const HELPER = 'helper';
@@ -20,39 +20,31 @@ async function keep(app, doc) { await app.store.put('meta', { key: CACHE, value:
 export async function sharedIds(app) { const d = await sharedCache(app); return new Set(d ? d.plans.map(e => e.plan.id) : []); }
 
 /**
- * Make sure this coach's app can reach the team's `shared` folder and its shared-plans file. The first time a
- * coach shares, Google's picker opens on the folder (one tap). → { folderId, fileId }
+ * Make sure this coach's app can open the team's shared-plans file. Since 1.5.0 it sits beside the library file
+ * in the team folder, and helpers are shared on the file itself (the Nov 8 trial: picking a folder does not open
+ * the files inside it). A coach who didn't pick it when joining picks it once here. → { fileId, folderId }
  */
 export async function ensureShared(app) {
   const st = await cloudState(app);
   if (!st.libraryId) throw err('Join a team first (Settings › This device).');
   if (!signedIn(app)) throw err('Sign in to share (tap “Sign in to sync” at the top).', 401);
   const team = await libTeam(app);
-  let folderId = team.sharedFolderId || st.sharedFolderId || null;
   const reach = async id => { try { await app.drive.meta(id); return true; } catch (e) { if (e.status === 404 || e.status === 403) return false; throw e; } };
-  if (!folderId && st.folderId) {            // the account that set up the team made it: it can list it
-    try { const f = (await app.drive.list(st.folderId, { name: SHARED_FOLDER }))[0]; if (f) folderId = f.id; } catch {}
-  }
-  if (!folderId || !(await reach(folderId))) {
-    const f = await app.google.pick({ kind: 'shared', folderId, title: `Pick the “shared” folder in ${st.teamName}` });
+  let fileId = team.sharedPlansId || (app.team && app.team.sharedPlansId) || st.sharedPlansId || null;
+  if (fileId && !(await reach(fileId))) {
+    const f = await app.google.pick({ kind: 'plans', folderId: st.folderId, title: `Pick “${sharedName(st.teamName)}” in ${st.teamName}` });
     if (!f) return null;
-    const meta = await app.drive.meta(f.id);
-    if (meta.name !== SHARED_FOLDER || (folderId && f.id !== folderId)) throw err(`That isn’t ${st.teamName}’s shared folder. Pick the folder named “shared” inside ${st.folderName || st.teamName}.`);
-    folderId = f.id;
+    if (f.id !== fileId) throw err(`That isn’t ${st.teamName}’s shared-plans file. Pick “${sharedName(st.teamName)}”.`);
   }
-  let fileId = team.sharedPlansId || null;
-  if (fileId && !(await reach(fileId))) fileId = null;
   if (!fileId) {
-    const name = sharedName(st.teamName);
-    const found = (await app.drive.list(folderId, { name }))[0];
-    fileId = found ? found.id : (await app.drive.createJson(folderId, name, newShared({ team: { name: st.teamName }, by: by(st), at: new Date().toISOString() }))).id;
-  }
-  if (team.sharedFolderId !== folderId || team.sharedPlansId !== fileId) {
-    const back = await pushChanges(app, { team: { ...app.team, sharedFolderId: folderId, sharedPlansId: fileId } });
+    // the team has no shared-plans file yet: the account that owns the team folder makes it
+    try { fileId = (await app.drive.createJson(st.folderId, sharedName(st.teamName), newShared({ team: { name: st.teamName }, by: by(st), at: new Date().toISOString() }))).id; }
+    catch (e) { if (e.status === 404 || e.status === 403) throw err(`Sharing isn’t set up for ${st.teamName} yet. Ask Bench Boss Labs to open the team in Admin.`); throw e; }
+    const back = await pushChanges(app, { team: { ...app.team, sharedPlansId: fileId } });
     await app.store.put('meta', { key: 'library-cache', value: back });
   }
-  await setState(app, { sharedFolderId: folderId, sharedPlansId: fileId });
-  return { folderId, fileId };
+  await setState(app, { sharedPlansId: fileId });
+  return { fileId, folderId: st.folderId };
 }
 
 /** Change the shared-plans file, checking afterwards that the change landed (another coach saving at once). */
@@ -100,7 +92,7 @@ export async function unsharePlan(app, planId) {
 /** After Publish: update the helpers' copies of shared plans that changed or use a changed drill; drop deleted ones. */
 export async function afterPublish(app, changes) {
   const st = await cloudState(app);
-  const fileId = st.sharedPlansId || ((await libTeam(app)).sharedPlansId);
+  const fileId = st.sharedPlansId || ((await libTeam(app)).sharedPlansId) || (app.team && app.team.sharedPlansId);
   if (!fileId) return;
   const cache = (await sharedCache(app)) || (await refreshShared(app));
   if (!cache) return;
@@ -121,7 +113,7 @@ export async function afterPublish(app, changes) {
 /** Refresh this device's copy of what's shared (for the "Shared with helpers" labels). */
 export async function refreshShared(app) {
   const st = await cloudState(app);
-  const fileId = st.sharedPlansId || ((await libTeam(app)).sharedPlansId);
+  const fileId = st.sharedPlansId || ((await libTeam(app)).sharedPlansId) || (app.team && app.team.sharedPlansId);
   if (!fileId || !signedIn(app)) return null;
   try { const doc = await app.drive.readJson(fileId); return checkShared(doc).length ? null : keep(app, doc); } catch { return null; }
 }
@@ -136,22 +128,20 @@ export function helperLink(st, ids) {
 export async function listHelpers(app) {
   const ids = await ensureShared(app);
   if (!ids) return null;
-  const st = await cloudState(app);
-  const ps = await app.drive.permissions(ids.folderId);
-  return ps.filter(p => p.type === 'user' && p.role === 'reader' && p.emailAddress && p.emailAddress !== st.email).map(p => ({ id: p.id, email: p.emailAddress, name: p.displayName || '' }));
+  return peopleOf(await app.drive.permissions(ids.fileId), 'reader');
 }
 export async function addHelper(app, email) {
   const e = String(email || '').trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw err('Type the helper’s Google email address.');
+  if (!validEmail(e)) throw err('Type the helper’s Google email address.');
   const ids = await ensureShared(app);
   if (!ids) return null;
   const st = await cloudState(app);
-  await app.drive.share(ids.folderId, e, 'reader', MESSAGE(st.teamName));
+  await app.drive.share(ids.fileId, e, 'reader', `${MESSAGE(st.teamName)} ${helperLink(st, ids)}`);
   return e;
 }
 export async function removeHelper(app, permissionId) {
   const ids = await ensureShared(app);
-  if (ids) await app.drive.unshare(ids.folderId, permissionId);
+  if (ids) await app.drive.unshare(ids.fileId, permissionId);
 }
 
 /* ---------- the helper's side ---------- */
@@ -186,12 +176,12 @@ export async function helperLoad(app) {
     throw e;
   }
 }
-/** The helper's one-time step: pick the team's shared folder in Google's picker. */
+/** The helper's one-time step: pick the team's shared-plans file in Google's picker. */
 export async function helperPick(app) {
   const h = await helperState(app);
-  const f = await app.google.pick({ kind: 'shared', folderId: h.folderId, title: `Pick the “shared” folder (Shared with me › ${h.teamName || 'your team'} › shared)` });
+  const f = await app.google.pick({ kind: 'plans', folderId: h.folderId, title: `Pick “${sharedName(h.teamName)}” (Shared with me)` });
   if (!f) return null;
-  if (h.folderId && f.id !== h.folderId) throw err(`That isn’t ${h.teamName || 'the team'}’s shared folder. Pick the folder named “shared” inside ${h.teamName || 'the team’s folder'}.`);
+  if (f.id !== h.fileId) throw err(`That isn’t ${h.teamName || 'the team'}’s plans. Pick the file named “${sharedName(h.teamName)}”.`);
   await setHelper(app, { ...h, picked: true });
   return helperLoad(app);
 }

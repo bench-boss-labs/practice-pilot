@@ -48,26 +48,31 @@ export function createGoogle() {
       keep(null);
       try { if (t && window.google && window.google.accounts) window.google.accounts.oauth2.revoke(t, () => {}); } catch {}
     },
-    /** Google's file picker. kind 'folder' (set up a team) or 'library' (join a team). → { id, name } or null. */
-    async pick({ kind, title, folderId }) {
+    /**
+     * Google's file picker. kind 'folder' (a team folder), 'library' (a team's files: library and shared plans)
+     * or 'plans' (the shared-plans file). folderId opens that folder first. multi: select several → an array.
+     * → { id, name } (or [{ id, name }] with multi) or null.
+     */
+    async pick({ kind, title, folderId, multi = false }) {
       await load('https://apis.google.com/js/api.js');
       await new Promise((res, rej) => window.gapi.load('picker', { callback: res, onerror: () => rej(new Error('Couldn’t open Google’s file picker.')) }));
       const P = window.google.picker;
       return new Promise((resolve, reject) => {
-        const views = kind === 'shared'
-          ? [new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(false).setQuery('shared'),
-             ...(folderId ? [new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setParent(folderId)] : [])]
-          : kind === 'folder'
+        const files = q => [
+          ...(folderId ? [new P.DocsView(P.ViewId.DOCS).setMimeTypes('application/json').setParent(folderId)] : []),
+          new P.DocsView(P.ViewId.DOCS).setMimeTypes('application/json').setQuery(q).setOwnedByMe(false),
+          new P.DocsView(P.ViewId.DOCS).setMimeTypes('application/json').setQuery(q).setOwnedByMe(true)];
+        const views = kind === 'folder'
           ? [new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(true),
              new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setOwnedByMe(false)]
-          : [new P.DocsView(P.ViewId.DOCS).setMimeTypes('application/json').setQuery('Practice Pilot library').setOwnedByMe(false),
-             new P.DocsView(P.ViewId.DOCS).setMimeTypes('application/json').setQuery('Practice Pilot library').setOwnedByMe(true)];
+          : kind === 'plans' ? files('Practice Pilot shared plans') : files('Practice Pilot');
         const b = new P.PickerBuilder().setTitle(title).setOAuthToken(pass && pass.token).setDeveloperKey(GOOGLE.apiKey).setAppId(GOOGLE.appId)
           .setCallback(d => {
-            if (d.action === P.Action.PICKED) resolve({ id: d.docs[0].id, name: d.docs[0].name });
+            if (d.action === P.Action.PICKED) { const all = d.docs.map(x => ({ id: x.id, name: x.name })); resolve(multi ? all : all[0]); }
             else if (d.action === P.Action.CANCEL) resolve(null);
             else if (d.action === 'error') reject(new Error('Google’s file picker had a problem.'));
           });
+        if (multi) b.enableFeature(P.Feature.MULTISELECT_ENABLED);
         views.forEach(v => b.addView(v));
         b.build().setVisible(true);
       });

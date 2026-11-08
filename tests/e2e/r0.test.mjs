@@ -15,7 +15,7 @@ after(async () => { await env.close(); });
 test('opens with the Bench Boss Labs header, version and no errors', async () => {
   const { ctx, page } = await open(env);
   assert.equal(await page.textContent('.brand-name'), 'Practice Pilot');
-  assert.match(await page.textContent('.brand-sub'), /by Bench Boss Labs · v1\.4\.3/i);
+  assert.match(await page.textContent('.brand-sub'), /by Bench Boss Labs · v1\.5\.0/i);
   assert.equal(await page.textContent('#team-pill'), 'My team');
   assert.equal(await page.title(), 'Practice Pilot · Bench Boss Labs');
   assert.ok(await page.isVisible('#welcome'));
@@ -74,16 +74,16 @@ test('a rink Wi-Fi sign-in page cannot replace the saved app', async () => {
 test("an update shows the banner; Update now installs it and shows What's new once", async () => {
   const { ctx, page } = await open(env);
   await offlineReady(page);
-  const next = makeVersion('1.4.4', { title: 'Faster start-up' });
+  const next = makeVersion('1.5.1', { title: 'Faster start-up' });
   env.server.setRoot(next);
   try {
     await page.evaluate(() => window.__pp.checkUpdates());
     await page.waitForSelector('#bbl-update-banner');
     assert.match(await page.textContent('#bbl-update-banner'), /A new version is ready: Faster start-up/);
     await page.click('#bbl-update-go');
-    await page.waitForFunction(() => document.getElementById('app-version')?.textContent === 'v1.4.4', null, { timeout: 15000 });
+    await page.waitForFunction(() => document.getElementById('app-version')?.textContent === 'v1.5.1', null, { timeout: 15000 });
     await page.waitForSelector('#whats-new');
-    assert.match(await page.textContent('#whats-new'), /What's new in 1\.4\.4/);
+    assert.match(await page.textContent('#whats-new'), /What's new in 1\.5\.1/);
     await page.click('#whats-new .btn.primary');
     await page.reload(); await page.waitForSelector('#count:not(:empty)');
     assert.equal(await page.isVisible('#whats-new'), false);
@@ -93,7 +93,7 @@ test("an update shows the banner; Update now installs it and shows What's new on
 
 test('Later hides the banner; a data upgrade is announced', async () => {
   const { ctx, page } = await open(env);
-  env.server.setRoot(makeVersion('1.5.0', { upgradesData: true, title: 'Drills' }));
+  env.server.setRoot(makeVersion('1.5.1', { upgradesData: true, title: 'Drills' }));
   try {
     await page.evaluate(() => window.__pp.checkUpdates());
     await page.waitForSelector('#bbl-update-banner');
@@ -107,10 +107,10 @@ test('Later hides the banner; a data upgrade is announced', async () => {
 test('a quiet update installs by itself with no banner', async () => {
   const { ctx, page } = await open(env);
   await offlineReady(page);
-  env.server.setRoot(makeVersion('1.4.4', { quiet: true }));
+  env.server.setRoot(makeVersion('1.5.1', { quiet: true }));
   try {
     await page.evaluate(() => window.__pp.checkUpdates());
-    await page.waitForFunction(() => document.getElementById('app-version')?.textContent === 'v1.4.4', null, { timeout: 15000 });
+    await page.waitForFunction(() => document.getElementById('app-version')?.textContent === 'v1.5.1', null, { timeout: 15000 });
     assert.equal(await page.isVisible('#bbl-update-banner'), false);
     assert.equal(await page.isVisible('#whats-new'), false);
   } finally { env.server.setRoot(ROOT); }
@@ -133,7 +133,7 @@ test('Check for updates says when the app is current or offline', async () => {
 test('Back up now and Restore (both choices), with refusals for bad files', async () => {
   const { ctx, page } = await open(env);
   await page.evaluate(async () => {
-    const { newDrill } = await import('./app/schema.js?v=1.4.3');
+    const { newDrill } = await import('./app/schema.js?v=1.5.0');
     for (const d of await window.__pp.store.all('drills')) await window.__pp.store.delete('drills', d.id); // start without the samples
     await window.__pp.store.save('drills', newDrill('d_aaaaaa', { title: 'Keep' }));
   });
@@ -149,7 +149,7 @@ test('Back up now and Restore (both choices), with refusals for bad files', asyn
 
   const ids = () => page.evaluate(async () => (await window.__pp.store.all('drills')).map(d => d.id).sort());
   await page.evaluate(async () => {
-    const { newDrill } = await import('./app/schema.js?v=1.4.3');
+    const { newDrill } = await import('./app/schema.js?v=1.5.0');
     await window.__pp.store.delete('drills', 'd_aaaaaa');
     await window.__pp.store.save('drills', newDrill('d_bbbbbb', { title: 'New' }));
   });

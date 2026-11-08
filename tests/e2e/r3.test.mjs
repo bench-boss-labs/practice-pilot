@@ -107,7 +107,7 @@ test('set up a team on the tablet, then join it from the PC and from a second co
   assert.ok(await tab.page.isDisabled('#team-name'));
   const lib = fake.find('Practice Pilot library · U10BB Bulldogs Blue.json');
   assert.deepEqual(fake.read(lib.id).drills.map(d => d.title), ['Tablet drill']);
-  assert.ok(fake.find('shared'));
+  assert.ok(fake.find('Practice Pilot shared plans · U10BB Bulldogs Blue.json'), 'the shared-plans file beside the library');
   const mine = (await drills(tab.page)).find(d => d.title === 'Tablet drill');
   assert.equal(mine.pub.state, 'published');
   assert.ok((await drills(tab.page)).filter(d => d.sample).every(d => !d.pub), 'samples stay on the device');
@@ -317,7 +317,7 @@ test('the status in the top bar: offline, Sign in to sync, and publishing offlin
 
 /* ---------- 1.4.1: sharing plans with helpers ---------- */
 
-test('share a plan: add a helper, share; on their phone they pick the shared folder once, see the run sheet, play a drill, keep it offline', async () => {
+test('share a plan: add a helper, share; on their phone they pick the plans file once, see the run sheet, play a drill, keep it offline', async () => {
   const { fake, tab } = await twoDevices();
   const HELPER = 'helper@example.com';
   await makeDrill(tab.page, 'Helper drill');
@@ -347,7 +347,7 @@ test('share a plan: add a helper, share; on their phone they pick the shared fol
   await tab.page.waitForSelector('.pp-pill-shared');
 
   // the helper's phone
-  const ph = await device(fake, HELPER, { size: 'phone', picks: [fake.find('shared').id] });
+  const ph = await device(fake, HELPER, { size: 'phone', picks: [fake.find('Practice Pilot shared plans · Bulldogs.json').id] });
   await ph.page.goto(link);
   await ph.page.waitForSelector('#helper-invite');
   assert.match(await ph.page.textContent('#helper-invite'), /invited to see Bulldogs/);
@@ -402,7 +402,7 @@ test('a helper who is removed loses the plans; someone who isn’t a helper is t
   await tab.page.click('#share-plan'); await tab.page.waitForSelector('#share-plan-btn');
   await tab.page.click('#share-plan-btn'); await confirmPublish(tab.page); await tab.page.waitForSelector('#send-link');
   const link = await tab.page.inputValue('#helper-link');
-  const ph = await device(fake, 'gone@example.com', { size: 'phone', picks: [fake.find('shared').id] });
+  const ph = await device(fake, 'gone@example.com', { size: 'phone', picks: [fake.find('Practice Pilot shared plans · Bulldogs.json').id] });
   await ph.page.goto(link); await ph.page.click('#helper-signin'); await ph.page.click('#helper-pick-btn');
   await ph.page.waitForSelector('#helper-plans');
   await tab.page.click('#share-dialog button:has-text("Done")');
@@ -413,7 +413,7 @@ test('a helper who is removed loses the plans; someone who isn’t a helper is t
   await ph.page.waitForSelector('#helper-gone');
   assert.equal(await ph.page.evaluate(() => window.__pp.store.get('meta', 'helper-cache')), null, 'the saved plans left the phone');
 
-  const other = await device(fake, 'stranger@example.com', { size: 'phone', picks: [fake.find('shared').id] });
+  const other = await device(fake, 'stranger@example.com', { size: 'phone', picks: [fake.find('Practice Pilot shared plans · Bulldogs.json').id] });
   await other.page.goto(link); await other.page.click('#helper-signin');
   await other.page.waitForSelector('#helper-pick');
   await other.page.click('#helper-pick-btn');

@@ -1,5 +1,32 @@
 [
   {
+    "version": "1.5.0",
+    "date": "2026-11-08",
+    "title": "Admin: teams set up end to end",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Admin (Bench Boss Labs account): make a team with a name, logo and colours; the app makes its folder and files in Google Drive."
+      },
+      {
+        "type": "new",
+        "text": "Add coaches by email: Google emails them a link; they sign in and pick the team’s two files once to join."
+      },
+      {
+        "type": "new",
+        "text": "Team logo and colours show in the top bar, on printouts, drill sheets and videos, and new players take the team’s colour."
+      },
+      {
+        "type": "new",
+        "text": "Adopt a team folder made outside Admin, rename a team, and archive a team (removes everyone’s access; nothing is deleted)."
+      },
+      {
+        "type": "fixed",
+        "text": "Helpers and coaches now pick the team’s shared-plans file rather than a folder, which Google Drive didn’t let them open. Teams set up before 1.5.0: open the team in Admin and tap Update sharing."
+      }
+    ]
+  },
+  {
     "version": "1.4.3",
     "date": "2026-11-08",
     "title": "Coaches’ requests",

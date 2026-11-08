@@ -2,8 +2,8 @@
    Nothing made or changed on this device reaches the team until it's published. Catching up happens when the
    app opens or comes back on screen, and with Sync now. */
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { checkLibrary, fromTeam } from './library.js?v=1.4.3';
-import { cloudState, setState, signedIn, pushChanges, applyLibrary } from './team.js?v=1.4.3';
+import { checkLibrary, fromTeam } from './library.js?v=1.5.0';
+import { cloudState, setState, signedIn, pushChanges, applyLibrary } from './team.js?v=1.5.0';
 
 const CACHE = 'library-cache', GONE = 'pending-gone';
 const BIN_DAYS = 30;

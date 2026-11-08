@@ -1,9 +1,9 @@
 /* The Share dialog on a plan (1.4.1, simpler in 1.4.3): share the plan, send helpers the link, stop sharing.
    The team's helpers are managed in Settings › This device › Helpers. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.4.3';
-import { cloudState } from '../cloud/team.js?v=1.4.3';
-import { sharePlan, unsharePlan, sharedIds, helperLink, ensureShared } from '../cloud/sharing.js?v=1.4.3';
-import { helperCount } from './helperscard.js?v=1.4.3';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.0';
+import { cloudState } from '../cloud/team.js?v=1.5.0';
+import { sharePlan, unsharePlan, sharedIds, helperLink, ensureShared } from '../cloud/sharing.js?v=1.5.0';
+import { helperCount } from './helperscard.js?v=1.5.0';
 
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';
 
@@ -18,7 +18,7 @@ export async function openShare(app, plan, after = () => {}) {
     if (busy) return; busy = true; status.textContent = words;
     try { await fn(); status.textContent = ''; } catch (e) { console.warn('share', e); status.textContent = problem(e); } finally { busy = false; }
   };
-  const link = async () => { const st = await cloudState(app); return helperLink(st, { fileId: st.sharedPlansId, folderId: st.sharedFolderId }); };
+  const link = async () => { const st = await cloudState(app); return helperLink(st, { fileId: st.sharedPlansId, folderId: st.folderId }); };
   const close = () => { const b = document.querySelector('#share-dialog .dfoot .btn'); if (b) b.click(); };
 
   async function drawHelpers() {
@@ -51,9 +51,9 @@ export async function openShare(app, plan, after = () => {}) {
 
   const body = el('div', { class: 'stack' }, planBox, helpers, status);
   const shown = dialog({ id: 'share-dialog', title: `Share “${plan.title}”`, body, buttons: [{ label: 'Done', value: null, kind: 'primary' }] });
-  run('Opening the team’s shared folder…', async () => {
+  run('Opening the team’s shared plans…', async () => {
     const ids = await ensureShared(app);
-    if (!ids) { status.textContent = 'Sharing needs the team’s shared folder: tap Share again to pick it.'; return; }
+    if (!ids) { status.textContent = 'Sharing needs the team’s shared-plans file: tap Share again to pick it.'; return; }
     await Promise.all([drawPlan(), drawHelpers()]);
   });
   await shown;

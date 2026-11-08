@@ -1,17 +1,17 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.4.3';
-import { openShareDrill } from './drillshare.js?v=1.4.3';
-import { el, fill, toast, dialog } from '../ui.js?v=1.4.3';
+import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.5.0';
+import { openShareDrill } from './drillshare.js?v=1.5.0';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.0';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.4.3';
-import { Player } from '../engine/player.js?v=1.4.3';
-import { PIECES, TEAMS, LINES, isPlayer, handlesPuck, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.4.3';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.4.3';
-import { VIEWS } from '../engine/rink.js?v=1.4.3';
-import { at } from '../engine/geometry.js?v=1.4.3';
-import * as D from '../drills.js?v=1.4.3';
-import { drillInfo } from './drillview.js?v=1.4.3';
+import { SCHEMA_VERSION } from '../version.js?v=1.5.0';
+import { Player } from '../engine/player.js?v=1.5.0';
+import { PIECES, TEAMS, LINES, isPlayer, handlesPuck, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.5.0';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.5.0';
+import { VIEWS } from '../engine/rink.js?v=1.5.0';
+import { at } from '../engine/geometry.js?v=1.5.0';
+import * as D from '../drills.js?v=1.5.0';
+import { drillInfo } from './drillview.js?v=1.5.0';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
@@ -84,7 +84,7 @@ class Editor {
     this.d = D.content(rec);
     for (const [k, v] of Object.entries({ view: { rink: 'full', flip: false }, start: {}, markup: [], steps: [], pieces: [], tags: [], ageGroups: [], coachingPoints: [], setupNotes: [], videoLinks: [], autoHighlight: true })) if (this.d[k] == null) this.d[k] = v;
     this.past = []; this.future = []; this.coalesceKey = null; this.coalesceAt = 0;
-    this.sel = null; this.tool = 'move'; this.place = null; this.team = 'red';
+    this.sel = null; this.tool = 'move'; this.place = null; this.team = (app.team && app.team.colours && TEAMS[app.team.colours[0]]) ? app.team.colours[0] : 'red';   // new players take the team's main colour (1.5.0)
     this.markColour = 'orange'; this.markAll = false; this.tab = 'piece';
     this.status = 'Saved'; this.saveTimer = 0; this.saving = Promise.resolve();
     this.customTags = [];

@@ -1,10 +1,10 @@
 /* Printout (R2): page 1 is the run sheet; then a card per drill with its picture, purpose, setup,
    coaching points, who runs it and the block's note, about two cards a page. Chrome prints it or saves a PDF. */
-import { el, fill } from '../ui.js?v=1.4.3';
-import * as P from '../plans.js?v=1.4.3';
-import { blockTitle } from './plans.js?v=1.4.3';
+import { el, fill } from '../ui.js?v=1.5.0';
+import * as P from '../plans.js?v=1.5.0';
+import { blockTitle } from './plans.js?v=1.5.0';
 import qrcode from '../../vendor/qrcode-generator/1.4.4/qrcode.js';
-import { qrTarget } from '../drillshare-core.js?v=1.4.3';
+import { qrTarget } from '../drillshare-core.js?v=1.5.0';
 
 /** A QR code that opens the drill playing (decided Nov 6: on the plan printout, for coaches and helpers). */
 function qr(planId, d) {
@@ -60,7 +60,8 @@ async function build(app, id, root) {
 
   const sheet = el('section', { class: 'pp-sheet' },
     el('header', { class: 'pp-sheet-head' },
-      el('div', {}, el('p', { class: 'pp-sheet-team' }, team ? team.name : ''), el('h2', {}, p.title)),
+      el('div', { class: 'row', style: 'gap:10px;align-items:center' }, team && team.logo ? el('img', { class: 'pp-print-logo', src: team.logo, alt: '' }) : null,
+        el('div', {}, el('p', { class: 'pp-sheet-team', style: team && team.mainColour ? `color:${team.mainColour}` : null }, team ? team.name : ''), el('h2', {}, p.title))),
       el('p', { class: 'pp-sheet-when' }, [P.dayLabel(p.date), P.clock(p.startTime), `${bud.ice} min of ice`, `${bud.used} min planned`].filter(Boolean).join(' · '))),
     p.themes ? el('p', { class: 'pp-sheet-themes' }, el('b', {}, 'Themes: '), p.themes) : null,
     el('table', { class: 'pp-sheet-table' },

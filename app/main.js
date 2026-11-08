@@ -1,26 +1,28 @@
 /* Practice Pilot — start-up, screens, updates, offline status. */
-import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.4.3';
-import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.4.3';
+import { APP, APP_NAME, APP_VERSION, SCHEMA_VERSION } from './version.js?v=1.5.0';
+import { STORES, MIGRATIONS, newTeam } from './schema.js?v=1.5.0';
 import { openStore, newId, requestPersistence, storageStatus } from '../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { checkForUpdate, showUpdateBanner, pendingWhatsNew, renderReleases, normalizeReleases } from '../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { registerOffline, applyUpdate, watchOnline, singleTab } from '../vendor/bbl-kit/1.0.1/bbl-offline.js';
 import { isStandalone, detectInstalled } from '../vendor/bbl-kit/1.0.1/bbl-install.js';
-import { el, toast, dialog, blocker } from './ui.js?v=1.4.3';
-import { renderLibrary, restoreSamples, emptyBin, fillSampleSetup } from './screens/library.js?v=1.4.3';
-import { renderEditor } from './screens/editor.js?v=1.4.3';
-import { renderPlans, emptyPlanBin } from './screens/plans.js?v=1.4.3';
-import { renderPlanner } from './screens/planner.js?v=1.4.3';
-import { renderPrint } from './screens/print.js?v=1.4.3';
-import { renderHelpScreen } from './screens/help.js?v=1.4.3';
-import { renderSettings } from './screens/settings.js?v=1.4.3';
-import { createGoogle } from './cloud/google.js?v=1.4.3';
-import { connect, cloudState, signIn } from './cloud/team.js?v=1.4.3';
-import { watchStore, syncNow, statusWords, unpublished } from './cloud/sync.js?v=1.4.3';
-import { afterPublish, refreshShared, helperState } from './cloud/sharing.js?v=1.4.3';
-import { renderJoin, renderHelper } from './screens/helper.js?v=1.4.3';
-import { renderDrillSheet } from './screens/drillshare.js?v=1.4.3';
-import { thumbnailSVG } from './engine/render.js?v=1.4.3';
-import { frame } from './engine/model.js?v=1.4.3';
+import { el, toast, dialog, blocker } from './ui.js?v=1.5.0';
+import { renderLibrary, restoreSamples, emptyBin, fillSampleSetup } from './screens/library.js?v=1.5.0';
+import { renderEditor } from './screens/editor.js?v=1.5.0';
+import { renderPlans, emptyPlanBin } from './screens/plans.js?v=1.5.0';
+import { renderPlanner } from './screens/planner.js?v=1.5.0';
+import { renderPrint } from './screens/print.js?v=1.5.0';
+import { renderHelpScreen } from './screens/help.js?v=1.5.0';
+import { renderSettings } from './screens/settings.js?v=1.5.0';
+import { createGoogle } from './cloud/google.js?v=1.5.0';
+import { connect, cloudState, signIn } from './cloud/team.js?v=1.5.0';
+import { watchStore, syncNow, statusWords, unpublished } from './cloud/sync.js?v=1.5.0';
+import { afterPublish, refreshShared, helperState } from './cloud/sharing.js?v=1.5.0';
+import { renderJoin, renderHelper } from './screens/helper.js?v=1.5.0';
+import { renderDrillSheet } from './screens/drillshare.js?v=1.5.0';
+import { renderAdmin, renderTeamJoin } from './screens/admin.js?v=1.5.0';
+import { isAdmin } from './cloud/library.js?v=1.5.0';
+import { thumbnailSVG } from './engine/render.js?v=1.5.0';
+import { frame } from './engine/model.js?v=1.5.0';
 
 const app = {
   store: null, team: null, reg: null, notes: [], busy: false, online: true,
@@ -32,7 +34,7 @@ const app = {
   async refreshTeam() {
     const teams = await app.store.all('teams');
     app.team = teams[0];
-    document.getElementById('team-pill').textContent = helperMode() ? app.helper.teamName || '' : app.team ? app.team.name : '';
+    paintTeamPill();
   },
   render() { route(); },
   cleanup: null, pendingUpdate: null,
@@ -40,7 +42,15 @@ const app = {
 };
 window.__pp = app; // for the browser tests
 
-const SCREENS = { library: renderLibrary, edit: renderEditor, plans: renderPlans, plan: renderPlanner, print: renderPrint, help: renderHelpScreen, settings: renderSettings, join: renderJoin, helper: renderHelper, drillsheet: renderDrillSheet, drill: renderDrillLink };
+/** The team pill in the top bar: the team's logo, name and main colour (1.5.0). */
+function paintTeamPill() {
+  const pill = document.getElementById('team-pill');
+  const t = helperMode() ? { name: app.helper.teamName || '' } : app.team || {};
+  pill.replaceChildren(...(t.logo ? [el('img', { src: t.logo, alt: '', class: 'pp-pilllogo' })] : []), document.createTextNode(t.name || ''));
+  pill.style.setProperty('--team-main', t.mainColour || 'transparent');
+  pill.classList.toggle('pp-teamcoloured', !!t.mainColour);
+}
+const SCREENS = { admin: renderAdmin, team: renderTeamJoin, library: renderLibrary, edit: renderEditor, plans: renderPlans, plan: renderPlanner, print: renderPrint, help: renderHelpScreen, settings: renderSettings, join: renderJoin, helper: renderHelper, drillsheet: renderDrillSheet, drill: renderDrillLink };
 /** A QR code on the plan printout: #drill/<plan>/<drill> opens the drill playing, for a coach or a helper. */
 function renderDrillLink() {
   const [, planId, drillId] = location.hash.replace('#', '').split('/');
@@ -55,10 +65,12 @@ function route() {
   let name = SCREENS[screen] && (!['edit', 'plan', 'print', 'drillsheet', 'drill'].includes(screen) || sub) ? screen : 'library';
   if (helperMode() && ['library', 'edit', 'plans', 'plan', 'print', 'drillsheet'].includes(name)) name = 'helper';
   for (const a of document.querySelectorAll('#nav a')) a.hidden = helperMode() ? ['library', 'plans'].includes(a.dataset.screen) : a.dataset.screen === 'helper';
-  document.getElementById('team-pill').textContent = helperMode() ? app.helper.teamName || '' : app.team ? app.team.name : '';
+  paintTeamPill();
+  const admin = !helperMode() && app.cloudState && isAdmin(app.cloudState.email);
+  for (const a of document.querySelectorAll('#nav a[data-screen="admin"]')) a.hidden = !admin;
   if (app.cleanup) { try { app.cleanup(); } catch (e) { console.error(e); } app.cleanup = null; }
   for (const t of document.querySelectorAll('#toasts .toast.scoped')) t.remove();
-  const navName = ['edit', 'drillsheet', 'drill'].includes(name) ? 'library' : ['plan', 'print'].includes(name) ? 'plans' : name === 'join' ? 'helper' : name;
+  const navName = ['edit', 'drillsheet', 'drill', 'team'].includes(name) ? 'library' : ['plan', 'print'].includes(name) ? 'plans' : name === 'join' ? 'helper' : name;
   for (const a of document.querySelectorAll('#nav a')) {
     if (a.dataset.screen === navName) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
@@ -204,7 +216,7 @@ async function start() {
   app.cloudState = await cloudState(app);
   app.thumbOf = d => thumbnailSVG(d, frame);
   watchStore(app);
-  app.renderSyncPill = renderSyncPill; app.renderTeamPill = renderSyncPill; app.catchUp = catchUp;
+  app.renderSyncPill = renderSyncPill; app.renderTeamPill = () => { renderSyncPill(); paintTeamPill(); const admin = !helperMode() && app.cloudState && isAdmin(app.cloudState.email); for (const x of document.querySelectorAll('#nav a[data-screen="admin"]')) x.hidden = !admin; }; app.catchUp = catchUp;
   app.afterPublish = changes => afterPublish(app, changes);
   app.helper = await helperState(app);
   document.getElementById('sync-pill').addEventListener('click', syncDialog);

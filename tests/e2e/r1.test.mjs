@@ -367,7 +367,7 @@ test('500 drills: the library opens in under a second and filtering keeps up', a
 test('an update waits while the editor is open and shows once you leave', async () => {
   const { ctx, page } = await open(env);
   await page.goto(env.server.url + '#edit/d_samplepivot'); await page.waitForSelector('.pp-editor');
-  env.server.setRoot(makeVersion('1.4.9'));
+  env.server.setRoot(makeVersion('1.5.9'));
   await page.evaluate(() => window.__pp.checkUpdates());
   await page.waitForTimeout(500);
   assert.equal(await page.locator('#banners .banner').count(), 0, 'no banner while editing');
@@ -535,7 +535,7 @@ test('two shooters in one step: both pucks fly in the animation', async () => {
   assert.equal(d.steps.length, 1);
   // both pucks end at the net in the animation
   const ends = await page.evaluate(async () => {
-    const { frame, prepare } = await import('./app/engine/model.js?v=1.4.3');
+    const { frame, prepare } = await import('./app/engine/model.js?v=1.5.0');
     const d = await window.__pp.store.get('drills', location.hash.split('/')[1]);
     return frame(d, 1, 1, prepare(d)).pieces.filter(p => p.type === 'puck').map(p => [Math.round(p.x), Math.round(p.y)]);
   });

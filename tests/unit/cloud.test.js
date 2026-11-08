@@ -78,7 +78,7 @@ test('library file: names, publish stamps who and when, gone removes, landed che
   assert.equal(L.fromTeam(doc.team).pub.state, 'published');
 });
 
-test('set up a team (benchbosslabs): library and shared folder made, own drills move in as published, samples stay', async () => {
+test('set up a team (benchbosslabs): library and shared-plans file made side by side, own drills move in as published, samples stay', async () => {
   const fake = new FakeDrive();
   const admin = 'benchbosslabs@gmail.com';
   const folder = fake.addFolder('U10BB Bulldogs Blue', admin);
@@ -94,7 +94,10 @@ test('set up a team (benchbosslabs): library and shared folder made, own drills 
   assert.deepEqual(doc.drills.map(d => d.id), ['d_mine01']);
   assert.deepEqual(doc.plans.map(p => p.id), ['p_mine01']);
   assert.equal(doc.team.name, 'U10BB Bulldogs Blue');
-  assert.ok(fake.find('shared'), 'the shared folder for helpers');
+  const plans = fake.find('Practice Pilot shared plans · U10BB Bulldogs Blue.json');
+  assert.ok(plans && plans.parents[0] === folder, 'the shared-plans file sits beside the library (1.5.0)');
+  assert.equal(doc.team.sharedPlansId, plans.id);
+  assert.equal(fake.find('shared'), null, 'no shared folder any more');
   assert.equal((await a.store.get('drills', 'd_mine01')).pub.state, 'published');
   assert.equal((await a.store.get('drills', 'd_mine01')).thumb, '<svg/>', 'keeps its picture');
   assert.equal((await a.store.get('drills', 'd_sample')).pub, undefined, 'samples stay on the device');
@@ -325,8 +328,8 @@ async function sharingTeam() {
   for (const x of [a, b]) x.afterPublish = ch => SH.afterPublish(x, ch);
   await a.store.save('drills', drill('d_shdrl1', { title: 'Pivot' }));
   await a.store.save('plans', stamp({ id: 'p_share1', title: 'Tuesday', date: '2099-01-06', blocks: [{ id: 'b1', kind: 'drill', drillId: 'd_shdrl1', minutes: 8 }, { id: 'b2', kind: 'drill', drillId: 'd_shared', minutes: 8 }], deletedAt: null }));
-  const shared = fake.find('shared');
-  return { ...t, shared };
+  const plansFile = fake.find('Practice Pilot shared plans · Bulldogs.json');
+  return { ...t, plansFile };
 }
 async function helperDevice(fake, email, link) {
   const h = await device(fake, email);
@@ -368,15 +371,19 @@ test('share a plan: it’s published first, helpers get it, and a changed drill 
   assert.equal(fake.read(file.id).plans.length, 0);
 });
 
-test('helpers: add by email (Google emails them), list, remove; any coach can, after picking the shared folder once', async () => {
-  const { fake, a, b, shared } = await sharingTeam();
+test('helpers: add by email (Google emails them), list, remove; any coach can, after picking the plans file once', async () => {
+  const { fake, a, b, plansFile } = await sharingTeam();
   await SH.sharePlan(a, 'p_share1', { dialog: answer('all') });
   assert.equal(await SH.addHelper(a, ' Helper@Example.com '), 'helper@example.com');
   assert.equal(fake.mail.at(-1).to, 'helper@example.com');
   assert.match(fake.mail.at(-1).message, /helper for Bulldogs/);
-  // the second coach: their app can't reach the folder until they pick it
+  assert.equal(fake.file(plansFile.id).shared['helper@example.com'], 'reader', 'a Viewer on the file itself, not a folder');
+  assert.match(fake.mail.at(-1).message, /#join\//, 'the email carries the link');
+  // the second coach: their app can't open the file until they pick it (picking the folder isn't enough: Nov 8 trial)
   await S.syncNow(b, { force: true });
-  b.pickQueue.push({ id: shared.id });
+  b.pickQueue.push({ id: fake.find('Bulldogs').id });
+  await assert.rejects(SH.listHelpers(b), /isn’t Bulldogs’s shared-plans file/);
+  b.pickQueue.push({ id: plansFile.id });
   const list = await SH.listHelpers(b);
   assert.deepEqual(list.map(h => h.email), ['helper@example.com']);
   await SH.addHelper(b, 'second@example.com');
@@ -385,15 +392,15 @@ test('helpers: add by email (Google emails them), list, remove; any coach can, a
   await assert.rejects(SH.addHelper(a, 'not an email'), /Google email/);
 });
 
-test('a helper’s phone: pick the shared folder once, see the plans, keep them with no signal, lose them when removed', async () => {
-  const { fake, a, shared } = await sharingTeam();
+test('a helper’s phone: pick the plans file once, see the plans, keep them with no signal, lose them when removed', async () => {
+  const { fake, a, plansFile } = await sharingTeam();
   const link = await SH.sharePlan(a, 'p_share1', { dialog: answer('all') });
   await SH.addHelper(a, 'helper@example.com');
   const h = await helperDevice(fake, 'helper@example.com', link);
   assert.equal((await SH.helperLoad(h)).state, 'pick', 'the link alone isn’t enough (Nov 6 trial)');
   h.pickQueue.push({ id: fake.find('Bulldogs').id });
-  await assert.rejects(SH.helperPick(h), /isn’t Bulldogs’s shared folder/);
-  h.pickQueue.push({ id: shared.id });
+  await assert.rejects(SH.helperPick(h), /isn’t Bulldogs’s plans/);
+  h.pickQueue.push({ id: plansFile.id });
   const r = await SH.helperPick(h);
   assert.equal(r.state, 'ok');
   assert.deepEqual(r.doc.plans.map(e => e.plan.title), ['Tuesday']);
@@ -402,7 +409,7 @@ test('a helper’s phone: pick the shared folder once, see the plans, keep them 
   const off = await SH.helperLoad(h);
   assert.equal(off.state, 'offline'); assert.equal(off.doc.plans.length, 1, 'kept for no signal');
   fake.offline = false;
-  fake.unshare(shared.id, 'helper@example.com');
+  fake.unshare(plansFile.id, 'helper@example.com');
   const gone = await SH.helperLoad(h);
   assert.equal(gone.state, 'gone');
   assert.equal(await SH.helperCache(h), null, 'the saved plans leave the phone');

@@ -43,9 +43,9 @@ export class Drive {
   /** Who is signed in: { email, name }. */
   async about() { const a = await this.call('GET', `${API}/about?fields=user(emailAddress,displayName)`); return { email: a.user.emailAddress, name: a.user.displayName || '' }; }
   meta(id) { return this.call('GET', `${API}/files/${id}?fields=${FIELDS}&supportsAllDrives=true`); }
-  /** Files in a folder this app can see; optional exact name and type. */
+  /** Files in a folder this app can see (any folder when parent is null); optional exact name and type. */
   async list(parent, { name, mime } = {}) {
-    let s = `'${esc(parent)}' in parents and trashed=false`;
+    let s = parent ? `'${esc(parent)}' in parents and trashed=false` : 'trashed=false';
     if (name) s += ` and name='${esc(name)}'`;
     if (mime) s += ` and mimeType='${esc(mime)}'`;
     const r = await this.call('GET', `${API}/files?q=${q(s)}&fields=files(${FIELDS})&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true`);
@@ -73,8 +73,17 @@ export class Drive {
     return r.permissions || [];
   }
   /** Share with someone; Google emails them with the message. */
-  share(id, email, role, message) {
-    return this.call('POST', `${API}/files/${id}/permissions?sendNotificationEmail=true&emailMessage=${q(message || '')}&supportsAllDrives=true&fields=id,emailAddress,role`, { body: JSON.stringify({ type: 'user', role, emailAddress: email }), headers: { 'Content-Type': 'application/json' } });
+  share(id, email, role, message, { notify = true } = {}) {
+    const mail = notify ? `sendNotificationEmail=true&emailMessage=${q(message || '')}` : 'sendNotificationEmail=false';
+    return this.call('POST', `${API}/files/${id}/permissions?${mail}&supportsAllDrives=true&fields=id,emailAddress,role`, { body: JSON.stringify({ type: 'user', role, emailAddress: email }), headers: { 'Content-Type': 'application/json' } });
+  }
+  /** Rename a file or folder. */
+  rename(id, name) {
+    return this.call('PATCH', `${API}/files/${id}?fields=${FIELDS}&supportsAllDrives=true`, { body: JSON.stringify({ name }), headers: { 'Content-Type': 'application/json' } });
+  }
+  /** Move a file from one folder to another. */
+  move(id, to, from) {
+    return this.call('PATCH', `${API}/files/${id}?addParents=${q(to)}&removeParents=${q(from)}&fields=${FIELDS}&supportsAllDrives=true`, { body: '{}', headers: { 'Content-Type': 'application/json' } });
   }
   unshare(id, permissionId) { return this.call('DELETE', `${API}/files/${id}/permissions/${permissionId}?supportsAllDrives=true`); }
   /** Change small labels on a file (edit marks). A null value removes that label. */

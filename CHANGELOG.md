@@ -1,5 +1,13 @@
 # Practice Pilot — changelog
 
+## 1.5.0 — 2026-11-08 (Admin: teams set up end to end)
+
+- **New:** Admin (Bench Boss Labs account): make a team with a name, logo and colours; the app makes its folder and files in Google Drive.
+- **New:** Add coaches by email: Google emails them a link; they sign in and pick the team’s two files once to join.
+- **New:** Team logo and colours show in the top bar, on printouts, drill sheets and videos, and new players take the team’s colour.
+- **New:** Adopt a team folder made outside Admin, rename a team, and archive a team (removes everyone’s access; nothing is deleted).
+- **Fixed:** Helpers and coaches now pick the team’s shared-plans file rather than a folder, which Google Drive didn’t let them open. Teams set up before 1.5.0: open the team in Admin and tap Update sharing.
+
 ## 1.4.3 — 2026-11-08 (Coaches’ requests)
 
 - **New:** Up the ice: turn any drill so the net is at the top (Details › Rink, or the Up the ice button). Labels stay upright, Flip still works, and printouts, sheets and videos show it the same way.

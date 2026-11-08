@@ -383,3 +383,21 @@ body.pp-ed-compact main { max-width: none; height: 100vh; height: 100dvh; paddin
 .pp-sendpick input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
 .pp-sendpick > span { display: grid; gap: 2px; }
 .pp-sendpick:has(input:disabled) { opacity: .6; cursor: default; }
+
+/* 1.5.0 Admin and team look */
+.teampill { display: inline-flex; align-items: center; gap: 6px; }
+.teampill:empty { display: none; }
+.teampill.pp-teamcoloured { border-color: var(--team-main); box-shadow: inset 3px 0 0 var(--team-main); }
+.pp-pilllogo { width: 20px; height: 20px; border-radius: 4px; object-fit: contain; background: #fff; }
+.pp-teamlogo { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 10px; object-fit: contain; background: #fff; font-weight: 800; border: 1px solid var(--line, #d8dee6); }
+.pp-teamcard { display: flex; align-items: center; gap: var(--space-3); text-decoration: none; color: inherit; }
+.pp-teamcard:hover { border-color: var(--accent, #F26A1B); }
+.pp-colourpair { display: inline-flex; gap: 4px; }
+.pp-colourpair i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-strong, #9aa5b4); }
+.pp-pill-warn { background: #fde7c4; color: #6b3d00; align-self: flex-start; }
+.pp-swatches { gap: 6px; }
+.pp-swatches input[type=color] { width: 44px; height: 44px; padding: 2px; border-radius: 8px; border: 1px solid var(--line, #d8dee6); background: transparent; }
+.pp-lookpreview { gap: var(--space-3); padding: var(--space-3); border: 1px dashed var(--line, #d8dee6); border-radius: 10px; }
+.pp-teampill-sample { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #0b1b31; color: #fff; box-shadow: inset 4px 0 0 var(--team-main); border: 1px solid var(--team-main); font-weight: 600; }
+.pp-teampill-sample img { width: 20px; height: 20px; border-radius: 4px; background: #fff; object-fit: contain; }
+.pp-print-logo { width: 40px; height: 40px; object-fit: contain; }

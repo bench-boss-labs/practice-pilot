@@ -38,14 +38,11 @@ export class FakeDrive {
     }
     return best;
   }
-  /** What the app (drive.file) may touch for this person. byId: a file inside a folder they picked opens by its id
-      (the Nov 6 phone trial), though it never shows in a listing. */
-  can(email, f, { byId = false } = {}) {
+  /** What the app (drive.file) may touch for this person: files it made for them, and files or folders they
+      picked. Picking a folder does NOT open the files inside it (the Nov 8 phone trial: 404 after picking). */
+  can(email, f) {
     if (!f || f.trashed || !this.role(email, f)) return false;
-    if (f.app.has(email)) return true;
-    if (!byId) return false;
-    for (let x = f.parents[0] && this.files.get(f.parents[0]); x; x = x.parents[0] && this.files.get(x.parents[0])) if (x.app.has(email)) return true;
-    return false;
+    return f.app.has(email);
   }
   #meta(f, email) {
     return { id: f.id, name: f.name, mimeType: f.mimeType, parents: f.parents, version: String(f.version), modifiedTime: f.modifiedTime,
@@ -80,21 +77,21 @@ export class FakeDrive {
       const parent = (/'([^']+)' in parents/.exec(s) || [])[1];
       const name = (/name='((?:[^'\\]|\\.)*)'/.exec(s) || [])[1];
       const mime = (/mimeType='([^']+)'/.exec(s) || [])[1];
-      const out = [...this.files.values()].filter(x => this.can(email, x) && (!parent || x.parents.includes(parent))
+      const out = [...this.files.values()].filter(x => this.can(email, x) && (!parent || (parent === 'root' ? !x.parents.length : x.parents.includes(parent)))
         && (!name || x.name === name.replace(/\\'/g, "'")) && (!mime || x.mimeType === mime));
       return json(200, { files: out.map(x => this.#meta(x, email)) });
     }
     const pm = /^\/files\/([^/]+)\/permissions(?:\/([^/]+))?$/.exec(path);
     if (pm) {
       const pf = this.files.get(pm[1]);
-      if (!this.can(email, pf, { byId: true })) return err(404, `File not found: ${pm[1]}.`);
+      if (!this.can(email, pf)) return err(404, `File not found: ${pm[1]}.`);
       if (method === 'GET') return json(200, { permissions: [{ id: `owner-${pf.owner}`, type: 'user', role: 'owner', emailAddress: pf.owner }, ...Object.entries(pf.shared).map(([e, r]) => ({ id: `p-${e}`, type: 'user', role: r, emailAddress: e }))] });
       if (!['owner', 'writer'].includes(this.role(email, pf))) return err(403, 'The user does not have sufficient permissions for this file.');
-      if (method === 'POST') { const b = JSON.parse(body); pf.shared[b.emailAddress] = b.role; this.mail = [...(this.mail || []), { to: b.emailAddress, message: u.searchParams.get('emailMessage') }]; return json(200, { id: `p-${b.emailAddress}`, emailAddress: b.emailAddress, role: b.role }); }
+      if (method === 'POST') { const b = JSON.parse(body); pf.shared[b.emailAddress] = b.role; if (u.searchParams.get('sendNotificationEmail') !== 'false') this.mail = [...(this.mail || []), { to: b.emailAddress, message: u.searchParams.get('emailMessage') }]; return json(200, { id: `p-${b.emailAddress}`, emailAddress: b.emailAddress, role: b.role }); }
       if (method === 'DELETE') { const e = String(pm[2] || '').replace(/^p-/, ''); if (!(e in pf.shared)) return err(404, 'Permission not found.'); delete pf.shared[e]; return { status: 204, body: '' }; }
     }
     if (method === 'GET' && m) {
-      if (!this.can(email, f, { byId: true })) return err(404, `File not found: ${m[1]}.`);
+      if (!this.can(email, f)) return err(404, `File not found: ${m[1]}.`);
       if (u.searchParams.get('alt') === 'media') return { status: 200, body: f.content };
       return json(200, this.#meta(f, email));
     }
@@ -105,19 +102,26 @@ export class FakeDrive {
         const parts = String(body).split(/--pp[a-z0-9]+(?:--)?\r?\n?/).map(p => p.split(/\r?\n\r?\n/).slice(1).join('\n\n').trim()).filter(Boolean);
         meta = JSON.parse(parts[0]); content = parts[1] || '';
       } else meta = JSON.parse(body);
-      const parent = this.files.get((meta.parents || [])[0]);
-      if (!this.can(email, parent, { byId: true }) || !['owner', 'writer'].includes(this.role(email, parent))) return err(404, 'Parent not found.');
-      const id = this.#add({ name: meta.name, mimeType: meta.mimeType || 'application/octet-stream', owner: email, parents: [parent.id], shared: {}, app: new Set([email]), content, appProperties: meta.appProperties || {} });
+      const root = (meta.parents || [])[0] === 'root';
+      const parent = root ? null : this.files.get((meta.parents || [])[0]);
+      if (!root && (!this.can(email, parent) || !['owner', 'writer'].includes(this.role(email, parent)))) return err(404, 'Parent not found.');
+      const id = this.#add({ name: meta.name, mimeType: meta.mimeType || 'application/octet-stream', owner: email, parents: root ? [] : [parent.id], shared: {}, app: new Set([email]), content, appProperties: meta.appProperties || {} });
       return json(200, this.#meta(this.files.get(id), email));
     }
     if (method === 'PATCH' && m) {
-      if (!this.can(email, f, { byId: true })) return err(404, `File not found: ${m[1]}.`);
+      if (!this.can(email, f)) return err(404, `File not found: ${m[1]}.`);
       if (!['owner', 'writer'].includes(this.role(email, f))) return err(403, 'The user does not have sufficient permissions for this file.');
       if (u.pathname.startsWith('/upload/')) f.content = String(body);
       else {
         const p = JSON.parse(body || '{}');
         for (const [k, v] of Object.entries(p.appProperties || {})) { if (v === null) delete f.appProperties[k]; else f.appProperties[k] = String(v); }
         if (p.name) f.name = p.name;
+        const to = u.searchParams.get('addParents'), from = u.searchParams.get('removeParents');
+        if (to) {
+          const dest = this.files.get(to);
+          if (!dest || !['owner', 'writer'].includes(this.role(email, dest))) return err(403, 'Can’t move it there.');
+          f.parents = [...f.parents.filter(x => x !== from), to];
+        }
       }
       this.#touch(f);
       return json(200, this.#meta(f, email));

@@ -1,8 +1,8 @@
 /* Practice Pilot — signing in, setting up and joining a team (R3 Sign-in, Team Library and Sync deep-dive).
    The team is a Drive folder holding one library file and a `shared` folder for helpers. */
-import { APP_VERSION } from '../version.js?v=1.4.3';
-import { Drive, DriveError } from './drive.js?v=1.4.3';
-import { LIBRARY_PREFIX, SHARED_FOLDER, libraryName, newLibrary, checkLibrary, publish, landed, fromTeam, movable, isAdmin, teamPart } from './library.js?v=1.4.3';
+import { APP_VERSION } from '../version.js?v=1.5.0';
+import { Drive, DriveError } from './drive.js?v=1.5.0';
+import { LIBRARY_PREFIX, libraryName, newLibrary, checkLibrary, publish, landed, fromTeam, movable, isAdmin, teamPart, sharedName, newShared } from './library.js?v=1.5.0';
 
 const META = 'cloud';
 /** This device's link to Google and the team: { email, name, folderId, folderName, libraryId, teamName, version, syncedAt }. */
@@ -84,6 +84,8 @@ export async function applyLibrary(app, doc) {
   }
   const team = { ...(app.team || {}), ...teamPart(doc.team) };
   await app.store.replaceAll('teams', [{ ...team, schemaVersion: app.team.schemaVersion, createdAt: app.team.createdAt || doc.updatedAt, updatedAt: doc.updatedAt, updatedBy: doc.updatedBy }]);
+  const st = await cloudState(app);
+  if (st.libraryId && doc.team.name && st.teamName !== doc.team.name) await setState(app, { teamName: doc.team.name, folderName: doc.team.name });   // renamed in Admin
   await app.refreshTeam();
 }
 
@@ -117,10 +119,10 @@ export async function setupTeam(app, { dialog }) {
   if (existing) return joinFile(app, existing.id, { dialog });
   const changes = await askMove(app, dialog, meta.name);
   const at = new Date().toISOString(), by = st.name || st.email;
-  let doc = newLibrary({ team: { ...app.team, name: meta.name }, by, at, appVersion: APP_VERSION });
+  const plans = await app.drive.createJson(folder.id, sharedName(meta.name), newShared({ team: { name: meta.name }, by, at }));
+  let doc = newLibrary({ team: { ...app.team, name: meta.name, sharedPlansId: plans.id }, by, at, appVersion: APP_VERSION });
   doc = publish(doc, changes, by, at);
   const file = await app.drive.createJson(folder.id, name, doc);
-  await app.drive.folder(folder.id, SHARED_FOLDER);
   await markPublished(app, doc, changes);
   await markDrafts(app);
   await setState(app, { folderId: folder.id, folderName: meta.name, libraryId: file.id, teamName: meta.name, version: file.version, syncedAt: at });
@@ -128,10 +130,16 @@ export async function setupTeam(app, { dialog }) {
   return { teamName: meta.name, moved: changes.drills.length + changes.plans.length };
 }
 
-/** Join a team: pick its library file in Google's file picker. */
-export async function joinTeam(app, { dialog, before }) {
-  const f = await app.google.pick({ kind: 'library', title: `Pick your team’s “${LIBRARY_PREFIX}” file` });
-  if (!f) return null;
+/**
+ * Join a team: pick its files in Google's file picker. Since 1.5.0 the picker shows the team folder's two files
+ * (library and shared plans) and the coach selects both; the library alone is enough to join.
+ */
+export async function joinTeam(app, { dialog, before, folderId = null, libraryId = null }) {
+  const picked = await app.google.pick({ kind: 'library', multi: true, folderId, title: 'Select both of your team’s Practice Pilot files' });
+  const list = [].concat(picked || []);
+  if (!list.length) return null;
+  const f = list.find(x => x.name.startsWith(LIBRARY_PREFIX)) || list[0];
+  if (libraryId && f.id !== libraryId) throw new Error('That’s another team’s library. Pick the files in the team folder you were invited to.');
   if (!f.name.startsWith(LIBRARY_PREFIX)) throw new Error(`That isn’t a team library. Pick the file whose name starts with “${LIBRARY_PREFIX}”.`);
   if (before) await before();
   return joinFile(app, f.id, { dialog });

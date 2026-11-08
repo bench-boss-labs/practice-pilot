@@ -11,7 +11,7 @@ export const isAdmin = email => String(email || '').toLowerCase() === ADMIN_EMAI
 
 const clone = o => JSON.parse(JSON.stringify(o));
 const LOCAL_ONLY = ['thumb', 'pub'];
-const TEAM_FIELDS = ['id', 'name', 'colours', 'iceTimeMinutes', 'sharedFolderId', 'sharedPlansId'];
+const TEAM_FIELDS = ['id', 'name', 'colours', 'iceTimeMinutes', 'sharedFolderId', 'sharedPlansId', 'logo', 'mainColour', 'secondColour'];
 
 /** "Practice Pilot library · U10BB Bulldogs Blue.json" */
 export const libraryName = team => `${LIBRARY_PREFIX} · ${String(team || 'Team').replace(/[\\/:*?"<>|]/g, '-').trim()}.json`;
@@ -132,3 +132,50 @@ export function visibleShared(doc, today = new Date()) {
   const past = live.filter(e => when(e) < now).sort((a, b) => when(b).localeCompare(when(a)));
   return [...ahead, ...past];
 }
+
+/* ---------- team look (1.5.0): logo and colours ---------- */
+
+const PIECE_COLOURS = { red: [200, 16, 46], black: [29, 35, 43], white: [255, 255, 255], blue: [29, 78, 216] };
+const rgb = hex => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+/** The player-piece colour nearest a team colour: red, black, white or blue. */
+export function nearestPieceColour(hex) {
+  const c = rgb(hex);
+  if (!c) return null;
+  let best = null, bd = Infinity;
+  for (const [name, p] of Object.entries(PIECE_COLOURS)) { const d = (c[0] - p[0]) ** 2 * 2 + (c[1] - p[1]) ** 2 * 4 + (c[2] - p[2]) ** 2 * 3; if (d < bd) { bd = d; best = name; } }
+  return best;
+}
+/** A team's look: its colours set the default player colours (main first, then second). */
+export function teamLook({ mainColour, secondColour, logo } = {}) {
+  const a = nearestPieceColour(mainColour), b0 = nearestPieceColour(secondColour);
+  const b = b0 && b0 !== a ? b0 : ['red', 'black', 'white', 'blue'].find(x => x !== a);
+  return { ...(logo ? { logo } : {}), ...(mainColour ? { mainColour } : {}), ...(secondColour ? { secondColour } : {}), ...(a ? { colours: [a, b] } : {}) };
+}
+
+/* ---------- the admin file (1.5.0): the teams Bench Boss Labs set up ---------- */
+
+export const ADMIN_FORMAT = 'practice-pilot-admin';
+export const ADMIN_VERSION = 1;
+export const ADMIN_FILE = 'Practice Pilot admin.json';
+export const ROOT_FOLDER = 'Practice Pilot';
+export function newAdmin(at) { return { format: ADMIN_FORMAT, formatVersion: ADMIN_VERSION, updatedAt: at, teams: [] }; }
+export function checkAdmin(doc) {
+  if (!doc || doc.format !== ADMIN_FORMAT) return ['not an admin file'];
+  if (doc.formatVersion > ADMIN_VERSION) return ['newer'];
+  return Array.isArray(doc.teams) ? [] : ['teams'];
+}
+/** Add or update a team in the admin file (by its library file id). Pure. */
+export function putTeam(doc, entry, at) {
+  const n = clone(doc);
+  const i = n.teams.findIndex(t => t.libraryId === entry.libraryId);
+  if (i >= 0) n.teams[i] = { ...n.teams[i], ...entry }; else n.teams.push({ addedAt: at, ...entry });
+  n.updatedAt = at;
+  return n;
+}
+/** Coaches and helpers from a list of Drive permissions: the owner and Bench Boss Labs are left out. */
+export function peopleOf(perms, role) {
+  return perms.filter(p => p.type === 'user' && p.role === role && p.emailAddress && !isAdmin(p.emailAddress))
+    .map(p => ({ id: p.id, email: p.emailAddress.toLowerCase(), name: p.displayName || '' }))
+    .sort((a, b) => a.email.localeCompare(b.email));
+}
+export const validEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e || '').trim());

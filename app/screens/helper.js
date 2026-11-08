@@ -1,12 +1,12 @@
 /* The helper's phone (1.4.1): the team's shared plans, a plan's run sheet, each drill playing. Kept for no signal.
    #join/<file>/<folder>/<team> is the link a coach sends; #helper, #helper/plan/<id>, #helper/drill/<plan>/<drill>. */
-import { el, fill, toast } from '../ui.js?v=1.4.3';
-import { Player } from '../engine/player.js?v=1.4.3';
-import * as P from '../plans.js?v=1.4.3';
-import { planView } from './plans.js?v=1.4.3';
-import { visibleShared } from '../cloud/library.js?v=1.4.3';
-import { cloudState, signIn, signOut } from '../cloud/team.js?v=1.4.3';
-import { helperState, setHelper, helperLoad, helperPick, helperCache } from '../cloud/sharing.js?v=1.4.3';
+import { el, fill, toast } from '../ui.js?v=1.5.0';
+import { Player } from '../engine/player.js?v=1.5.0';
+import * as P from '../plans.js?v=1.5.0';
+import { planView } from './plans.js?v=1.5.0';
+import { visibleShared } from '../cloud/library.js?v=1.5.0';
+import { cloudState, signIn, signOut } from '../cloud/team.js?v=1.5.0';
+import { helperState, setHelper, helperLoad, helperPick, helperCache } from '../cloud/sharing.js?v=1.5.0';
 
 const when = iso => (iso ? new Date(iso).toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '');
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';
@@ -65,8 +65,8 @@ async function draw(app, root, kind, planId, drillId) {
   }
   if (r.state === 'pick') {
     fill(root, el('section', { class: 'card stack', id: 'helper-pick' }, title,
-      el('p', {}, el('b', {}, 'One more step, just this once. '), `In Google’s file picker, open Shared with me › ${h.teamName || 'your team'} and pick the folder named “shared”.`),
-      el('button', { type: 'button', class: 'btn primary', id: 'helper-pick-btn', onclick: async () => { try { const x = await helperPick(app); if (x) again(); } catch (e) { toast(problem(e), { error: true }); } } }, 'Pick the shared folder')));
+      el('p', {}, el('b', {}, 'One more step, just this once. '), `In Google’s file picker, pick the file named “Practice Pilot shared plans · ${h.teamName || 'your team'}” (it’s in Shared with me).`),
+      el('button', { type: 'button', class: 'btn primary', id: 'helper-pick-btn', onclick: async () => { try { const x = await helperPick(app); if (x) again(); } catch (e) { toast(problem(e), { error: true }); } } }, 'Pick the plans file')));
     return;
   }
   if (r.state === 'gone' && !r.doc) {

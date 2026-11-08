@@ -1,15 +1,17 @@
 /* Share a drill (1.4.2): one dialog makes an MP4 video, opens the drill sheet (Print → Save as PDF), or saves a
    drill file another coach can import. Everything is made on the device; only sending needs a connection. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.4.3';
-import { frame, prepare } from '../engine/model.js?v=1.4.3';
-import { frameSVG, clipToView } from '../engine/render.js?v=1.4.3';
-import { viewBoxOf } from '../engine/rink.js?v=1.4.3';
-import { APP_VERSION } from '../version.js?v=1.4.3';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.0';
+import { frame, prepare } from '../engine/model.js?v=1.5.0';
+import { frameSVG, clipToView } from '../engine/render.js?v=1.5.0';
+import { viewBoxOf } from '../engine/rink.js?v=1.5.0';
+import { APP_VERSION } from '../version.js?v=1.5.0';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import * as X from '../drillshare-core.js?v=1.4.3';
-import { agesOf } from '../drills.js?v=1.4.3';
+import * as X from '../drillshare-core.js?v=1.5.0';
+import { agesOf } from '../drills.js?v=1.5.0';
 
 const teamOf = app => (app.helper && app.helper.teamName) || (app.team && app.team.name) || '';
+/** The team's logo and main colour for pictures and videos (not on a helper's phone). */
+const lookOf = app => (!app.helper && app.team ? { logo: app.team.logo || null, mainColour: app.team.mainColour || null } : {});
 const MADE = 'Made with Practice Pilot';
 let uid = 0;
 
@@ -55,7 +57,8 @@ export function videoType() {
  * Record the drill playing once, 1280 × 720. Takes about as long as the video (Chrome records as it plays).
  * opts: { team, onProgress(0–1), signal, speed } (speed > 1 only in tests). → { file, ext }
  */
-export async function makeVideo(d, { team = '', onProgress = () => {}, signal, speed = 1 } = {}) {
+export async function makeVideo(d, { team = '', look = {}, onProgress = () => {}, signal, speed = 1 } = {}) {
+  const logoImg = look.logo ? await svgImage0(look.logo) : null;
   const type = videoType();
   if (!type) throw new Error('This browser can’t make videos. Try Chrome on your phone or tablet.');
   const W = 1280, H = 720, TOP = 96, FOOT = 44;
@@ -84,10 +87,12 @@ export async function makeVideo(d, { team = '', onProgress = () => {}, signal, s
     ctx.fillStyle = '#0B1B31'; ctx.fillRect(0, 0, W, H);
     ctx.textBaseline = 'middle';
     if (s.scene === 'title') {
+      if (look.mainColour) { ctx.fillStyle = look.mainColour; ctx.fillRect(0, 0, W, 12); ctx.fillRect(0, H - 12, W, 12); }
+      if (logoImg) { const s0 = 140, k = s0 / Math.max(logoImg.naturalWidth, logoImg.naturalHeight); ctx.fillStyle = '#ffffff'; ctx.fillRect(W / 2 - 80, 70, 160, 160); ctx.drawImage(logoImg, W / 2 - logoImg.naturalWidth * k / 2, 150 - logoImg.naturalHeight * k / 2, logoImg.naturalWidth * k, logoImg.naturalHeight * k); }
       ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.font = font(700, 64);
-      ctx.fillText(fit(d.title || 'Drill', W - 120), W / 2, H / 2 - 40);
+      ctx.fillText(fit(d.title || 'Drill', W - 120), W / 2, H / 2 - (logoImg ? 0 : 40) + (logoImg ? 40 : 0));
       ctx.font = font(500, 32); ctx.fillStyle = '#c9d4e3';
-      if (team) ctx.fillText(fit(team, W - 120), W / 2, H / 2 + 30);
+      if (team) ctx.fillText(fit(team, W - 120), W / 2, H / 2 + (logoImg ? 110 : 30));
       ctx.font = font(600, 24); ctx.fillStyle = '#F26A1B'; ctx.fillText(MADE, W / 2, H - 64);
       return;
     }
@@ -138,12 +143,15 @@ export async function makeVideo(d, { team = '', onProgress = () => {}, signal, s
   return { file: new File([blob], X.videoName(d, type.ext), { type: blob.type }), ext: type.ext, seconds: tl.total };
 }
 
+/** A picture from a data URL, ready to draw. */
+const svgImage0 = async src => { const img = new Image(); img.src = src; await img.decode(); return img; };
+
 /* ---------- the drill sheet as a picture (1.4.3: sent with the video in one go) ---------- */
 
 const svgImage = async (svg) => { const img = new Image(); img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; await img.decode(); return img; };
 
 /** The drill sheet drawn as a PNG: title, purpose, setup, a picture of each step, coaching points. → File */
-export async function makeSheetImage(d, { team = '' } = {}) {
+export async function makeSheetImage(d, { team = '', look = {} } = {}) {
   const W = 1275, M = 60, IW = W - 2 * M;
   const canvas = el('canvas', { width: W, height: 8000 });
   const ctx = canvas.getContext('2d');
@@ -169,8 +177,10 @@ export async function makeSheetImage(d, { team = '' } = {}) {
 
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, canvas.height);
   let y = M;
-  y = para(MADE, M, y, IW, 20, 700, '#F26A1B');
-  y = para(d.title || 'Drill', M, y + 4, IW, 44, 800);
+  if (look.logo) { try { const lg = await svgImage0(look.logo), k = 110 / Math.max(lg.naturalWidth, lg.naturalHeight); ctx.drawImage(lg, W - M - lg.naturalWidth * k, M, lg.naturalWidth * k, lg.naturalHeight * k); } catch {} }
+  if (look.mainColour) { ctx.fillStyle = look.mainColour; ctx.fillRect(0, 0, W, 14); }
+  y = para(MADE, M, y, IW - (look.logo ? 130 : 0), 20, 700, '#F26A1B');
+  y = para(d.title || 'Drill', M, y + 4, IW - (look.logo ? 130 : 0), 44, 800);
   const meta = [d.minutes ? `${d.minutes} min` : '', agesOf(d).join(', '), d.level || '', team].filter(Boolean).join(' · ');
   if (meta) y = para(meta, M, y + 2, IW, 22, 500, MUTED);
   ctx.fillStyle = '#d8dee6'; ctx.fillRect(M, y + 12, IW, 2); y += 30;
@@ -258,10 +268,10 @@ export async function openShareDrill(app, d) {
       if (on(pickVideo)) {
         bar.hidden = false; bar.value = 0;
         status.textContent = 'Making the video. Keep Practice Pilot on screen…';
-        const v = await makeVideo(d, { team, signal: ctrl.signal, speed: app.videoSpeed || 1, onProgress: x => { bar.value = x; } });
+        const v = await makeVideo(d, { team, look: lookOf(app), signal: ctrl.signal, speed: app.videoSpeed || 1, onProgress: x => { bar.value = x; } });
         files.push(v.file); words.push(`video ${Math.round(v.seconds)} s, ${(v.file.size / 1048576).toFixed(1)} MB${v.ext === 'mp4' ? '' : ' (WebM)'}`);
       }
-      if (on(pickSheet)) { status.textContent = 'Making the sheet…'; files.push(await makeSheetImage(d, { team })); words.push('sheet picture'); }
+      if (on(pickSheet)) { status.textContent = 'Making the sheet…'; files.push(await makeSheetImage(d, { team, look: lookOf(app) })); words.push('sheet picture'); }
       if (on(pickFile)) { files.push(new File([JSON.stringify(X.makeDrillFile(d, { appVersion: APP_VERSION, team }))], X.drillFileName(d), { type: 'application/json' })); words.push('drill file'); }
       made = { files, words: `Ready: ${words.join(' + ')}.` };
       status.textContent = '';
@@ -322,7 +332,8 @@ export function renderDrillSheet(app, id) {
       el('div', { class: 'pp-printpage', id: 'drillsheet' },
         el('section', { class: 'pp-dsheet' },
           el('header', { class: 'pp-sheet-head' },
-            el('div', {}, el('p', { class: 'pp-sheet-team' }, MADE), el('h2', {}, d.title)),
+            el('div', { class: 'row', style: 'gap:10px;align-items:center' }, lookOf(app).logo ? el('img', { class: 'pp-print-logo', src: lookOf(app).logo, alt: '' }) : null,
+              el('div', {}, el('p', { class: 'pp-sheet-team' }, MADE), el('h2', {}, d.title))),
             meta ? el('p', { class: 'pp-sheet-when' }, meta) : null),
           d.description ? el('p', {}, el('b', {}, 'Purpose: '), d.description) : null,
           el('div', { class: 'pp-ds-setup' }, pic(0, 'pp-ds-setuppic'),

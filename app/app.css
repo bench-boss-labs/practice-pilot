@@ -376,3 +376,10 @@ body.pp-ed-compact main { max-width: none; height: 100vh; height: 100dvh; paddin
   .pp-ds-step:nth-child(7) { break-before: page; }
 }
 @media (max-width: 640px) { .pp-ds-setup { grid-template-columns: 1fr; } .pp-ds-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 1.4.3 Share a drill: tick what to send */
+.pp-sendpicks { gap: var(--space-2); }
+.pp-sendpick { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3); border: 1px solid var(--line, #d8dee6); border-radius: 10px; cursor: pointer; min-height: 44px; }
+.pp-sendpick input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
+.pp-sendpick > span { display: grid; gap: 2px; }
+.pp-sendpick:has(input:disabled) { opacity: .6; cursor: default; }

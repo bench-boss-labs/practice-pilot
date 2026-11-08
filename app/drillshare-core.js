@@ -1,7 +1,7 @@
 /* Practice Pilot 1.4.2 — Share a drill: the pure parts (tested in Node). The drill file, the video's timeline,
    and the link a QR code on the plan printout opens. */
-import { validateRecord } from './schema.js?v=1.4.2';
-import { stepAt, totalSeconds } from './engine/model.js?v=1.4.2';
+import { validateRecord } from './schema.js?v=1.4.3';
+import { stepAt, totalSeconds } from './engine/model.js?v=1.4.3';
 const stepsOf = d => d.steps || [];
 
 export const DRILL_FORMAT = 'practice-pilot-drill';

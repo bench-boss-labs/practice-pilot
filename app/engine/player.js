@@ -1,8 +1,8 @@
 /* Practice Pilot animation engine — the player. Plays a drill in an element: rink, caption,
    play/pause, previous/next step, step chips, scrubber, speed and loop. */
-import { frame, prepare, stepAt, stepStartTime, totalSeconds } from './model.js?v=1.4.2';
-import { frameSVG } from './render.js?v=1.4.2';
-import { viewBox } from './rink.js?v=1.4.2';
+import { frame, prepare, stepAt, stepStartTime, totalSeconds } from './model.js?v=1.4.3';
+import { frameSVG } from './render.js?v=1.4.3';
+import { viewBoxOf } from './rink.js?v=1.4.3';
 
 const SPEEDS = [0.5, 1, 2];
 let uid = 0;
@@ -62,7 +62,7 @@ export class Player {
   load(drill, { keep = true } = {}) {
     const k = keep && this.d ? this.step() : 0;
     this.d = drill; this.cache = prepare(drill); this.total = totalSeconds(drill);
-    this.svg.setAttribute('viewBox', viewBox(drill.view && drill.view.rink, drill.view && drill.view.flip));
+    this.svg.setAttribute('viewBox', viewBoxOf(drill.view));
     this.svg.setAttribute('aria-label', drill.title || 'Drill');
     const n = (drill.steps || []).length;
     this.chips.replaceChildren(...['Setup', ...drill.steps.map((_, i) => String(i + 1))].map((label, i) =>
@@ -123,8 +123,8 @@ export class Player {
       for (const c of fr.callouts) c.opacity = 1;
       for (const pc of fr.pieces) pc.opacity = Math.max(pc.opacity, 0.4);
     }
-    this.svg.innerHTML = frameSVG(this.d, fr, { pathsFor: fr.k, selected: this.selected || null, idPrefix: this.id, pos: this.cache.pos }) +
-      (this.opts.overlay ? this.opts.overlay(fr, this) : '');
+    this.svg.innerHTML = frameSVG(this.d, fr, { pathsFor: fr.k, selected: this.selected || null, idPrefix: this.id, pos: this.cache.pos,
+      overlay: this.opts.overlay ? this.opts.overlay(fr, this) : '' });
     const step = fr.k ? this.d.steps[fr.k - 1] : null;
     const cap = step ? (step.caption || `Step ${fr.k}`) : 'Setup';
     if (this.caption.textContent !== cap) this.caption.textContent = cap;
@@ -140,9 +140,14 @@ export class Player {
   /** Rink coordinates (feet) of a pointer event. */
   toRink(e) {
     const p = this.svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
-    const q = p.matrixTransform(this.svg.getScreenCTM().inverse());
+    const q = p.matrixTransform(this.iceCTM().inverse());
     return [q.x, q.y];
   }
+
+  /** Screen matrix of the rink (turned when the view is turned). */
+  iceCTM() { const g = this.svg.querySelector('.pp-ice'); return (g && g.getScreenCTM()) || this.svg.getScreenCTM(); }
+  /** Screen pixels per foot. */
+  pxPerFoot() { const m = this.iceCTM(); return m ? Math.hypot(m.a, m.b) : 4; }
 
   destroy() { this.pause(); this.host.removeEventListener('keydown', this.onKey); this.host.replaceChildren(); }
 }

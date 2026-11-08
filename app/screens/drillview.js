@@ -1,13 +1,13 @@
 /* A drill's details for reading: used by the library preview and the phone view of the editor. */
-import { el } from '../ui.js?v=1.4.2';
-import { lengthLabel, videoLink } from '../drills.js?v=1.4.2';
+import { el } from '../ui.js?v=1.4.3';
+import { lengthLabel, videoLink, agesOf } from '../drills.js?v=1.4.3';
 
 export function pills(d) {
   return el('div', { class: 'pp-pills' },
     d.sample ? el('span', { class: 'pill pp-pill-sample' }, 'Sample') : null,
     d.template ? el('span', { class: 'pill pp-pill-template' }, 'Template') : null,
     ...(d.tags || []).map(t => el('span', { class: 'pill' }, t)),
-    (d.ageGroups || []).length ? el('span', { class: 'pill pp-pill-age' }, d.ageGroups.join(', ')) : null,
+    agesOf(d).length ? el('span', { class: 'pill pp-pill-age' }, agesOf(d).join(', ')) : null,
     d.level ? el('span', { class: 'pill pp-pill-level' }, d.level) : null);
 }
 

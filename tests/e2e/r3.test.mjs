@@ -50,6 +50,15 @@ async function device(fake, email, { size = 'tablet', picks = [] } = {}) {
 }
 const drills = page => page.evaluate(() => window.__pp.store.all('drills'));
 const toSettings = async page => { await page.goto(env.server.url + '#settings/device'); await page.waitForSelector('#cloud-card h2'); };
+// every publish asks first (1.4.3)
+const confirmPublish = async page => { await page.waitForSelector('#publish-confirm'); await page.click('#publish-confirm button:has-text("Publish")'); };
+// helpers are managed in Settings (1.4.3)
+async function helpersCard(page) {
+  await page.goto(env.server.url + '#settings/helpers'); await page.waitForSelector('#helpers-card');
+  await page.waitForSelector('#helpers-card #show-helpers, #helpers-list ul, #helpers-list:has-text("No helpers yet")');
+  if (await page.isVisible('#show-helpers')) await page.click('#show-helpers');
+  await page.waitForSelector('#helpers-list ul, #helpers-list:has-text("No helpers yet")');
+}
 const settled = page => page.waitForFunction(() => !document.querySelector('#cloud-card button[disabled]'));
 async function makeDrill(page, title) {
   await page.goto(env.server.url + '#library');
@@ -205,7 +214,7 @@ test('a new drill is a Draft until you publish it; the other coach gets it with 
   assert.equal(await tab.page.locator('.pp-card').count(), 1);
 
   await tab.page.click('.pp-card:has-text("Weave")');
-  await tab.page.click('#publish-drill');
+  await tab.page.click('#publish-drill'); await confirmPublish(tab.page);
   await tab.page.waitForSelector('.toast:has-text("Published to Bulldogs")');
   assert.deepEqual(libDrills(fake, lib), ['Weave']);
   assert.equal(await tab.page.locator('.pp-card:has-text("Weave") .pp-pill-draft').count(), 0);
@@ -221,7 +230,7 @@ test('a new drill is a Draft until you publish it; the other coach gets it with 
 test('changing a published drill waits for Publish changes; Discard goes back; the other coach is told', async () => {
   const { fake, lib, tab, pc } = await twoDevices();
   await makeDrill(tab.page, 'Breakout');
-  await tab.page.click('#publish-btn'); await tab.page.waitForSelector('.toast:has-text("Published")');
+  await tab.page.click('#publish-btn'); await confirmPublish(tab.page); await tab.page.waitForSelector('.toast:has-text("Published")');
   const id = await tab.page.evaluate(() => location.hash.split('/')[1]);
   await syncNowOn(pc.page);
 
@@ -248,7 +257,7 @@ test('changing a published drill waits for Publish changes; Discard goes back; t
 test('both coaches change the same drill: the second to publish is asked, and Keep both keeps both', async () => {
   const { fake, lib, tab, pc } = await twoDevices();
   await makeDrill(tab.page, 'Shared');
-  await tab.page.click('#publish-btn'); await tab.page.waitForSelector('.toast:has-text("Published")');
+  await tab.page.click('#publish-btn'); await confirmPublish(tab.page); await tab.page.waitForSelector('.toast:has-text("Published")');
   const id = await tab.page.evaluate(() => location.hash.split('/')[1]);
   await syncNowOn(pc.page);
   await pc.page.goto(env.server.url + '#edit/' + id); await pc.page.waitForSelector('#editor-title');
@@ -256,8 +265,8 @@ test('both coaches change the same drill: the second to publish is asked, and Ke
   await pc.page.waitForFunction(() => document.getElementById('pub-status').textContent === 'Unpublished changes');
   await tab.page.click('#tab-details'); await tab.page.fill('#title', 'Shared (tablet)');
   await tab.page.waitForFunction(() => document.getElementById('pub-status').textContent === 'Unpublished changes');
-  await tab.page.click('#publish-btn'); await tab.page.waitForSelector('.toast:has-text("Published")');
-  await pc.page.click('#publish-btn');
+  await tab.page.click('#publish-btn'); await confirmPublish(tab.page); await tab.page.waitForSelector('.toast:has-text("Published")');
+  await pc.page.click('#publish-btn'); await confirmPublish(pc.page);
   await pc.page.waitForSelector('#publish-conflict');
   assert.match(await pc.page.textContent('#publish-conflict'), /benchbosslabs published changes to “Shared \(tablet\)”/);
   await pc.page.click('#publish-conflict button:has-text("Keep both")');
@@ -289,7 +298,7 @@ test('the status in the top bar: offline, Sign in to sync, and publishing offlin
   const { fake, tab } = await twoDevices();
   await makeDrill(tab.page, 'Offline draft');
   fake.offline = true;
-  await tab.page.click('#publish-btn');
+  await tab.page.click('#publish-btn'); await confirmPublish(tab.page);
   await tab.page.waitForSelector('.toast.error, .toast[data-kind="error"], .toast:has-text("connection")');
   assert.equal(await tab.page.textContent('#pub-status'), 'Draft · only on this device');
   await tab.page.goto(env.server.url + '#library'); await tab.page.waitForSelector('.pp-card');
@@ -317,18 +326,21 @@ test('share a plan: add a helper, share; on their phone they pick the shared fol
     await window.__pp.store.save('plans', { id: 'p_helper1', title: 'Thursday practice', author: '', team: '', sourcePlanId: null, submittedAt: null, date: '2099-01-08', startTime: '18:15', iceMinutes: null, themes: '', notes: '', blocks: [{ id: 'b_1', kind: 'drill', drillId: id, minutes: 10, note: 'Go hard', helpers: ['Sam'] }], extraEquipment: [], template: false, deletedAt: null, visibility: 'private' });
   }, drillId);
 
-  // the coach: Plans › the plan › Share
-  await tab.page.goto(env.server.url + '#plans/p_helper1'); await tab.page.waitForSelector('#share-plan');
-  await tab.page.click('#share-plan');
-  await tab.page.waitForSelector('#share-dialog #helpers-list:has-text("No helpers yet")');
+  // the coach: Settings › Helpers, then Plans › the plan › Share
+  await helpersCard(tab.page);
+  assert.match(await tab.page.textContent('#helpers-list'), /No helpers yet/);
   await tab.page.fill('#helper-email', HELPER);
   await tab.page.click('#add-helper');
   await tab.page.waitForSelector(`#helpers-list:has-text("${HELPER}")`);
   assert.equal(fake.mail.at(-1).to, HELPER, 'Google emails the helper');
+  await tab.page.goto(env.server.url + '#plans/p_helper1'); await tab.page.waitForSelector('#share-plan');
+  await tab.page.click('#share-plan');
+  await tab.page.waitForSelector('#share-helpers:has-text("1 helper")');
+  assert.equal(await tab.page.locator('#share-dialog #helper-email').count(), 0, 'no helper list in the Share dialog');
   await tab.page.click('#share-plan-btn');
   await tab.page.waitForSelector('#publish-drills');                 // its drill is a draft: publish both
   await tab.page.click('#publish-drills button:has-text("Publish both")');
-  await tab.page.waitForSelector('#helper-link');
+  await tab.page.waitForSelector('#send-link');
   const link = await tab.page.inputValue('#helper-link');
   assert.match(link, /#join\//);
   await tab.page.click('#share-dialog button:has-text("Done")');
@@ -361,7 +373,7 @@ test('share a plan: add a helper, share; on their phone they pick the shared fol
   await tab.page.goto(env.server.url + '#edit/' + drillId); await tab.page.waitForSelector('#editor-title');
   await tab.page.click('#tab-details'); await tab.page.fill('#title', 'Helper drill v2');
   await tab.page.waitForFunction(() => document.getElementById('pub-status').textContent === 'Unpublished changes');
-  await tab.page.click('#publish-btn'); await tab.page.waitForSelector('.toast:has-text("Published")');
+  await tab.page.click('#publish-btn'); await confirmPublish(tab.page); await tab.page.waitForSelector('.toast:has-text("Published")');
   await ph.page.reload(); await ph.page.waitForSelector('#helper-saved:has-text("Up to date")');
   await ph.page.click('#helper-plans a:has-text("Thursday practice")');
   await ph.page.waitForSelector('.pp-drill-link:has-text("Helper drill v2")');
@@ -383,14 +395,18 @@ test('a helper who is removed loses the plans; someone who isn’t a helper is t
   const { fake, tab } = await twoDevices();
   await tab.page.evaluate(async () => { await window.__pp.store.save('plans', { id: 'p_rm', title: 'Sat', author: '', team: '', sourcePlanId: null, submittedAt: null, date: '2099-01-10', startTime: '', iceMinutes: null, themes: '', notes: '', blocks: [], extraEquipment: [], template: false, deletedAt: null, visibility: 'private' }); });
   await tab.page.goto(env.server.url + '#plans/p_rm'); await tab.page.waitForSelector('#share-plan');
-  await tab.page.click('#share-plan'); await tab.page.waitForSelector('#share-plan-btn');
+  await helpersCard(tab.page);
   await tab.page.fill('#helper-email', 'gone@example.com'); await tab.page.click('#add-helper');
   await tab.page.waitForSelector('#helpers-list:has-text("gone@example.com")');
-  await tab.page.click('#share-plan-btn'); await tab.page.waitForSelector('#helper-link');
+  await tab.page.goto(env.server.url + '#plans/p_rm'); await tab.page.waitForSelector('#share-plan');
+  await tab.page.click('#share-plan'); await tab.page.waitForSelector('#share-plan-btn');
+  await tab.page.click('#share-plan-btn'); await confirmPublish(tab.page); await tab.page.waitForSelector('#send-link');
   const link = await tab.page.inputValue('#helper-link');
   const ph = await device(fake, 'gone@example.com', { size: 'phone', picks: [fake.find('shared').id] });
   await ph.page.goto(link); await ph.page.click('#helper-signin'); await ph.page.click('#helper-pick-btn');
   await ph.page.waitForSelector('#helper-plans');
+  await tab.page.click('#share-dialog button:has-text("Done")');
+  await helpersCard(tab.page);
   await tab.page.click('[data-remove="gone@example.com"]');
   await tab.page.waitForSelector('#helpers-list:has-text("No helpers yet")');
   await ph.page.reload();

@@ -1,8 +1,8 @@
 /* Practice Pilot animation engine — drawing. Builds SVG markup (strings) from a frame,
    so the same code draws the editor, the player, library cards and printed plans. */
-import { poly, at, sub, offsetPoints } from './geometry.js?v=1.4.2';
-import { TEAMS, isPlayer, positionsByStep, pathOf, movesIn, moveOf, layoutCallouts } from './model.js?v=1.4.2';
-import { rinkSVG, viewBox } from './rink.js?v=1.4.2';
+import { poly, at, sub, offsetPoints } from './geometry.js?v=1.4.3';
+import { TEAMS, isPlayer, positionsByStep, pathOf, movesIn, moveOf, layoutCallouts } from './model.js?v=1.4.3';
+import { rinkSVG, viewBoxOf, turnOf, netSVG } from './rink.js?v=1.4.3';
 
 export const ACCENT = '#F26A1B';
 export const INK = '#1b2430';
@@ -17,7 +17,8 @@ export function radius(type) {
   if (isPlayer(type)) return R_PLAYER + 0.4;
   if (type === 'coach') return 3.6;
   if (type === 'puck') return R_PUCK + 0.3;
-  if (type === 'board' || type === 'deker' || type === 'stick' || type === 'net') return 3.4;
+  if (type === 'net') return 4.2;
+  if (type === 'board' || type === 'deker' || type === 'stick') return 3.4;
   if (type === 'text') return 3;
   return 2.2;
 }
@@ -40,6 +41,12 @@ export function notation(pl, line, col, w, finish) {
     s = `<path d="${dOf(offsetPoints(body, 0.4, d => (d < wl ? Math.sin(d / 3.2 * 2 * Math.PI) * 0.9 : 0)))}" ${st}/>`;
   } else if (line === 'pass') {
     s = `<path d="${dOf(body.pts)}" ${base} stroke-dasharray="1.6 1.2" stroke-linecap="butt"/>`;
+  } else if (line === 'dump-corner') {
+    // dump into the corner: long dashes
+    s = `<path d="${dOf(body.pts)}" ${base} stroke-dasharray="3.2 1.4" stroke-linecap="butt"/>`;
+  } else if (line === 'dump-boards') {
+    // dump around the boards: a dotted line that rims along them
+    s = `<path d="${dOf(body.pts)}" fill="none" stroke="${col}" stroke-width="${f2(w * 1.9)}" stroke-linejoin="round" stroke-dasharray=".05 1.3" stroke-linecap="round"/>`;
   } else if (line === 'shot') {
     s = `<path d="${dOf(offsetPoints(body, 0.5, () => 0.55))}" ${st}/><path d="${dOf(offsetPoints(body, 0.5, () => -0.55))}" ${st}/>`;
   } else {
@@ -77,7 +84,7 @@ export function pathsSVG(d, current, { pos = positionsByStep(d), only = null } =
       if (!movesIn(d, k, p.id, pos)) continue;
       const pl = pathOf(d, k, p.id, pos), r = radius(p.type);
       if (pl.L < 2 * r + 0.5) continue;
-      const line = m.line || (p.type === 'puck' ? 'pass' : 'skate');
+      const line = m.line === 'dump' ? `dump-${m.dump === 'boards' ? 'boards' : 'corner'}` : m.line || (p.type === 'puck' ? 'pass' : 'skate');
       g += notation(sub(pl, r, pl.L - r), line, col, w, isPlayer(p.type) || p.type === 'coach' ? m.finish : null);
     }
     if (g) out += `<g opacity="${op}" data-step="${k}">${g}</g>`;
@@ -86,7 +93,9 @@ export function pathsSVG(d, current, { pos = positionsByStep(d), only = null } =
 }
 
 /** One piece at its place in a frame. */
-export function pieceSVG(pc, { selected = false } = {}) {
+export function pieceSVG(pc, { selected = false, turn = 0 } = {}) {
+  // labels stay upright when the picture is turned
+  const up = t => (turn ? `<g transform="rotate(${-turn})">${t}</g>` : t);
   const ring = selected ? `<circle r="${f2(radius(pc.type) + 1.2)}" fill="none" stroke="${ACCENT}" stroke-width=".6" stroke-dasharray="1.2 .8"/>` : '';
   const glow = pc.glow ? `<circle r="${f2(radius(pc.type) + 2.6)}" fill="url(#pp-glow)"/>` : '';
   const tr = `transform="translate(${f2(pc.x)},${f2(pc.y)})"`;
@@ -97,10 +106,10 @@ export function pieceSVG(pc, { selected = false } = {}) {
     const fill = TEAMS[pc.team] || TEAMS.red;
     const text = pc.team === 'white' ? '#1b2430' : '#ffffff';
     const deg = f2((pc.ang || 0) * 180 / Math.PI);
-    return `${head}<g transform="rotate(${deg})"><polygon points="${R_PLAYER + 1.9},0 ${R_PLAYER - 0.2},-1.6 ${R_PLAYER - 0.2},1.6" fill="#1b2430"/></g><circle r="${R_PLAYER}" fill="${fill}" stroke="#1b2430" stroke-width=".35"/><text y="1.25" text-anchor="middle" ${font} font-size="3.5" fill="${text}">${esc(pc.type)}</text></g>`;
+    return `${head}<g transform="rotate(${deg})"><polygon points="${R_PLAYER + 1.9},0 ${R_PLAYER - 0.2},-1.6 ${R_PLAYER - 0.2},1.6" fill="#1b2430"/></g><circle r="${R_PLAYER}" fill="${fill}" stroke="#1b2430" stroke-width=".35"/>${up(`<text y="1.25" text-anchor="middle" ${font} font-size="3.5" fill="${text}">${esc(pc.type)}</text>`)}</g>`;
   }
   switch (pc.type) {
-    case 'coach': return `${head}<rect x="-3.2" y="-3.2" width="6.4" height="6.4" rx="1" fill="#f2b705" stroke="#1b2430" stroke-width=".35"/><text y="1.1" text-anchor="middle" ${font} font-size="3" fill="#1b2430">CO</text></g>`;
+    case 'coach': return `${head}<rect x="-3.2" y="-3.2" width="6.4" height="6.4" rx="1" fill="#f2b705" stroke="#1b2430" stroke-width=".35"/>${up(`<text y="1.1" text-anchor="middle" ${font} font-size="3" fill="#1b2430">CO</text>`)}</g>`;
     case 'puck': return `${head}<circle r="${R_PUCK}" fill="#0b0d10"/></g>`;
     case 'pile': return `${head}${[[-1.3, -0.8], [1.2, -1], [0, 0.9], [-1.6, 1.3], [1.5, 1.2]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".95" fill="#0b0d10"/>`).join('')}</g>`;
     case 'pylon': return `${head}<polygon points="0,-2.3 2,1.6 -2,1.6" fill="#f26a1b" stroke="#7a3208" stroke-width=".25"/></g>`;
@@ -108,16 +117,16 @@ export function pieceSVG(pc, { selected = false } = {}) {
     case 'board': return `${head}<g transform="rotate(${pc.rotate || 0})"><rect x="-4" y="-0.8" width="8" height="1.6" rx=".4" fill="#7b8794" stroke="#1b2430" stroke-width=".25"/></g></g>`;
     case 'deker': return `${head}<g transform="rotate(${pc.rotate || 0})"><rect x="-4" y="-0.5" width="8" height="1" rx=".3" fill="#1d4ed8"/><rect x="-4.2" y="-1.3" width="0.9" height="2.6" fill="#1b2430"/><rect x="3.3" y="-1.3" width="0.9" height="2.6" fill="#1b2430"/></g></g>`;
     case 'stick': return `${head}<g transform="rotate(${pc.rotate || 0})"><rect x="-4.5" y="-0.3" width="8" height="0.6" fill="#8a5a2b"/><rect x="3.2" y="-0.3" width="1.8" height="1.1" fill="#1b2430"/></g></g>`;
-    case 'net': return `${head}<g transform="rotate(${pc.rotate || 0})"><path d="M-3,-1.6 H3 V1.6 H-3" fill="#ffffff" stroke="#c8102e" stroke-width=".45"/></g></g>`;
-    case 'text': return `${head}<text y="1" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="3" fill="#1b2430">${esc(pc.text || 'Text')}</text></g>`;
+    case 'net': return `${head}<g transform="rotate(${pc.rotate || 0})"><g transform="translate(-2.5,0) scale(-1,1)">${netSVG()}</g></g></g>`;
+    case 'text': return `${head}${up(`<text y="1" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="3" fill="#1b2430">${esc(pc.text || 'Text')}</text>`)}</g>`;
     default: return '';
   }
 }
 
 /** Speech-bubble callouts for a frame, kept clear of the frame's pieces. */
-export function calloutsSVG(callouts, pieces = []) {
+export function calloutsSVG(callouts, pieces = [], turn = 0) {
   const stroke = 'fill="#ffffff" stroke="#1b2430" stroke-width=".25"';
-  return layoutCallouts(callouts, pieces).map(c => {
+  return layoutCallouts(callouts, pieces, turn).map(c => {
     const op = c.opacity < 1 ? ` opacity="${f2(c.opacity)}"` : '';
     let tail;
     if (c.side === 'above' || c.side === 'below') {
@@ -134,7 +143,7 @@ export function calloutsSVG(callouts, pieces = []) {
 }
 
 /** Markup for step k (marks on that step plus marks on all steps). */
-export function markupSVG(d, k) {
+export function markupSVG(d, k, turn = 0) {
   return (d.markup || []).filter(m => m.step == null || m.step === k).map((m, i) => {
     const col = MARK_COLOURS[m.colour] || MARK_COLOURS.orange;
     const id = m.id || `m${i}`;
@@ -149,21 +158,27 @@ export function markupSVG(d, k) {
       const [a, b] = [pts[0], pts[pts.length - 1]];
       return `<rect x="${f2(Math.min(a[0], b[0]))}" y="${f2(Math.min(a[1], b[1]))}" width="${f2(Math.abs(b[0] - a[0]))}" height="${f2(Math.abs(b[1] - a[1]))}" rx="1" ${st} stroke-dasharray="1.4 1"/>`;
     }
-    if (m.kind === 'text' && pts.length) return `<text x="${f2(pts[0][0])}" y="${f2(pts[0][1])}" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="3.2" fill="${col}" data-mark="${esc(id)}">${esc(m.text || '')}</text>`;
+    if (m.kind === 'text' && pts.length) return `<text x="${f2(pts[0][0])}" y="${f2(pts[0][1])}"${turn ? ` transform="rotate(${-turn} ${f2(pts[0][0])} ${f2(pts[0][1])})"` : ''} font-family="Inter,Arial,sans-serif" font-weight="700" font-size="3.2" fill="${col}" data-mark="${esc(id)}">${esc(m.text || '')}</text>`;
     return '';
   }).join('');
 }
 
 export const GLOW_DEFS = '<defs><radialGradient id="pp-glow"><stop offset="0.55" stop-color="#ffd23f" stop-opacity=".75"/><stop offset="1" stop-color="#ffd23f" stop-opacity="0"/></radialGradient></defs>';
 
-/** Inner SVG for a frame: rink, markup, paths, pieces, callouts. */
-export function frameSVG(d, fr, { pathsFor = fr.k, selected = null, idPrefix = 'r', pos } = {}) {
+/**
+ * Inner SVG for a frame: rink, markup, paths, pieces, callouts. A turned view ("Up the ice") turns
+ * everything but the callouts, which are laid out upright in picture space. overlay: extra markup in
+ * rink space (the editor's handles). Pointer maths should use the .pp-ice group's screen matrix.
+ */
+export function frameSVG(d, fr, { pathsFor = fr.k, selected = null, idPrefix = 'r', pos, overlay = '' } = {}) {
   const pieces = [...fr.pieces].sort((a, b) => (a.type === 'puck') - (b.type === 'puck'));
-  return GLOW_DEFS + rinkSVG(idPrefix) +
-    `<g class="markup">${markupSVG(d, fr.k)}</g>` +
+  const turn = turnOf(d.view), v = d.view || {};
+  return GLOW_DEFS + `<g class="pp-ice"${turn ? ` transform="rotate(${turn})"` : ''}>` + rinkSVG(idPrefix, { ringette: !!v.ringette }) +
+    `<g class="markup">${markupSVG(d, fr.k, turn)}</g>` +
     `<g class="paths">${pathsSVG(d, pathsFor, { pos })}</g>` +
-    `<g class="pieces">${pieces.map(pc => pieceSVG(pc, { selected: pc.id === selected })).join('')}</g>` +
-    `<g class="callouts">${calloutsSVG(fr.callouts, fr.pieces)}</g>`;
+    `<g class="pieces">${pieces.map(pc => pieceSVG(pc, { selected: pc.id === selected, turn })).join('')}</g>` +
+    overlay + '</g>' +
+    `<g class="callouts">${calloutsSVG(fr.callouts, fr.pieces, turn)}</g>`;
 }
 
 /** Clip a picture to its view, so a picture shown wider or taller than the view never shows the rink beyond it. */
@@ -175,7 +190,7 @@ export function clipToView(vb, inner, id) {
 /** A complete still picture of a drill (library cards, printing): Setup with every step's lines. */
 export async function thumbnailSVG(d, frameFn) {
   const fr = frameFn(d, 0, 1);
-  const vb = viewBox(d.view && d.view.rink, d.view && d.view.flip);
+  const vb = viewBoxOf(d.view);
   const id = 't' + Math.random().toString(36).slice(2, 7);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="${esc(d.title || 'Drill')}">${clipToView(vb, frameSVG(d, fr, { pathsFor: 0, idPrefix: id }), id)}</svg>`;
 }

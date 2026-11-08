@@ -1,16 +1,18 @@
 /* Settings › About and Settings › This device. */
-import { APP, APP_NAME, APP_VERSION, KIT_VERSION, SCHEMA_VERSION } from '../version.js?v=1.4.2';
-import { DATA_STORES, describeCounts, daysSince, newTeam } from '../schema.js?v=1.4.2';
-import { restoreSamples } from './library.js?v=1.4.2';
+import { APP, APP_NAME, APP_VERSION, KIT_VERSION, SCHEMA_VERSION } from '../version.js?v=1.4.3';
+import { DATA_STORES, describeCounts, daysSince, newTeam } from '../schema.js?v=1.4.3';
+import { restoreSamples } from './library.js?v=1.4.3';
 import { newId, makeBackup, backupFileName, validateBackup, restoreBackup, storageStatus, formatBytes } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { formatDate } from '../../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { renderInstallCard } from '../../vendor/bbl-kit/1.0.1/bbl-install.js';
-import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.4.2';
-import { renderTeamCard } from './teamcard.js?v=1.4.2';
-import { pushChanges } from '../cloud/team.js?v=1.4.2';
+import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.4.3';
+import { renderTeamCard } from './teamcard.js?v=1.4.3';
+import { renderHelpersCard } from './helperscard.js?v=1.4.3';
+import { pushChanges } from '../cloud/team.js?v=1.4.3';
 
 export function renderSettings(app, sub) {
-  const tab = sub === 'device' ? 'device' : 'about';
+  const tab = sub === 'device' || sub === 'helpers' ? 'device' : 'about';
+  if (sub === 'helpers') setTimeout(() => { const c = document.getElementById('helpers-card'); if (c) c.scrollIntoView({ block: 'start' }); }, 50);
   const tabs = el('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Settings' },
     el('a', { class: 'btn', role: 'tab', href: '#settings/about', id: 'tab-about', 'aria-selected': String(tab === 'about'), 'aria-pressed': String(tab === 'about') }, 'About'),
     el('a', { class: 'btn', role: 'tab', href: '#settings/device', id: 'tab-device', 'aria-selected': String(tab === 'device'), 'aria-pressed': String(tab === 'device') }, 'This device'));
@@ -117,6 +119,7 @@ function device(app) {
   return [
     install,
     renderTeamCard(app),
+    renderHelpersCard(app),
     el('section', { class: 'card stack', 'aria-labelledby': 'team-title' },
       el('h2', { class: 't-section', id: 'team-title' }, 'Team'),
       el('label', { class: 'field', for: 'team-name' }, 'Team name', teamInput, el('span', { class: 'hint' }, app.cloudState && app.cloudState.libraryId ? 'Your team’s name comes from its folder in Google Drive.' : 'Shown at the top of the app.')),

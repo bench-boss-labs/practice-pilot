@@ -1,12 +1,13 @@
 /* Share a drill (1.4.2): one dialog makes an MP4 video, opens the drill sheet (Print → Save as PDF), or saves a
    drill file another coach can import. Everything is made on the device; only sending needs a connection. */
-import { el, fill, toast, dialog, download } from '../ui.js?v=1.4.2';
-import { frame, prepare } from '../engine/model.js?v=1.4.2';
-import { frameSVG, clipToView } from '../engine/render.js?v=1.4.2';
-import { viewBox } from '../engine/rink.js?v=1.4.2';
-import { APP_VERSION } from '../version.js?v=1.4.2';
+import { el, fill, toast, dialog } from '../ui.js?v=1.4.3';
+import { frame, prepare } from '../engine/model.js?v=1.4.3';
+import { frameSVG, clipToView } from '../engine/render.js?v=1.4.3';
+import { viewBoxOf } from '../engine/rink.js?v=1.4.3';
+import { APP_VERSION } from '../version.js?v=1.4.3';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import * as X from '../drillshare-core.js?v=1.4.2';
+import * as X from '../drillshare-core.js?v=1.4.3';
+import { agesOf } from '../drills.js?v=1.4.3';
 
 const teamOf = app => (app.helper && app.helper.teamName) || (app.team && app.team.name) || '';
 const MADE = 'Made with Practice Pilot';
@@ -15,21 +16,27 @@ let uid = 0;
 /** A still of a drill: the setup (k = 0, with every step's lines faint) or the end of step k with its paths. */
 export function stillSVG(d, k, cache = prepare(d), size = '') {
   const fr = frame(d, k, k ? 1 : 0, cache);
-  const vb = viewBox(d.view && d.view.rink, d.view && d.view.flip);
+  const vb = viewBoxOf(d.view);
   const id = `s${++uid}`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" ${size} role="img" aria-label="${k ? `Step ${k}` : 'Setup'}">${clipToView(vb, frameSVG(d, fr, { pathsFor: k, idPrefix: id, pos: cache.pos }), id)}</svg>`;
 }
 
-/* ---------- sending a file ---------- */
+/* ---------- sending files ---------- */
 
-async function send(file, title) {
+/** Send files in one go: the share sheet when the device has one, otherwise each is saved (downloaded). */
+async function send(files, title) {
   try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return 'shared'; }
-  } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
-  const url = URL.createObjectURL(file);
-  const a = el('a', { href: url, download: file.name, style: 'display:none' });
-  document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+    if (navigator.canShare && navigator.canShare({ files })) { await navigator.share({ files, title }); return 'shared'; }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return 'cancelled';
+    if (e && e.name === 'NotAllowedError') return 'tap';         // too long since the tap: ask for another
+  }
+  for (const file of files) {
+    const url = URL.createObjectURL(file);
+    const a = el('a', { href: url, download: file.name, style: 'display:none' });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
   return 'downloaded';
 }
 
@@ -55,7 +62,7 @@ export async function makeVideo(d, { team = '', onProgress = () => {}, signal, s
   const canvas = el('canvas', { width: W, height: H });
   const ctx = canvas.getContext('2d');
   const tl = X.videoTimeline(d), cache = prepare(d);
-  const [, , vw, vh] = viewBox(d.view && d.view.rink, d.view && d.view.flip).split(/\s+/).map(Number);
+  const [, , vw, vh] = viewBoxOf(d.view).split(/\s+/).map(Number);
   const scale = Math.min((W - 64) / vw, (H - TOP - FOOT - 16) / vh), rw = vw * scale, rh = vh * scale;
   const rx = (W - rw) / 2, ry = TOP + (H - TOP - FOOT - rh) / 2;
   const font = (w, px) => `${w} ${px}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
@@ -65,7 +72,7 @@ export async function makeVideo(d, { team = '', onProgress = () => {}, signal, s
     const key = `${k}:${p.toFixed(3)}`;
     if (key === lastKey) return lastImg;
     const fr = frame(d, k, p, cache);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vw ? viewBox(d.view && d.view.rink, d.view && d.view.flip) : ''}" width="${Math.round(rw)}" height="${Math.round(rh)}">${frameSVG(d, fr, { pathsFor: fr.k, idPrefix: 'v', pos: cache.pos })}</svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vw ? viewBoxOf(d.view) : ''}" width="${Math.round(rw)}" height="${Math.round(rh)}">${frameSVG(d, fr, { pathsFor: fr.k, idPrefix: 'v', pos: cache.pos })}</svg>`;
     const img = new Image();
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
     await img.decode();
@@ -131,53 +138,145 @@ export async function makeVideo(d, { team = '', onProgress = () => {}, signal, s
   return { file: new File([blob], X.videoName(d, type.ext), { type: blob.type }), ext: type.ext, seconds: tl.total };
 }
 
-/* ---------- the dialog ---------- */
+/* ---------- the drill sheet as a picture (1.4.3: sent with the video in one go) ---------- */
+
+const svgImage = async (svg) => { const img = new Image(); img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; await img.decode(); return img; };
+
+/** The drill sheet drawn as a PNG: title, purpose, setup, a picture of each step, coaching points. → File */
+export async function makeSheetImage(d, { team = '' } = {}) {
+  const W = 1275, M = 60, IW = W - 2 * M;
+  const canvas = el('canvas', { width: W, height: 8000 });
+  const ctx = canvas.getContext('2d');
+  const font = (w, px) => `${w} ${px}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  const INK = '#1b2430', MUTED = '#5b6675';
+  const wrap = (text, max) => {
+    const out = []; let line = '';
+    for (const word of String(text).split(/\s+/)) {
+      const t = line ? `${line} ${word}` : word;
+      if (ctx.measureText(t).width > max && line) { out.push(line); line = word; } else line = t;
+    }
+    if (line) out.push(line);
+    return out;
+  };
+  const para = (text, x, y, max, px = 24, w = 400, col = INK, lh = 1.35) => {
+    ctx.font = font(w, px); ctx.fillStyle = col; ctx.textBaseline = 'top';
+    for (const l of wrap(text, max)) { ctx.fillText(l, x, y); y += px * lh; }
+    return y;
+  };
+  const cache = prepare(d);
+  const [, , vw, vh] = viewBoxOf(d.view).split(/\s+/).map(Number);
+  const pic = async (k, w) => { const h = w * vh / vw; return { img: await svgImage(stillSVG(d, k, cache, `width="${Math.round(w)}" height="${Math.round(h)}"`)), h }; };
+
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, canvas.height);
+  let y = M;
+  y = para(MADE, M, y, IW, 20, 700, '#F26A1B');
+  y = para(d.title || 'Drill', M, y + 4, IW, 44, 800);
+  const meta = [d.minutes ? `${d.minutes} min` : '', agesOf(d).join(', '), d.level || '', team].filter(Boolean).join(' · ');
+  if (meta) y = para(meta, M, y + 2, IW, 22, 500, MUTED);
+  ctx.fillStyle = '#d8dee6'; ctx.fillRect(M, y + 12, IW, 2); y += 30;
+  if (d.description) y = para(`Purpose: ${d.description}`, M, y, IW, 24) + 12;
+
+  // setup: picture on the left, notes on the right (a turned picture is tall, so it gets less width)
+  const setupW = vh > vw ? IW * 0.42 : IW * 0.6;
+  const sp = await pic(0, setupW);
+  ctx.drawImage(sp.img, M, y, setupW, sp.h);
+  let ty = para('Setup', M + setupW + 30, y, IW - setupW - 30, 26, 800);
+  const notes = (d.setupNotes || []).filter(x => x.trim());
+  for (const n of notes.length ? notes : ['As shown.']) ty = para(`• ${n}`, M + setupW + 30, ty + 4, IW - setupW - 30, 22) ;
+  y = Math.max(y + sp.h, ty) + 30;
+
+  // steps: two across (three when the picture is turned)
+  const steps = d.steps || [];
+  const cols = vh > vw ? 3 : 2, gap = 24, cw = (IW - gap * (cols - 1)) / cols;
+  for (let i = 0; i < steps.length; i += cols) {
+    let rowH = 0;
+    for (let j = 0; j < cols && i + j < steps.length; j++) {
+      const k = i + j + 1, x = M + j * (cw + gap);
+      const p = await pic(k, cw);
+      ctx.strokeStyle = '#d8dee6'; ctx.lineWidth = 2; ctx.strokeRect(x, y, cw, p.h);
+      ctx.drawImage(p.img, x, y, cw, p.h);
+      const end = para(`${k}. ${X.captionOf(d, k)}`, x, y + p.h + 8, cw, 21, 600);
+      rowH = Math.max(rowH, end - y);
+    }
+    y += rowH + 24;
+  }
+  const points = (d.coachingPoints || []).filter(x => x.trim());
+  if (points.length) {
+    y = para('Coaching points', M, y, IW, 26, 800) + 4;
+    points.forEach((p, i) => { y = para(`${i + 1}. ${p}`, M, y, IW, 22) + 4; });
+    y += 12;
+  }
+  if (d.goalieNotes) y = para(`Goalie: ${d.goalieNotes}`, M, y, IW, 22) + 12;
+  y = para([team, MADE].filter(Boolean).join(' · '), M, y + 10, IW, 18, 500, MUTED) + M;
+
+  const out = el('canvas', { width: W, height: Math.ceil(y) });
+  out.getContext('2d').drawImage(canvas, 0, 0);
+  const blob = await new Promise(res => out.toBlob(res, 'image/png'));
+  return new File([blob], X.drillFileName(d).replace(/\.[^.]+$/, '') + ' - sheet.png', { type: 'image/png' });
+}
+
+/* ---------- the dialog (1.4.3: tick what to send, one Make and send) ---------- */
 
 export async function openShareDrill(app, d) {
   const team = teamOf(app);
   const tl = X.videoTimeline(d);
   const type = videoType();
+  const canVideo = !!type && (d.steps || []).length > 0;
   const status = el('p', { class: 'status-line', id: 'sharedrill-status', role: 'status', 'aria-live': 'polite' });
   const bar = el('progress', { id: 'video-progress', max: '1', value: '0', hidden: true });
-  const videoRow = el('div', { class: 'row', id: 'video-row' });
-  let ctrl = null, video = null;
+  const actions = el('div', { class: 'row', id: 'sharedrill-actions' });
+  const choice = (id, title, words, checked, disabled = false) => el('label', { class: 'pp-sendpick' },
+    el('input', { type: 'checkbox', id, checked: checked && !disabled, disabled, onchange: () => { made = null; draw(); } }),
+    el('span', {}, el('b', {}, title), el('span', { class: 'muted' }, words)));
+  const pickVideo = choice('pick-video', 'Video to watch', !type ? 'This browser can’t make videos. Try Chrome on your phone or tablet.' : !(d.steps || []).length ? 'Add a step first: the video shows the drill playing.' : `The drill playing once, about ${Math.round(tl.total)} seconds. It takes about that long to make.`, true, !canVideo);
+  const pickSheet = choice('pick-sheet', 'Printable sheet', 'A picture of the page: the setup, each step and the coaching points.', true);
+  const pickFile = choice('pick-file', 'File for another coach', 'For a coach on another team who has Practice Pilot: they import it into their Library.', false);
+  const on = l => l.querySelector('input').checked;
+  let ctrl = null, made = null;
 
-  const drawVideo = () => {
-    if (video) {
-      fill(videoRow,
-        el('button', { type: 'button', class: 'btn primary', id: 'send-video', onclick: async () => { const r = await send(video.file, d.title); if (r === 'downloaded') toast(`Saved ${video.file.name}.`); } }, 'Send video'),
-        el('button', { type: 'button', class: 'btn', id: 'download-video', onclick: () => { download(video.file.name, video.file, video.file.type); toast(`Saved ${video.file.name}.`); } }, 'Download'),
-        el('span', { class: 'muted' }, `${Math.round(video.seconds)} s · ${(video.file.size / 1048576).toFixed(1)} MB · ${video.ext.toUpperCase()}`));
+  const sendMade = async () => {
+    const r = await send(made.files, d.title);
+    if (r === 'tap') { status.textContent = 'Ready. Tap Send.'; return; }
+    if (r === 'downloaded') toast(`Saved ${made.files.map(f => f.name).join(', ')}.`);
+    if (r === 'shared') status.textContent = 'Sent.';
+  };
+  function draw() {
+    if (made) {
+      fill(actions, el('button', { type: 'button', class: 'btn primary', id: 'send-files', onclick: sendMade }, made.files.length === 1 ? 'Send' : `Send ${made.files.length} files`),
+        el('span', { class: 'muted' }, made.words));
       return;
     }
-    fill(videoRow, el('button', { type: 'button', class: 'btn primary', id: 'make-video', disabled: !type || !(d.steps || []).length, onclick: async () => {
-      ctrl = new AbortController(); bar.hidden = false; bar.value = 0;
-      fill(videoRow, el('button', { type: 'button', class: 'btn', id: 'cancel-video', onclick: () => ctrl.abort() }, 'Cancel'));
-      status.textContent = 'Making the video. Keep Practice Pilot on screen…';
-      try {
-        video = await makeVideo(d, { team, signal: ctrl.signal, speed: app.videoSpeed || 1, onProgress: v => { bar.value = v; } });
-        status.textContent = video.ext === 'mp4' ? 'Video ready.' : 'Video ready. This device saves it as WebM; most phones play it.';
-      } catch (e) { status.textContent = e.name === 'AbortError' ? 'Stopped.' : e.message; }
-      finally { bar.hidden = true; ctrl = null; drawVideo(); }
-    } }, 'Make video'));
-  };
-  drawVideo();
+    const n = [pickVideo, pickSheet, pickFile].filter(on).length;
+    fill(actions, el('button', { type: 'button', class: 'btn primary', id: 'make-send', disabled: !n, onclick: makeAndSend }, 'Make and send'));
+  }
+  async function makeAndSend() {
+    const t0 = performance.now();
+    const files = [], words = [];
+    ctrl = new AbortController();
+    fill(actions, el('button', { type: 'button', class: 'btn', id: 'cancel-video', onclick: () => ctrl.abort() }, 'Cancel'));
+    try {
+      if (on(pickVideo)) {
+        bar.hidden = false; bar.value = 0;
+        status.textContent = 'Making the video. Keep Practice Pilot on screen…';
+        const v = await makeVideo(d, { team, signal: ctrl.signal, speed: app.videoSpeed || 1, onProgress: x => { bar.value = x; } });
+        files.push(v.file); words.push(`video ${Math.round(v.seconds)} s, ${(v.file.size / 1048576).toFixed(1)} MB${v.ext === 'mp4' ? '' : ' (WebM)'}`);
+      }
+      if (on(pickSheet)) { status.textContent = 'Making the sheet…'; files.push(await makeSheetImage(d, { team })); words.push('sheet picture'); }
+      if (on(pickFile)) { files.push(new File([JSON.stringify(X.makeDrillFile(d, { appVersion: APP_VERSION, team }))], X.drillFileName(d), { type: 'application/json' })); words.push('drill file'); }
+      made = { files, words: `Ready: ${words.join(' + ')}.` };
+      status.textContent = '';
+    } catch (e) { status.textContent = e.name === 'AbortError' ? 'Stopped.' : e.message; made = null; }
+    finally { bar.hidden = true; ctrl = null; draw(); }
+    // straight to the share sheet when it was quick; after a video the device wants a fresh tap (Send)
+    if (made && performance.now() - t0 < 3500) await sendMade();
+  }
+  draw();
 
   const body = el('div', { class: 'stack' },
-    el('section', { class: 'stack' }, el('h3', { class: 't-label' }, 'Video'),
-      el('p', { style: 'margin:0' }, !type ? 'This browser can’t make videos. Try Chrome on your phone or tablet.' : !(d.steps || []).length ? 'Add a step first: the video shows the drill playing.' : `The drill playing once, about ${Math.round(tl.total)} seconds. It takes about that long to make.`),
-      videoRow, bar),
-    el('section', { class: 'stack' }, el('h3', { class: 't-label' }, 'Drill sheet'),
-      el('p', { style: 'margin:0' }, 'A page with the setup, a picture of each step, and the coaching points. Print it, or pick Save as PDF to send it.'),
-      el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn', id: 'open-sheet', onclick: () => { if (ctrl) ctrl.abort(); const done = document.querySelector('#sharedrill-dialog .dfoot .btn'); if (done) done.click(); location.hash = `#drillsheet/${d.id}`; } }, 'Open the drill sheet'))),
-    el('section', { class: 'stack' }, el('h3', { class: 't-label' }, 'Drill file'),
-      el('p', { style: 'margin:0' }, 'For a coach on another team who has Practice Pilot: they import it into their Library as a draft.'),
-      el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn', id: 'send-drill-file', onclick: async () => {
-        const f = new File([JSON.stringify(X.makeDrillFile(d, { appVersion: APP_VERSION, team }))], X.drillFileName(d), { type: 'application/json' });
-        const r = await send(f, d.title);
-        if (r === 'downloaded') toast(`Saved ${f.name}.`);
-      } }, 'Send drill file'))),
-    status);
+    el('h3', { class: 't-label', style: 'margin:0' }, 'What do you want to send?'),
+    el('div', { class: 'stack pp-sendpicks' }, pickVideo, pickSheet, pickFile),
+    actions, bar, status,
+    el('p', { style: 'margin:0' }, el('a', { href: `#drillsheet/${d.id}`, id: 'print-sheet-link', onclick: () => { if (ctrl) ctrl.abort(); const done = document.querySelector('#sharedrill-dialog .dfoot .btn'); if (done) done.click(); } }, 'Print the sheet instead')));
   await dialog({ id: 'sharedrill-dialog', title: `Share “${d.title}”`, body, buttons: [{ label: 'Done', value: null, kind: 'primary' }] });
   if (ctrl) ctrl.abort();
 }
@@ -213,7 +312,7 @@ export function renderDrillSheet(app, id) {
     const pic = (k, cls) => { const t = el('div', { class: cls }); t.innerHTML = stillSVG(d, k, cache); return t; };
     const list = (title, items) => (items.length ? el('section', { class: 'pp-print-sec' }, el('h4', {}, title), el('ol', {}, ...items.map(x => el('li', {}, x)))) : null);
     const team = teamOf(app);
-    const meta = [d.minutes ? `${d.minutes} min` : '', (d.ageGroups || []).join(', '), d.level || '', team].filter(Boolean).join(' · ');
+    const meta = [d.minutes ? `${d.minutes} min` : '', agesOf(d).join(', '), d.level || '', team].filter(Boolean).join(' · ');
     const steps = (d.steps || []).map((s, i) => el('figure', { class: 'pp-ds-step' }, pic(i + 1, 'pp-ds-pic'), el('figcaption', {}, el('b', {}, `${i + 1}. `), X.captionOf(d, i + 1))));
     fill(root,
       el('div', { class: 'pp-printbar row' },

@@ -1,7 +1,8 @@
 /* Practice Pilot animation engine — the drill model.
    frameAt(drill, t) answers "what does the rink look like at time t?" for the editor, player,
    thumbnails and (R4) video export. Pure: no DOM. Positions are feet on the 200 × 85 sheet. */
-import { spline, poly, at, clamp, ease, dist } from './geometry.js?v=1.4.2';
+import { spline, poly, at, clamp, ease, dist } from './geometry.js?v=1.4.3';
+import { turnPoint, iceBounds } from './rink.js?v=1.4.3';
 
 export const PIECES = {
   F: { label: 'Forward', player: true }, C: { label: 'Centre', player: true }, D: { label: 'Defence', player: true },
@@ -26,6 +27,7 @@ export function moveWindow(m) {
   if (m.when === 'after') return [0.6, 1];
   if (m.line === 'pass') return [0, 0.4];
   if (m.line === 'shot') return [0, 0.25];
+  if (m.line === 'dump') return [0, 0.7];
   return [0, 1];
 }
 
@@ -44,7 +46,7 @@ export function moveOf(step, id) {
 
 /** Is this move a carried puck (and not also passed or shot)? */
 function carrierOfMove(d, m) {
-  if (!m || !m.carriedBy || m.line === 'pass' || m.line === 'shot' || m.to) return null;
+  if (!m || !m.carriedBy || m.line === 'pass' || m.line === 'shot' || m.line === 'dump' || m.to) return null;
   const c = pieceById(d, m.carriedBy);
   return c && handlesPuck(c.type) ? c : null;
 }
@@ -160,7 +162,7 @@ export function frame(d, k, p, cache = {}) {
           if (r > 0) ang = face[k][piece.id] - Math.PI * (1 - r);
         }
       }
-      here[piece.id] = { x, y, ang, q, flying: (m.line === 'pass' || m.line === 'shot') && q > 0 && q < 1 };
+      here[piece.id] = { x, y, ang, q, flying: (m.line === 'pass' || m.line === 'shot' || m.line === 'dump') && q > 0 && q < 1 };
       return here[piece.id];
     } else {
       [x, y] = pos[k][piece.id];
@@ -217,21 +219,25 @@ export function prepare(d) {
 /** Lay callouts out so they don't cover each other or other pieces. Each bubble tries above its piece,
     then below, right and left, and keeps the first spot that is clear (or the least crowded one).
     obstacles: [{ id, x, y }] pieces to keep clear of. Widths are estimated from the text. */
-export function layoutCallouts(callouts, obstacles = []) {
+export function layoutCallouts(callouts, obstacles = [], deg = 0) {
+  // laid out in picture space, so a turned view ("Up the ice") still gets upright, on-screen callouts
+  const b = iceBounds(deg);
+  const obs = obstacles.map(o => { const [x, y] = turnPoint([o.x, o.y], deg); return { id: o.id, x, y }; });
   const placed = [];
   const R = 4.2;
-  for (const c of callouts) {
+  for (const c0 of callouts) {
+    const [cx, cy] = turnPoint([c0.x, c0.y], deg), c = { ...c0, x: cx, y: cy };
     const w = Math.min(70, 4 + c.text.length * 1.45), h = 5.2;
     const spots = [
       ['above', c.x - w / 2, c.y - 6 - h], ['below', c.x - w / 2, c.y + 6],
       ['right', c.x + 6, c.y - h / 2], ['left', c.x - 6 - w, c.y - h / 2],
     ];
-    if (c.y < 14) spots.unshift(spots.splice(1, 1)[0]);
+    if (c.y < b.y0 + 14) spots.unshift(spots.splice(1, 1)[0]);
     let best = null;
     for (const [side, x0, y0] of spots) {
-      const bx = clamp(x0, 1, 199 - w), by = clamp(y0, 1, 84 - h);
+      const bx = clamp(x0, b.x0 + 1, b.x1 - 1 - w), by = clamp(y0, b.y0 + 1, b.y1 - 1 - h);
       let cost = placed.filter(o => bx < o.bx + o.w + 1 && bx + w + 1 > o.bx && by < o.by + o.h + 0.6 && by + h + 0.6 > o.by).length * 10;
-      cost += obstacles.filter(o => o.id !== c.piece && o.x + R > bx && o.x - R < bx + w && o.y + R > by && o.y - R < by + h).length;
+      cost += obs.filter(o => o.id !== c.piece && o.x + R > bx && o.x - R < bx + w && o.y + R > by && o.y - R < by + h).length;
       if (!best || cost < best.cost) best = { side, bx, by, cost };
       if (cost === 0) break;
     }

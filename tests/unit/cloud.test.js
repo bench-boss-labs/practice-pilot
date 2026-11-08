@@ -213,7 +213,8 @@ async function team() {
   for (const x of [a, b]) { x.cloudState = await T.cloudState(x); S.watchStore(x); }
   return { fake, a, b, lib };
 }
-const answer = v => async () => v;
+// the publish confirm (1.4.3) is answered Publish; any other question gets v
+const answer = v => async o => (o && o.id === 'publish-confirm' ? 'yes' : v);
 
 test('drafts: a new drill stays on the device until published; then the other coach gets it on sync', async () => {
   const { fake, a, b, lib } = await team();
@@ -222,6 +223,7 @@ test('drafts: a new drill stays on the device until published; then the other co
   assert.ok(!fake.read(lib.id).drills.some(d => d.id === 'd_new001'), 'not in the team library');
   assert.equal(await S.syncNow(b), true);
   assert.equal(await b.store.get('drills', 'd_new001'), null, 'the other coach can’t see a draft');
+  assert.equal(await S.publishItems(a, 'drills', 'd_new001', { dialog: async o => { assert.equal(o.id, 'publish-confirm'); return null; } }), null, 'asked first; Cancel publishes nothing');
   const r = await S.publishItems(a, 'drills', 'd_new001', { dialog: answer(null) });
   assert.equal(r.published, 1);
   assert.equal(S.pubState(await a.store.get('drills', 'd_new001')), 'published');
@@ -257,7 +259,7 @@ test('publish check: someone else published the same drill since you started →
     await b.store.save('drills', { ...(await b.store.get('drills', 'd_shared')), title: 'B’s version' });
     await S.publishItems(b, 'drills', 'd_shared', { dialog: answer(null) });
     let asked = null;
-    await S.publishItems(a, 'drills', 'd_shared', { dialog: async o => { asked = o.id; return choice; } });
+    await S.publishItems(a, 'drills', 'd_shared', { dialog: async o => { if (o.id === 'publish-confirm') return 'yes'; asked = o.id; return choice; } });
     assert.equal(asked, 'publish-conflict');
     const titles = fake.read(lib.id).drills.map(d => d.title).sort();
     const local = (await a.store.get('drills', 'd_shared')).title;

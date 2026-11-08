@@ -1,12 +1,20 @@
 /* Practice Pilot — drills: editing operations, search and filters, copies, templates and the bin.
    Pure functions on plain drill objects (drill format v1); the editor and library call these,
    and tests/unit/drills.test.js checks them. Edits return a new drill and never change their input. */
-import { PIECES, isPlayer, handlesPuck, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.4.2';
-import { onIce } from './engine/rink.js?v=1.4.2';
-import { dist } from './engine/geometry.js?v=1.4.2';
+import { PIECES, isPlayer, handlesPuck, canMove, positionsByStep, moveOf, movesIn, DEFAULT_SECONDS } from './engine/model.js?v=1.4.3';
+import { onIce } from './engine/rink.js?v=1.4.3';
+import { aroundTheBoards } from './engine/boards.js?v=1.4.3';
+import { dist } from './engine/geometry.js?v=1.4.3';
 
 export const TAGS = ['Warm-up', 'Skating', 'Passing', 'Shooting', 'Stickhandling', 'Battle', 'Breakout', 'Small-area games', 'Positional', 'Goalie', 'Fun'];
-export const AGES = ['U7', 'U9', 'U11', 'U13', 'U15', 'U18'];
+export const AGES = ['U8/U9', 'U10', 'U11', 'U12', 'U13', 'U14+'];
+/** Age groups from before 1.4.3, read as today's groups (stored drills are never rewritten for this). */
+const OLD_AGES = { U7: 'U8/U9', U8: 'U8/U9', U9: 'U8/U9', U14: 'U14+', U15: 'U14+', U16: 'U14+', U18: 'U14+' };
+/** A drill's age groups in today's list, in order. */
+export function agesOf(d) {
+  const have = new Set(((d && d.ageGroups) || []).map(a => OLD_AGES[a] || a));
+  return AGES.filter(a => have.has(a));
+}
 export const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
 export const MAX_UNDO = 200;
 export const CALLOUT_MAX = 40;
@@ -413,7 +421,7 @@ export function findDrills(drills, f = DEFAULT_FILTERS, texts = new Map()) {
     const myDraft = show.has('drafts') && d.pub && d.pub.state !== 'published' && !d.deletedAt;
     if (!myDraft && (kind === 'samples' ? !(show.has('samples') || show.has('drills')) : !show.has(kind))) return false;
     if (f.tags.length && !f.tags.every(t => (d.tags || []).includes(t))) return false;
-    if (f.ages.length && !f.ages.some(a => (d.ageGroups || []).includes(a))) return false;
+    if (f.ages.length && !f.ages.some(a => agesOf(d).includes(a))) return false;
     if (f.levels.length && !f.levels.includes(d.level)) return false;
     if (f.rinks.length && !f.rinks.includes((d.view && d.view.rink) || 'full')) return false;
     if (words.length) {
@@ -490,6 +498,38 @@ export function shootAt(d, k, passerId, puckId, at) {
   step.moves = (step.moves || []).filter(m => m.piece !== puckId);
   step.moves.push({ piece: puckId, line: 'shot', to: pt(at) });
   dropCarry(n, k, passerId);
+  return n;
+}
+
+/**
+ * Dump the puck in, in step k: "corner" sends it straight to the spot; "boards" rims it around the
+ * boards (behind the net if it has to). The tapped spot is kept as `aim` so the style can be switched.
+ * caption: the step's caption when it has none yet.
+ */
+export function dumpAt(d, k, dumperId, puckId, aim, style = 'corner', caption = '') {
+  const n = clone(d);
+  const step = n.steps[k - 1];
+  step.moves = (step.moves || []).filter(m => m.piece !== puckId);
+  step.moves.push(dumpMove(d, k, puckId, pt(aim), style));
+  if (caption && !step.caption) step.caption = caption;
+  dropCarry(n, k, dumperId);
+  return n;
+}
+function dumpMove(d, k, puckId, aim, style) {
+  if (style !== 'boards') return { piece: puckId, line: 'dump', dump: 'corner', aim, to: aim };
+  const from = positionsByStep(d)[k - 1][puckId] || aim;
+  const r = aroundTheBoards(from, aim);
+  return { piece: puckId, line: 'dump', dump: 'boards', aim, to: pt(r.to), bends: r.bends };
+}
+/** Switch a dump between "corner" and "boards". */
+export function setDump(d, k, puckId, style) {
+  const n = clone(d);
+  const step = n.steps[k - 1];
+  const i = step ? (step.moves || []).findIndex(m => m.piece === puckId && m.line === 'dump') : -1;
+  if (i < 0) return d;
+  const old = step.moves[i];
+  step.moves[i] = { ...dumpMove(d, k, puckId, old.aim || old.to, style), ...(old.when ? { when: old.when, start: old.start, end: old.end } : {}) };
+  for (const key of ['start', 'end']) if (step.moves[i][key] == null) delete step.moves[i][key];
   return n;
 }
 

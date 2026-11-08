@@ -1,4 +1,5 @@
-/* 1.4.2 Share a drill: the video, the drill sheet, the drill file (send and import), QR codes on the printout. */
+/* Share a drill (1.4.2, reworked in 1.4.3): tick video / sheet picture / drill file and send them together;
+   the drill sheet to print; importing a drill file; QR codes on the printout. */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -9,21 +10,53 @@ before(async () => { env = await setup(); });
 after(async () => { await env.close(); });
 const toLibrary = async (page, id = 'd_samplepivot') => { await page.goto(env.server.url + '#library/' + id); await page.waitForSelector('#share-drill'); };
 
-test('Share › Video makes a video of the drill playing; Send and Download are offered', async () => {
+// tests run without a share sheet: files are saved (downloads) instead
+const noShareSheet = page => page.evaluate(() => { Object.defineProperty(navigator, 'canShare', { value: () => false, configurable: true }); });
+const pick = async (page, { video = false, sheet = false, file = false }) => {
+  for (const [id, on] of [['#pick-video', video], ['#pick-sheet', sheet], ['#pick-file', file]]) if ((await page.isChecked(id)) !== on) await page.click(id);
+};
+const downloads = page => { const got = []; page.on('download', d => got.push(d)); return got; };
+
+test('Share: tick what to send; Video makes a video of the drill playing, then Send', async () => {
   const { ctx, page } = await open(env, { size: 'tablet' });
   await page.evaluate(() => { window.__pp.videoSpeed = 6; });    // tests only: record faster than real time
-  await toLibrary(page);
+  await toLibrary(page); await noShareSheet(page);
   await page.click('#share-drill');
   await page.waitForSelector('#sharedrill-dialog');
+  assert.match(await page.textContent('#sharedrill-dialog'), /What do you want to send\?/);
   assert.match(await page.textContent('#sharedrill-dialog'), /about \d+ seconds/);
-  await page.click('#make-video');
-  await page.waitForSelector('#cancel-video');
-  await page.waitForSelector('#send-video', { timeout: 30000 });
-  const info = await page.textContent('#video-row');
-  assert.match(info, /\d+ s · \d+\.\d MB · (MP4|WEBM)/);
+  assert.equal(await page.isChecked('#pick-video'), true); assert.equal(await page.isChecked('#pick-sheet'), true); assert.equal(await page.isChecked('#pick-file'), false);
+  await pick(page, { video: true });
+  const got = downloads(page);
+  await page.click('#make-send');
+  await page.waitForSelector('#send-files', { timeout: 30000 });
+  const info = await page.textContent('#sharedrill-actions');
+  assert.match(info, /Ready: video \d+ s, \d+\.\d MB/);
   assert.doesNotMatch(info, /0\.0 MB/, 'the video has frames in it');
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#download-video')]);
-  assert.match(dl.suggestedFilename(), /^Pass, Pivot & Go\.(mp4|webm)$/);
+  if (!got.length) await page.click('#send-files');
+  await page.waitForFunction(() => true); await new Promise(r => setTimeout(r, 300));
+  assert.match(got[0].suggestedFilename(), /^Pass, Pivot & Go\.(mp4|webm)$/);
+  assert.deepEqual(page.errors, []);
+  await ctx.close();
+});
+
+test('Share: the video and the sheet picture go together in one send', async () => {
+  const { ctx, page } = await open(env, { size: 'tablet' });
+  await page.evaluate(() => { window.__pp.videoSpeed = 6; });
+  await toLibrary(page); await noShareSheet(page);
+  await page.click('#share-drill');
+  const got = downloads(page);
+  await page.click('#make-send');                                   // video + sheet are ticked to start with
+  await page.waitForSelector('#send-files', { timeout: 30000 });
+  if (!got.length) { assert.equal(await page.textContent('#send-files'), 'Send 2 files'); await page.click('#send-files'); }
+  await page.waitForFunction(() => true); await new Promise(r => setTimeout(r, 500));
+  const names = got.map(d => d.suggestedFilename()).sort();
+  assert.equal(names.length, 2);
+  assert.match(names[0], /^Pass, Pivot & Go - sheet\.png$/);
+  assert.match(names[1], /^Pass, Pivot & Go\.(mp4|webm)$/);
+  const png = await readFile(await got.find(d => d.suggestedFilename().endsWith('.png')).path());
+  assert.equal(png.subarray(1, 4).toString(), 'PNG');
+  assert.ok(png.length > 20000, 'a real picture of the page');
   assert.deepEqual(page.errors, []);
   await ctx.close();
 });
@@ -33,7 +66,7 @@ test('Share › Drill sheet: one page with the setup, a picture of each step and
   await toLibrary(page);
   const d = await page.evaluate(() => window.__pp.store.get('drills', 'd_samplepivot'));
   await page.click('#share-drill');
-  await page.click('#open-sheet');
+  await page.click('#print-sheet-link');
   await page.waitForSelector('#drillsheet .pp-ds-setuppic svg');
   assert.equal(await page.locator('#sharedrill-dialog').count(), 0, 'the dialog closes');
   assert.equal(await page.locator('#sheet-steps figure').count(), d.steps.length);
@@ -53,8 +86,10 @@ test('Share › Drill sheet: one page with the setup, a picture of each step and
 test('Share › Drill file: sent from one device, imported on another as a copy', async () => {
   const a = await open(env, { size: 'tablet' });
   await toLibrary(a.page);
+  await noShareSheet(a.page);
   await a.page.click('#share-drill');
-  const [dl] = await Promise.all([a.page.waitForEvent('download'), a.page.click('#send-drill-file')]);
+  await pick(a.page, { file: true });
+  const [dl] = await Promise.all([a.page.waitForEvent('download'), a.page.click('#make-send')]);
   assert.equal(dl.suggestedFilename(), 'Pass, Pivot & Go.practicepilot');
   const path = await dl.path();
   const doc = JSON.parse(await readFile(path, 'utf8'));
@@ -99,6 +134,6 @@ test('the editor’s ⋮ menu has Share', async () => {
   await page.goto(env.server.url + '#edit/d_samplepivot'); await page.waitForSelector('#editor-title');
   await page.click('#drill-menu');
   await page.click('#drill-actions button:has-text("Share…")');
-  await page.waitForSelector('#sharedrill-dialog #make-video');
+  await page.waitForSelector('#sharedrill-dialog #make-send');
   await ctx.close();
 });

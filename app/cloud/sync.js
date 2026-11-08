@@ -2,8 +2,8 @@
    Nothing made or changed on this device reaches the team until it's published. Catching up happens when the
    app opens or comes back on screen, and with Sync now. */
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { checkLibrary, fromTeam } from './library.js?v=1.4.2';
-import { cloudState, setState, signedIn, pushChanges, applyLibrary } from './team.js?v=1.4.2';
+import { checkLibrary, fromTeam } from './library.js?v=1.4.3';
+import { cloudState, setState, signedIn, pushChanges, applyLibrary } from './team.js?v=1.4.3';
 
 const CACHE = 'library-cache', GONE = 'pending-gone';
 const BIN_DAYS = 30;
@@ -144,7 +144,7 @@ async function draftDrillsOf(app, plan) {
  * Publish a drill or plan (and a plan's unpublished drills, if you say so). Before saving over the team's copy,
  * checks whether someone else published it since you started. → { published, took } or null when cancelled.
  */
-export async function publishItems(app, kind, id, { dialog }) {
+export async function publishItems(app, kind, id, { dialog, quietShare = false }) {
   const st = await cloudState(app);
   if (!st.libraryId) throw new Error('Join a team first (Settings › This device).');
   if (!online()) throw new Error('Publishing needs a connection. Your changes are safe on this device.');
@@ -152,15 +152,16 @@ export async function publishItems(app, kind, id, { dialog }) {
   const rec = await app.store.get(kind, id);
   if (!rec) return null;
   const items = [[kind, rec]];
-  if (kind === 'plans') {
-    const drafts = await draftDrillsOf(app, rec);
-    if (drafts.length) {
-      const v = await dialog({ id: 'publish-drills', title: 'Publish its drills too?', body: `This plan uses ${drafts.length === 1 ? 'a drill that isn’t' : `${drafts.length} drills that aren’t`} published: ${drafts.map(d => `“${d.title}”`).join(', ')}. Other coaches and helpers need ${drafts.length === 1 ? 'it' : 'them'} to see the plan.`,
-        buttons: [{ label: 'Cancel', value: null }, { label: `Publish ${drafts.length === 1 ? 'both' : 'all'}`, value: 'all', kind: 'primary' }] });
-      if (!v) return null;
-      for (const d of drafts) items.unshift(['drills', d]);
-    }
-  }
+  // always asked first (1.4.3): publishing shows it to every coach on the team
+  const drafts = kind === 'plans' ? await draftDrillsOf(app, rec) : [];
+  const team = st.teamName || 'the team';
+  const v = drafts.length
+    ? await dialog({ id: 'publish-drills', title: 'Publish its drills too?', body: `This plan uses ${drafts.length === 1 ? 'a drill that isn’t' : `${drafts.length} drills that aren’t`} published: ${drafts.map(d => `“${d.title}”`).join(', ')}. Other coaches and helpers need ${drafts.length === 1 ? 'it' : 'them'} to see the plan. Everything is published to ${team}.`,
+      buttons: [{ label: 'Cancel', value: null }, { label: `Publish ${drafts.length === 1 ? 'both' : 'all'}`, value: 'all', kind: 'primary' }] })
+    : await dialog({ id: 'publish-confirm', title: `Publish to ${team}?`, body: `Every coach on ${team} will see ${pubState(rec) === 'draft' ? '' : 'your changes to '}“${rec.title || 'this ' + (kind === 'drills' ? 'drill' : 'plan')}”${quietShare ? ', and it needs to be published before helpers can see it' : ''}.`,
+      buttons: [{ label: 'Cancel', value: null }, { label: 'Publish', value: 'yes', kind: 'primary' }] });
+  if (!v) return null;
+  for (const d of drafts) items.unshift(['drills', d]);
   const fresh = await app.drive.readJson(st.libraryId);
   const bad = checkLibrary(fresh);
   if (bad.length) throw new Error(bad[0] === 'newer' ? 'Update Practice Pilot to publish: the team library was saved by a newer version.' : 'The team library file is damaged.');

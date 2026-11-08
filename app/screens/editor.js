@@ -1,25 +1,31 @@
 /* Drill editor (R1 Drill Editor deep-dive): piece tray, rink with steps and playback, and a side panel
    with Piece, Step and Details tabs. Every change is saved on the device half a second later. */
-import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.4.2';
-import { openShareDrill } from './drillshare.js?v=1.4.2';
-import { el, fill, toast, dialog } from '../ui.js?v=1.4.2';
+import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.4.3';
+import { openShareDrill } from './drillshare.js?v=1.4.3';
+import { el, fill, toast, dialog } from '../ui.js?v=1.4.3';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.4.2';
-import { Player } from '../engine/player.js?v=1.4.2';
-import { PIECES, TEAMS, LINES, isPlayer, handlesPuck, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.4.2';
-import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.4.2';
-import { VIEWS } from '../engine/rink.js?v=1.4.2';
-import { at } from '../engine/geometry.js?v=1.4.2';
-import * as D from '../drills.js?v=1.4.2';
-import { drillInfo } from './drillview.js?v=1.4.2';
+import { SCHEMA_VERSION } from '../version.js?v=1.4.3';
+import { Player } from '../engine/player.js?v=1.4.3';
+import { PIECES, TEAMS, LINES, isPlayer, handlesPuck, canMove, moveOf, movesIn, pathOf, positionsByStep, frame } from '../engine/model.js?v=1.4.3';
+import { pieceSVG, radius, thumbnailSVG, ACCENT, MARK_COLOURS } from '../engine/render.js?v=1.4.3';
+import { VIEWS } from '../engine/rink.js?v=1.4.3';
+import { at } from '../engine/geometry.js?v=1.4.3';
+import * as D from '../drills.js?v=1.4.3';
+import { drillInfo } from './drillview.js?v=1.4.3';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const TRAY = ['F', 'C', 'D', 'G', 'X', 'coach', 'puck', 'pile', 'pylon', 'net', 'board', 'deker', 'tire', 'stick', 'text'];
 const NAMES = { F: 'Forward', C: 'Centre', D: 'Defence', G: 'Goalie', X: 'Skater', coach: 'Coach', puck: 'Puck', pile: 'Puck pile', pylon: 'Pylon', net: 'Net', board: 'Passer board', deker: 'Deker', tire: 'Tire', stick: 'Stick', text: 'Text' };
-const LINE_NAMES = { skate: 'Skate', 'skate-puck': 'With puck', backward: 'Backward', pass: 'Pass', shot: 'Shot', carried: 'Carried' };
+const LINE_NAMES = { skate: 'Skate', 'skate-puck': 'With puck', backward: 'Backward', pass: 'Pass', shot: 'Shot', dump: 'Dump in', carried: 'Carried' };
+const DUMPS = [['corner', 'Into the corner'], ['boards', 'Around the boards']];
+const ACTION_WORDS = {
+  pass: ['Pass: tap the player or coach who passes.', 'Now tap who to pass to. The puck goes to where they end up in this step.'],
+  shoot: ['Shoot: tap the player or coach who shoots.', 'Now tap the spot to shoot at.'],
+  dump: ['Dump in: tap the player or coach who dumps it.', 'Now tap where the puck should end up.'],
+};
 const TEAM_NAMES = { red: 'Red', black: 'Black', white: 'White', blue: 'Blue' };
 const MARK_NAMES = { orange: 'Orange', navy: 'Navy', blue: 'Blue' };
-const TOOLS = [['move', 'Move'], ['pass', '➜ Pass'], ['shoot', '⇒ Shoot'], ['pen', 'Pen'], ['arrow', 'Arrow'], ['box', 'Box'], ['text', 'Text'], ['erase', 'Eraser']];
+const TOOLS = [['move', 'Move'], ['pass', '➜ Pass'], ['shoot', '⇒ Shoot'], ['dump', '↷ Dump in'], ['pen', 'Pen'], ['arrow', 'Arrow'], ['box', 'Box'], ['text', 'Text'], ['erase', 'Eraser']];
 const ROTATES = type => !!(PIECES[type] && PIECES[type].rotate);
 
 const COMPACT = '(max-height: 500px) and (orientation: landscape)';
@@ -57,7 +63,8 @@ async function open(app, id, root) {
   }
   if (rec.schemaVersion > SCHEMA_VERSION) return reviewView(app, rec, root);
   const ed = new Editor(app, rec, root);
-  app.cleanup = () => ed.close();
+  app.editor = ed;                                   // for the browser tests
+  app.cleanup = () => { ed.close(); if (app.editor === ed) app.editor = null; };
 }
 
 /* Drills from a newer version: play and read, no editing. */
@@ -205,8 +212,8 @@ class Editor {
 
   actionHint() {
     return el('div', { class: 'pp-actionbar', role: 'status', id: 'action-hint' },
-      el('span', { class: 'grow' }, !this.action.passer ? (this.action.kind === 'pass' ? 'Pass: tap the player or coach who passes.' : 'Shoot: tap the player or coach who shoots.')
-        : this.action.kind === 'pass' ? 'Now tap who to pass to. The puck goes to where they end up in this step.' : 'Now tap the spot to shoot at.'),
+      el('span', { class: 'grow' }, ACTION_WORDS[this.action.kind][this.action.passer ? 1 : 0]),
+      this.action.kind === 'dump' ? seg('How it goes in', DUMPS, this.action.style || 'corner', v => { this.action.style = v; this.renderTools(); }) : null,
       el('button', { type: 'button', class: 'btn', id: 'cancel-action', onclick: () => this.cancelAction() }, 'Cancel'));
   }
 
@@ -229,6 +236,7 @@ class Editor {
         b('rail-move', 'Move', !this.action && !this.place && this.tool === 'move', () => { this.action = null; this.closePops(); this.setTool('move'); }),
         b('rail-pass', '➜ Pass', this.action && this.action.kind === 'pass', () => this.startAction('pass', null)),
         b('rail-shoot', '⇒ Shoot', this.action && this.action.kind === 'shoot', () => this.startAction('shoot', null)),
+        b('rail-dump', '↷ Dump', this.action && this.action.kind === 'dump', () => this.startAction('dump', null)),
         b('rail-draw', drawing ? drawing[1] : 'Draw', drawing || this.drawOpen, () => { this.drawOpen = !this.drawOpen; this.trayOpen = false; this.setDrawer(false); this.renderTray(); this.renderTools(); }, { 'aria-expanded': String(this.drawOpen), 'aria-controls': 'draw-menu' })),
       this.action ? this.actionHint() : null,
       this.drawOpen ? el('div', { class: 'pp-pop stack', id: 'draw-menu' },
@@ -244,13 +252,28 @@ class Editor {
     const v = this.d.view || { rink: 'full', flip: false };
     fill(this.toolbar, 
       el('div', { class: 'pp-seg', role: 'group', 'aria-label': 'Tool' }, ...TOOLS.map(([t, label]) =>
-        el('button', { type: 'button', class: 'pp-segbtn', 'data-tool': t, 'aria-pressed': String(this.tool === t && !this.place), onclick: () => (t === 'pass' || t === 'shoot' ? this.startAction(t, null) : this.setTool(t)) }, label))),
+        el('button', { type: 'button', class: 'pp-segbtn', 'data-tool': t, 'aria-pressed': String(this.tool === t && !this.place), onclick: () => (ACTION_WORDS[t] ? this.startAction(t, null) : this.setTool(t)) }, label))),
       ...(marking ? this.markOptions() : []),
       el('span', { class: 'grow' }),
       el('label', { class: 'pp-inline' }, el('span', { class: 'sr' }, 'Rink view'),
         el('select', { id: 'rink-view', onchange: e => this.commit(D.setDetails(this.d, { view: { ...v, rink: e.target.value } })) },
           ...VIEWS.map(([val, label]) => el('option', { value: val, selected: v.rink === val }, label)))),
-      (v.rink === 'half' || v.rink === 'zone') ? el('button', { type: 'button', class: 'btn', id: 'flip', 'aria-pressed': String(!!v.flip), onclick: () => this.commit(D.setDetails(this.d, { view: { ...v, flip: !v.flip } })) }, '⇄ Flip') : null);
+      (v.rink === 'half' || v.rink === 'zone') ? el('button', { type: 'button', class: 'btn', id: 'flip', 'aria-pressed': String(!!v.flip), onclick: () => this.commit(D.setDetails(this.d, { view: { ...v, flip: !v.flip } })) }, '⇄ Flip') : null,
+      this.turnButton('turn'));
+  }
+
+  /** "Up the ice" turns the picture a quarter so the net is at the top; pressed again goes back to across. */
+  turnButton(id) {
+    const v = this.d.view || {};
+    const b = el('button', { type: 'button', class: 'btn', id, 'aria-pressed': String(!!v.turn), title: 'Turn the rink so the net is at the top',
+      onclick: () => { const w = this.d.view || {}; this.commit(D.setDetails(this.d, { view: { ...w, turn: !w.turn } })); b.setAttribute('aria-pressed', String(!!this.d.view.turn)); } }, '⤵ Up the ice');
+    return b;
+  }
+  /** Per-drill ringette lines. */
+  ringetteCheck(id) {
+    const v = this.d.view || {};
+    return el('label', { class: 'pp-check' }, el('input', { type: 'checkbox', id, checked: !!v.ringette,
+      onchange: e => this.commit(D.setDetails(this.d, { view: { ...(this.d.view || {}), ringette: e.target.checked } })) }), 'Show ringette lines');
   }
 
   setTool(t) { this.tool = t; this.place = null; this.renderTray(); this.renderTools(); this.playerHost.dataset.tool = t; }
@@ -312,6 +335,7 @@ class Editor {
     return [el('div', { class: 'pp-puckacts' },
       el('button', { type: 'button', class: 'btn primary', id: 'pass-btn', onclick: () => this.startAction('pass', p.id) }, '➜ Pass'),
       el('button', { type: 'button', class: 'btn primary', id: 'shoot-btn', onclick: () => this.startAction('shoot', p.id) }, '⇒ Shoot'),
+      el('button', { type: 'button', class: 'btn', id: 'dump-btn', onclick: () => this.startAction('dump', p.id) }, '↷ Dump in'),
       pk ? el('button', { type: 'button', class: 'btn', id: 'select-puck', onclick: () => this.select(pk.id) }, 'Select the puck') : null),
       pk ? null : el('p', { class: 'muted pp-hint', style: 'margin:0' }, 'No puck on their stick: the nearest puck moves to them first.')];
   }
@@ -339,7 +363,7 @@ class Editor {
     const { kind, passer } = this.action;
     if (!passer) {
       const id = this.nearest(pt, null, { players: true });
-      if (!id) { toast(kind === 'pass' ? 'Tap the player or coach who passes.' : 'Tap the player or coach who shoots.'); return; }
+      if (!id) { toast(ACTION_WORDS[kind][0].replace(/^\w+( in)?: t/, 'T')); return; }
       this.action.passer = id; this.select(id); this.renderTools();
       return;
     }
@@ -353,8 +377,13 @@ class Editor {
     const carrying = pk && k > 0 && (d.steps[k - 1].moves || []).some(m => m.piece === pk.id && m.carriedBy === passer);
     // a player who receives the puck in this step passes or shoots it in the next one
     const ends = !pk && k > 0 && (() => { const end = positionsByStep(d)[k]; return d.pieces.find(x => x.type === 'puck' && end[x.id] && Math.hypot(end[x.id][0] - end[passer][0], end[x.id][1] - end[passer][1]) <= 4.5); })();
-    if (k === 0 || carrying || ends) ({ drill: d, k } = D.addStep(d, k));
+    // a dump gets a step of its own (players chase it in the next one), unless this step is still empty
+    const dumpStep = kind === 'dump' && k > 0 && (d.steps[k - 1].moves || []).length > 0;
+    const k0 = k;
+    if (k === 0 || carrying || ends || dumpStep) ({ drill: d, k } = D.addStep(d, k));
     if (ends) pk = ends;
+    // a dump in a new step uses the puck on their stick as that step starts (not one they already shot away)
+    else if (kind === 'dump' && k !== k0) pk = D.puckWith(d, k, passer);
     let puckId = pk && pk.id;
     if (!pk) {
       const pos = positionsByStep(d);
@@ -362,15 +391,19 @@ class Editor {
       d = g.drill; puckId = g.puck;
       note = g.how === 'pile' ? ' A puck from the pile goes on their stick.' : g.how === 'new' ? ' A puck was added on their stick.' : ' The puck starts on their stick.';
     }
-    const earlier = (d.steps[k - 1].moves || []).find(m => m.piece === puckId && m.to && (m.line === 'pass' || m.line === 'shot'));
-    if (earlier) note += ` It replaces their earlier ${earlier.line} in this step.`;
-    d = kind === 'pass' ? D.passTo(d, k, passer, puckId, receiver) : D.shootAt(d, k, passer, puckId, pt);
+    const earlier = (d.steps[k - 1].moves || []).find(m => m.piece === puckId && m.to && ['pass', 'shot', 'dump'].includes(m.line));
+    if (earlier) note += ` It replaces their earlier ${LINE_NAMES[earlier.line].toLowerCase()} in this step.`;
+    const who = d.pieces.find(x => x.id === passer);
+    d = kind === 'pass' ? D.passTo(d, k, passer, puckId, receiver)
+      : kind === 'dump' ? D.dumpAt(d, k, passer, puckId, pt, this.action.style || 'corner', `${who && NAMES[who.type] ? NAMES[who.type] : 'Coach'} dumps it in`)
+      : D.shootAt(d, k, passer, puckId, pt);
+    if (kind === 'dump') note += ' Add the next step for the chase.';
     this.action = null;
     this.commit(d);
     this.player.goStep(k);
     this.select(passer);
     const r = receiver && this.d.pieces.find(x => x.id === receiver);
-    toast((kind === 'pass' ? `Pass to the ${NAMES[r.type].toLowerCase()} in step ${k}.` : `Shot in step ${k}.`) + note, { action: ['Undo', () => this.undo()], scoped: true });
+    toast((kind === 'pass' ? `Pass to the ${NAMES[r.type].toLowerCase()} in step ${k}.` : kind === 'dump' ? `Dump in, step ${k}.` : `Shot in step ${k}.`) + note, { action: ['Undo', () => this.undo()], scoped: true });
   }
 
   movePanel(p, k) {
@@ -380,13 +413,16 @@ class Editor {
     const out = [];
     const lines = p.type === 'puck' ? LINES.puck : p.type === 'coach' ? LINES.coach : LINES.player;
     const line = m.carriedBy ? 'carried' : (m.line || (p.type === 'puck' ? 'pass' : 'skate'));
-    if (lines.length > 1) out.push(field('Line', seg('Line', lines.map(l => [l, LINE_NAMES[l]]), line, v => this.commit(D.setMove(this.d, k, p.id, { line: v })))));
+    if (m.line === 'dump') {
+      out.push(field('Dump in', seg('Dump in', DUMPS, m.dump === 'boards' ? 'boards' : 'corner', v => this.commit(D.setDump(this.d, k, p.id, v))),
+        'Into the corner goes straight there; around the boards rims along them, behind the net if it has to.'));
+    } else if (lines.length > 1) out.push(field('Line', seg('Line', lines.map(l => [l, LINE_NAMES[l]]), line, v => this.commit(D.setMove(this.d, k, p.id, { line: v })))));
     if (m.carriedBy) {
       const c = this.d.pieces.find(x => x.id === m.carriedBy);
       out.push(el('p', { class: 'muted' }, `Carried by the ${c ? NAMES[c.type].toLowerCase() : 'player'} in this step.`));
       return out;
     }
-    out.push(field('Path', el('div', { class: 'row' },
+    if (!(m.line === 'dump' && m.dump === 'boards')) out.push(field('Path', el('div', { class: 'row' },
       el('button', { type: 'button', class: 'btn', id: 'add-bend', onclick: () => this.commit(D.addBend(this.d, k, p.id)) }, '+ Bend point'),
       (m.bends || []).length ? el('button', { type: 'button', class: 'btn', id: 'straighten', onclick: () => this.commit(D.setMove(this.d, k, p.id, { bends: [] })) }, 'Straighten') : null),
       'Drag the dot on the path to curve it.'));
@@ -490,7 +526,10 @@ class Editor {
       this.listField('setupNotes', { label: 'Setup', item: 'Setup line', add: '+ Setup line', id: 'setup', hint: 'How to prep the ice for other coaches, e.g. “Pucks on both blue lines”, “Pylons on the dots”.' }),
       field('Tags', el('div', { class: 'pp-chipwrap' }, ...tags.map(t => chip(t, d.tags.includes(t), () => set({ tags: toggle(d.tags, t) }))))),
       el('div', { class: 'row' }, tagInput, el('button', { type: 'button', class: 'btn', id: 'add-tag', onclick: addTag }, '+ Tag')),
-      field('Age groups', el('div', { class: 'pp-chipwrap' }, ...D.AGES.map(a => chip(a, d.ageGroups.includes(a), () => set({ ageGroups: D.AGES.filter(x => x === a ? !d.ageGroups.includes(a) : d.ageGroups.includes(x)) }))))),
+      field('Rink', el('div', { class: 'stack' },
+        seg('Rink picture', [[false, 'Across'], [true, 'Up the ice']], !!(d.view && d.view.turn), v => this.commit(D.setDetails(this.d, { view: { ...(this.d.view || {}), turn: v } }))),
+        this.ringetteCheck('ringette')), 'Up the ice turns the picture so the net is at the top. Printouts, sheets and videos show it the same way.'),
+      field('Age groups', el('div', { class: 'pp-chipwrap' }, ...D.AGES.map(a => { const cur = D.agesOf(d); return chip(a, cur.includes(a), () => set({ ageGroups: D.AGES.filter(x => x === a ? !cur.includes(a) : cur.includes(x)) })); }))),
       field('Level', seg('Level', D.LEVELS.map(l => [l, l]), d.level || '', v => set({ level: v }), { allowNone: true })),
       this.listField('coachingPoints', { label: 'Coaching points', item: 'Coaching point', add: '+ Point', id: 'point' }),
       el('div', { class: 'field' }, el('span', { class: 't-label' }, 'Video links'),
@@ -803,7 +842,7 @@ class Editor {
     const rinkView = this.mode === 'compact' ? el('div', { class: 'row' },
       el('label', { class: 'pp-inline' }, el('span', {}, 'Rink view '),
         el('select', { id: 'menu-rink-view', onchange: e => { this.commit(D.setDetails(this.d, { view: { ...this.d.view, rink: e.target.value } })); flip.hidden = !['half', 'zone'].includes(e.target.value); } },
-          ...VIEWS.map(([val, label]) => el('option', { value: val, selected: view.rink === val }, label)))), flip) : null;
+          ...VIEWS.map(([val, label]) => el('option', { value: val, selected: view.rink === val }, label)))), flip, this.turnButton('menu-turn')) : null;
     const v = await dialog({ id: 'drill-actions', title: this.d.title || 'Drill', body: el('div', { class: 'stack' }, rinkView, el('p', { class: 'muted', style: 'margin:0' }, 'Your changes are already saved.')), buttons: [
       { label: 'Share…', value: 'share' },
       ...(canDiscard(this.app, this.rec) ? [{ label: 'Discard changes', value: 'discard' }] : []),

@@ -1,5 +1,16 @@
 # Practice Pilot — changelog
 
+## 1.4.3 — 2026-11-08 (Coaches’ requests)
+
+- **New:** Up the ice: turn any drill so the net is at the top (Details › Rink, or the Up the ice button). Labels stay upright, Flip still works, and printouts, sheets and videos show it the same way.
+- **New:** Dump in, next to Pass and Shoot: tap who dumps it, then where it should end up. Into the corner goes straight there; around the boards rims along them, behind the net if it has to. It gets its own step so players can chase it in the next one.
+- **New:** Ringette lines: tick Show ringette lines in a drill’s Details to draw the two yellow lines.
+- **New:** Share on a drill: tick what to send (video, printable sheet, drill file) and send them together with one Make and send.
+- **Improved:** Nets look like real nets from above, a little larger so they read on a phone.
+- **Improved:** Publish asks first every time, so nothing goes to the team by accident.
+- **Improved:** Age groups are now U8/U9, U10, U11, U12, U13 and U14+. Drills tagged with the old groups show the matching new ones.
+- **Improved:** Sharing a plan is just Share, Send link and Stop sharing. Helpers are managed in Settings › This device › Helpers.
+
 ## 1.4.2 — 2026-11-07 (Send a drill to anyone)
 
 - **New:** Share on a drill makes a video of it playing (MP4 on most phones), ready to text, WhatsApp or email to anyone.

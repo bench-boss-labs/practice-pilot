@@ -1,8 +1,8 @@
 /* Practice Pilot animation engine — the player. Plays a drill in an element: rink, caption,
    play/pause, previous/next step, step chips, scrubber, speed and loop. */
-import { frame, prepare, stepAt, stepStartTime, totalSeconds } from './model.js?v=1.5.2';
-import { frameSVG } from './render.js?v=1.5.2';
-import { viewBoxOf } from './rink.js?v=1.5.2';
+import { frame, prepare, stepAt, stepStartTime, totalSeconds } from './model.js?v=1.5.3';
+import { frameSVG } from './render.js?v=1.5.3';
+import { viewBoxOf } from './rink.js?v=1.5.3';
 
 const SPEEDS = [0.5, 1, 2];
 let uid = 0;

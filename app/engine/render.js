@@ -1,8 +1,8 @@
 /* Practice Pilot animation engine — drawing. Builds SVG markup (strings) from a frame,
    so the same code draws the editor, the player, library cards and printed plans. */
-import { poly, at, sub, offsetPoints } from './geometry.js?v=1.5.2';
-import { TEAMS, isPlayer, positionsByStep, pathOf, movesIn, moveOf, layoutCallouts } from './model.js?v=1.5.2';
-import { rinkSVG, viewBoxOf, turnOf, netSVG } from './rink.js?v=1.5.2';
+import { poly, at, sub, offsetPoints } from './geometry.js?v=1.5.3';
+import { TEAMS, isPlayer, positionsByStep, pathOf, movesIn, moveOf, layoutCallouts } from './model.js?v=1.5.3';
+import { rinkSVG, viewBoxOf, turnOf, netSVG } from './rink.js?v=1.5.3';
 
 export const ACCENT = '#F26A1B';
 export const INK = '#1b2430';

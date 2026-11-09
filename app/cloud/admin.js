@@ -1,12 +1,12 @@
 /* Practice Pilot — Admin (1.5.0, design deep-dive Nov 8): the Bench Boss Labs account sets teams up end to end.
    One admin file lists the teams; each team is a folder with its library file and shared-plans file side by side.
    Coaches are Editors on the team folder and pick both files once; helpers are Viewers on the shared-plans file. */
-import { APP_VERSION } from '../version.js?v=1.5.2';
-import { FOLDER } from './drive.js?v=1.5.2';
-import { GUIDES } from '../guides.js?v=1.5.2';
-import { cloudState, setState, applyLibrary } from './team.js?v=1.5.2';
+import { APP_VERSION } from '../version.js?v=1.5.3';
+import { FOLDER } from './drive.js?v=1.5.3';
+import { GUIDES } from '../guides.js?v=1.5.3';
+import { cloudState, setState, applyLibrary } from './team.js?v=1.5.3';
 import { ADMIN_FILE, ROOT_FOLDER, newAdmin, checkAdmin, putTeam, peopleOf, validEmail, isAdmin, libraryName, sharedName,
-  newLibrary, newShared, checkLibrary, checkShared, publish, teamLook, SHARED_FOLDER } from './library.js?v=1.5.2';
+  newLibrary, newShared, checkLibrary, checkShared, publish, teamLook, SHARED_FOLDER } from './library.js?v=1.5.3';
 
 const err = (words, status) => Object.assign(new Error(words), { status, words });
 const now = () => new Date().toISOString();

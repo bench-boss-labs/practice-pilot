@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.5.3",
+    "date": "2026-11-08",
+    "title": "The Coach’s Manual",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Help › Open the full guide opens the Coach’s Manual as a Practice Pilot page: search it, jump to any section, with screenshots."
+      },
+      {
+        "type": "fixed",
+        "text": "Help › Questions showed “[object HTMLElement]” instead of the questions and answers."
+      }
+    ]
+  },
+  {
     "version": "1.5.2",
     "date": "2026-11-08",
     "title": "Guides",

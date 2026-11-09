@@ -1,5 +1,5 @@
 /* Practice Pilot service worker. The version below is written by the stamp script. */
-const CACHE = 'practice-pilot-1.5.2';
+const CACHE = 'practice-pilot-1.5.3';
 const V = CACHE.slice('practice-pilot-'.length);
 const KIT = 'vendor/bbl-kit/1.0.1/';
 importScripts(KIT + 'bbl-sw.js');
@@ -69,5 +69,11 @@ BBLsw.start({
     KIT + 'bbl-install.js',
     KIT + 'brand/bbl-symbol.svg',
     'guide/',
+    'guide/img/q1-join.c.png',
+    'guide/img/q2-pick.c.png',
+    'guide/img/q3-library.c.png',
+    'guide/img/h1-invite.c.png',
+    'guide/img/h3-plans.c.png',
+    'guide/img/h4-runsheet.c.png',
   ],
 });

@@ -1,14 +1,14 @@
 /* Help: the standard Bench Boss Labs Help screen. */
 import { renderHelp } from '../../vendor/bbl-kit/1.0.1/bbl-help.js';
-import { APP_NAME, APP_VERSION } from '../version.js?v=1.5.2';
-import { el } from '../ui.js?v=1.5.2';
-import { GUIDES } from '../guides.js?v=1.5.2';
+import { APP_NAME, APP_VERSION } from '../version.js?v=1.5.3';
+import { el } from '../ui.js?v=1.5.3';
+import { GUIDES } from '../guides.js?v=1.5.3';
 
 export function renderHelpScreen(app) {
   const b = t => el('b', {}, t);
   const p = (...k) => el('span', {}, ...k);
   return renderHelp({
-    app: APP_NAME, version: APP_VERSION, releases: app.notes, guideUrl: GUIDES.coachManual,
+    app: APP_NAME, version: APP_VERSION, releases: app.notes, guideUrl: 'guide/',
     intro: 'Practice Pilot is for building hockey drills that move and turning them into practice plans. Build drills on a tablet or PC; play them anywhere.',
     tasks: [
       { title: 'Plan a practice', text: p('Tap ', b('Plans'), ', then ', b('+ New plan'), '. Add drills, stations and activities; the bar at the top shows the ice time left. ', b('Print'), ' gives a run sheet and a card for each drill, or a PDF.') },
@@ -38,9 +38,8 @@ export function renderHelpScreen(app) {
             { q: 'Someone else changed the drill I was working on. What happens?', a: p('When you publish, Practice Pilot checks first. If another coach published the same drill since you started, it asks: ', b('Keep mine'), ', ', b('Take theirs'), ', or ', b('Keep both'), ' (yours is saved as a copy). Nothing is overwritten without asking.') },
       { q: 'Where are my drills kept?', a: p('On this device, and, once published, in one file in your team’s Google Drive folder. Practice Pilot can only see its own files in your Drive. Drafts stay on this device until you publish them, and they’re in this device’s Backup.') },
             { q: 'Can I edit on my phone?', a: p('Yes. Turn your phone sideways to build or change a drill: the tools run down the left, the steps along the bottom, and ', b('Options'), ' opens the piece, step and details settings. Held upright, you can play a drill and change its details (title, setup, coaching points and tags). Plans are read-only on a phone for now.') },
-      { q: 'Where is my work saved?', a: 'On this device only, for now. A later update saves it to your team’s Google Drive folder so your bench staff can see it.' },
       { q: 'What happens when there’s an update?', a: p('An amber banner says a new version is ready, with what’s in it. Tap ', b('Update now'), ', or ', b('Later'), ' to keep going. Small fixes install by themselves.') },
-      { q: 'Can my assistant coaches and helpers see my drills?', a: 'Not yet. Sharing with your bench staff and on-ice helpers comes in a later update, and only people you give access to will see anything.' },
+      { q: 'Can the other coaches on my team see my drills?', a: p('Once you publish them. New drills and plans are drafts only you see, on this device; ', b('Publish'), ' sends them to every coach on your team. Helpers only see the plans you share with them.') },
       { q: 'It says it’s open in another tab.', a: p('Practice Pilot works in one tab at a time so changes never overwrite each other. Tap ', b('Use this tab instead'), ' to switch.') },
     ],
   });

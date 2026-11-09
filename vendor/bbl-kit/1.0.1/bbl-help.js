@@ -25,7 +25,7 @@ export function renderHelp(o) {
   }
   if (o.questions && o.questions.length) {
     s.append(el('h2', { class: 't-section' }, 'Questions'));
-    s.append(el('dl', {}, o.questions.map(q => [el('dt', {}, q.q), el('dd', {}, q.a)])));
+    s.append(el('dl', {}, ...o.questions.flatMap(q => [el('dt', {}, q.q), el('dd', {}, q.a)])));   // fixed in Practice Pilot 1.5.3: nested arrays printed as [object HTMLElement]
   }
   for (const r of (o.roles || []).filter(r => r.show !== false)) {
     s.append(el('h2', { class: 't-section' }, r.title));

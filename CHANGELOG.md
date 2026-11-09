@@ -1,5 +1,10 @@
 # Practice Pilot — changelog
 
+## 1.5.3 — 2026-11-08 (The Coach’s Manual)
+
+- **New:** Help › Open the full guide opens the Coach’s Manual as a Practice Pilot page: search it, jump to any section, with screenshots.
+- **Fixed:** Help › Questions showed “[object HTMLElement]” instead of the questions and answers.
+
 ## 1.5.2 — 2026-11-08 (Guides)
 
 - **New:** Help › Open the full guide opens the Coach’s Manual, a searchable guide to every feature.

@@ -1,23 +1,23 @@
 /* Library (R1 Library deep-dive): search, filters, sort, drill cards with pictures, a playing preview,
    New drill (blank or template), Duplicate, Save as template, Delete to Recently deleted. */
-import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.5.2';
+import { el, fill, toast, dialog, shortDate } from '../ui.js?v=1.5.3';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { SCHEMA_VERSION } from '../version.js?v=1.5.2';
-import { newDrill } from '../schema.js?v=1.5.2';
-import { Player } from '../engine/player.js?v=1.5.2';
-import { frame } from '../engine/model.js?v=1.5.2';
-import { thumbnailSVG } from '../engine/render.js?v=1.5.2';
-import { VIEWS } from '../engine/rink.js?v=1.5.2';
-import { firstRunSamples } from '../engine/samples.js?v=1.5.2';
-import * as D from '../drills.js?v=1.5.2';
-import { drillInfo, pills } from './drillview.js?v=1.5.2';
-import { reviewOnly } from './editor.js?v=1.5.2';
-import { inTeam, pubBadge, publishButtons } from './publishui.js?v=1.5.2';
-import { staleDrafts } from '../cloud/sync.js?v=1.5.2';
-import * as C from '../cloud/club.js?v=1.5.2';
-import { clubCache } from '../cloud/club.js?v=1.5.2';
-import { openShareDrill, importDrill } from './drillshare.js?v=1.5.2';
-import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.5.2';
+import { SCHEMA_VERSION } from '../version.js?v=1.5.3';
+import { newDrill } from '../schema.js?v=1.5.3';
+import { Player } from '../engine/player.js?v=1.5.3';
+import { frame } from '../engine/model.js?v=1.5.3';
+import { thumbnailSVG } from '../engine/render.js?v=1.5.3';
+import { VIEWS } from '../engine/rink.js?v=1.5.3';
+import { firstRunSamples } from '../engine/samples.js?v=1.5.3';
+import * as D from '../drills.js?v=1.5.3';
+import { drillInfo, pills } from './drillview.js?v=1.5.3';
+import { reviewOnly } from './editor.js?v=1.5.3';
+import { inTeam, pubBadge, publishButtons } from './publishui.js?v=1.5.3';
+import { staleDrafts } from '../cloud/sync.js?v=1.5.3';
+import * as C from '../cloud/club.js?v=1.5.3';
+import { clubCache } from '../cloud/club.js?v=1.5.3';
+import { openShareDrill, importDrill } from './drillshare.js?v=1.5.3';
+import { findPlans, dayLabel, newPlan, addBlock, drillBlock } from '../plans.js?v=1.5.3';
 
 const SHOW = [['drills', 'Drills'], ['templates', 'Templates'], ['samples', 'Samples only'], ['deleted', 'Recently deleted']];
 const SORTS = [['edited', 'Recently edited'], ['az', 'A to Z'], ['steps', 'Most steps']];

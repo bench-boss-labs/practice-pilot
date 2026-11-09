@@ -1,10 +1,10 @@
 /* Printout (R2): page 1 is the run sheet; then a card per drill with its picture, purpose, setup,
    coaching points, who runs it and the block's note, about two cards a page. Chrome prints it or saves a PDF. */
-import { el, fill } from '../ui.js?v=1.5.2';
-import * as P from '../plans.js?v=1.5.2';
-import { blockTitle } from './plans.js?v=1.5.2';
+import { el, fill } from '../ui.js?v=1.5.3';
+import * as P from '../plans.js?v=1.5.3';
+import { blockTitle } from './plans.js?v=1.5.3';
 import qrcode from '../../vendor/qrcode-generator/1.4.4/qrcode.js';
-import { qrTarget } from '../drillshare-core.js?v=1.5.2';
+import { qrTarget } from '../drillshare-core.js?v=1.5.3';
 
 /** A QR code that opens the drill playing (decided Nov 6: on the plan printout, for coaches and helpers). */
 function qr(planId, d) {

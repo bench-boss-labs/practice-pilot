@@ -1,8 +1,8 @@
 /* Settings › This device › Helpers (1.4.3): the team's helpers, moved here from the plan's Share dialog.
    Helpers see every plan shared with the team, on their phone; they can't see drafts or change anything. */
-import { el, fill, toast } from '../ui.js?v=1.5.2';
-import { signedIn } from '../cloud/team.js?v=1.5.2';
-import { listHelpers, addHelper, removeHelper } from '../cloud/sharing.js?v=1.5.2';
+import { el, fill, toast } from '../ui.js?v=1.5.3';
+import { signedIn } from '../cloud/team.js?v=1.5.3';
+import { listHelpers, addHelper, removeHelper } from '../cloud/sharing.js?v=1.5.3';
 
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';
 

@@ -1,9 +1,9 @@
 /* The Share dialog on a plan (1.4.1, simpler in 1.4.3): share the plan, send helpers the link, stop sharing.
    The team's helpers are managed in Settings › This device › Helpers. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.5.2';
-import { cloudState } from '../cloud/team.js?v=1.5.2';
-import { sharePlan, unsharePlan, sharedIds, helperLink, ensureShared } from '../cloud/sharing.js?v=1.5.2';
-import { helperCount } from './helperscard.js?v=1.5.2';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.3';
+import { cloudState } from '../cloud/team.js?v=1.5.3';
+import { sharePlan, unsharePlan, sharedIds, helperLink, ensureShared } from '../cloud/sharing.js?v=1.5.3';
+import { helperCount } from './helperscard.js?v=1.5.3';
 
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';
 

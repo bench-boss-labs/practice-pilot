@@ -1,13 +1,13 @@
 /* Help: the standard Bench Boss Labs Help screen. */
 import { renderHelp } from '../../vendor/bbl-kit/1.0.1/bbl-help.js';
-import { APP_NAME, APP_VERSION } from '../version.js?v=1.5.3';
-import { el } from '../ui.js?v=1.5.3';
-import { GUIDES } from '../guides.js?v=1.5.3';
+import { APP_NAME, APP_VERSION } from '../version.js?v=1.5.4';
+import { el } from '../ui.js?v=1.5.4';
+import { GUIDES } from '../guides.js?v=1.5.4';
 
 export function renderHelpScreen(app) {
   const b = t => el('b', {}, t);
   const p = (...k) => el('span', {}, ...k);
-  return renderHelp({
+  const o = ({
     app: APP_NAME, version: APP_VERSION, releases: app.notes, guideUrl: 'guide/',
     intro: 'Practice Pilot is for building hockey drills that move and turning them into practice plans. Build drills on a tablet or PC; play them anywhere.',
     tasks: [
@@ -43,4 +43,9 @@ export function renderHelpScreen(app) {
       { q: 'It says it’s open in another tab.', a: p('Practice Pilot works in one tab at a time so changes never overwrite each other. Tap ', b('Use this tab instead'), ' to switch.') },
     ],
   });
+  // Questions go through `roles` (a heading and its answer each): the kit's own Questions list prints
+  // answers made of several parts as “[object HTMLElement]”, and kit files are never patched in place.
+  o.roles = [{ title: 'Questions', items: o.questions.map(q => ({ title: q.q, text: q.a })) }, ...(o.roles || [])];
+  delete o.questions;
+  return renderHelp(o);
 }

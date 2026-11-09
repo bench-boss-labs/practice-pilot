@@ -1,15 +1,15 @@
 /* Plan builder (R2 Plan Builder deep-dive): the plan as blocks on the left with the ice-time bar,
    and a side panel: Add drills, Details, Equipment, or the selected block's options. Saves as you go. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.5.3';
-import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.5.3';
-import { openShare } from './share.js?v=1.5.3';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.4';
+import { inTeam, pubWords, canPublish, canDiscard, publishFlow, discardFlow, warnMark } from './publishui.js?v=1.5.4';
+import { openShare } from './share.js?v=1.5.4';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import { History } from '../history.js?v=1.5.3';
-import { Player } from '../engine/player.js?v=1.5.3';
-import * as P from '../plans.js?v=1.5.3';
-import { findDrills, DEFAULT_FILTERS, lengthLabel } from '../drills.js?v=1.5.3';
-import { reviewOnly } from './editor.js?v=1.5.3';
-import { planView, thumb, blockTitle, KIND_NAMES } from './plans.js?v=1.5.3';
+import { History } from '../history.js?v=1.5.4';
+import { Player } from '../engine/player.js?v=1.5.4';
+import * as P from '../plans.js?v=1.5.4';
+import { findDrills, DEFAULT_FILTERS, lengthLabel } from '../drills.js?v=1.5.4';
+import { reviewOnly } from './editor.js?v=1.5.4';
+import { planView, thumb, blockTitle, KIND_NAMES } from './plans.js?v=1.5.4';
 
 const COLOURS = ['#F26A1B', '#1d9e75', '#3b5ba5', '#c2417e', '#8a6d1d', '#5a6b7d'];
 const strip = r => { const { createdAt, updatedAt, updatedBy, schemaVersion, ...rest } = r; return rest; };

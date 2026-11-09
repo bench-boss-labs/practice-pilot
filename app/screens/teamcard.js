@@ -1,9 +1,9 @@
 /* Settings › This device: the Google Drive and team card (R3). Sign in, set up a team (benchbosslabs only),
    join a team by picking its library once, change or leave the team, sign out. */
-import { el, toast, dialog, fill } from '../ui.js?v=1.5.3';
-import { cloudState, signIn, signOut, signedIn, setupTeam, joinTeam, leaveTeam } from '../cloud/team.js?v=1.5.3';
-import { isAdmin, LIBRARY_PREFIX } from '../cloud/library.js?v=1.5.3';
-import { setHelper } from '../cloud/sharing.js?v=1.5.3';
+import { el, toast, dialog, fill } from '../ui.js?v=1.5.4';
+import { cloudState, signIn, signOut, signedIn, setupTeam, joinTeam, leaveTeam } from '../cloud/team.js?v=1.5.4';
+import { isAdmin, LIBRARY_PREFIX } from '../cloud/library.js?v=1.5.4';
+import { setHelper } from '../cloud/sharing.js?v=1.5.4';
 
 const when = iso => (iso ? new Date(iso).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'not yet');
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';

@@ -1,5 +1,9 @@
 # Practice Pilot — changelog
 
+## 1.5.4 — 2026-11-08 (Help questions)
+
+- **Fixed:** Help › Questions now shows each question with its answer (1.5.3’s fix didn’t reach every device).
+
 ## 1.5.3 — 2026-11-08 (The Coach’s Manual)
 
 - **New:** Help › Open the full guide opens the Coach’s Manual as a Practice Pilot page: search it, jump to any section, with screenshots.

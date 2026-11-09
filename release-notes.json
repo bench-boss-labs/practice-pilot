@@ -1,5 +1,16 @@
 [
   {
+    "version": "1.5.4",
+    "date": "2026-11-08",
+    "title": "Help questions",
+    "notes": [
+      {
+        "type": "fixed",
+        "text": "Help › Questions now shows each question with its answer (1.5.3’s fix didn’t reach every device)."
+      }
+    ]
+  },
+  {
     "version": "1.5.3",
     "date": "2026-11-08",
     "title": "The Coach’s Manual",

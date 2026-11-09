@@ -1,14 +1,14 @@
 /* Share a drill (1.4.2): one dialog makes an MP4 video, opens the drill sheet (Print → Save as PDF), or saves a
    drill file another coach can import. Everything is made on the device; only sending needs a connection. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.5.3';
-import { frame, prepare } from '../engine/model.js?v=1.5.3';
-import { frameSVG, clipToView } from '../engine/render.js?v=1.5.3';
-import { viewBoxOf } from '../engine/rink.js?v=1.5.3';
-import { APP_VERSION } from '../version.js?v=1.5.3';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.4';
+import { frame, prepare } from '../engine/model.js?v=1.5.4';
+import { frameSVG, clipToView } from '../engine/render.js?v=1.5.4';
+import { viewBoxOf } from '../engine/rink.js?v=1.5.4';
+import { APP_VERSION } from '../version.js?v=1.5.4';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import * as X from '../drillshare-core.js?v=1.5.3';
-import { agesOf } from '../drills.js?v=1.5.3';
-import { requestClub } from '../cloud/club.js?v=1.5.3';
+import * as X from '../drillshare-core.js?v=1.5.4';
+import { agesOf } from '../drills.js?v=1.5.4';
+import { requestClub } from '../cloud/club.js?v=1.5.4';
 
 const teamOf = app => (app.helper && app.helper.teamName) || (app.team && app.team.name) || '';
 /** The team's logo and main colour for pictures and videos (not on a helper's phone). */

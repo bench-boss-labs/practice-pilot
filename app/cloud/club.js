@@ -2,11 +2,11 @@
    Practice Pilot folder; every coach is a Viewer on the file (not a folder: the Nov 8 trial) and picks it once.
    Coaches ask for a drill to be added from its Share dialog; the request waits in their team's library file
    until Bench Boss Labs adds or declines it in Admin › Club library. */
-import { cloudState, signedIn } from './team.js?v=1.5.3';
-import { publishItems, unpublished } from './sync.js?v=1.5.3';
-import { CLUB_FILE, CLUB_FOLDER, newClub, checkClub, clubAdd, clubRemove, addRequest, dropRequest, importCopy, checkLibrary, peopleOf } from './library.js?v=1.5.3';
-import { loadAdmin, coachesOf } from './admin.js?v=1.5.3';
-import { FOLDER } from './drive.js?v=1.5.3';
+import { cloudState, signedIn } from './team.js?v=1.5.4';
+import { publishItems, unpublished } from './sync.js?v=1.5.4';
+import { CLUB_FILE, CLUB_FOLDER, newClub, checkClub, clubAdd, clubRemove, addRequest, dropRequest, importCopy, checkLibrary, peopleOf } from './library.js?v=1.5.4';
+import { loadAdmin, coachesOf } from './admin.js?v=1.5.4';
+import { FOLDER } from './drive.js?v=1.5.4';
 
 const CACHE = 'club-cache';
 const err = (words, status) => Object.assign(new Error(words), { status, words });

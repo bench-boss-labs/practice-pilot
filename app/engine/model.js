@@ -1,8 +1,8 @@
 /* Practice Pilot animation engine — the drill model.
    frameAt(drill, t) answers "what does the rink look like at time t?" for the editor, player,
    thumbnails and (R4) video export. Pure: no DOM. Positions are feet on the 200 × 85 sheet. */
-import { spline, poly, at, clamp, ease, dist } from './geometry.js?v=1.5.3';
-import { turnPoint, iceBounds } from './rink.js?v=1.5.3';
+import { spline, poly, at, clamp, ease, dist } from './geometry.js?v=1.5.4';
+import { turnPoint, iceBounds } from './rink.js?v=1.5.4';
 
 export const PIECES = {
   F: { label: 'Forward', player: true }, C: { label: 'Centre', player: true }, D: { label: 'Defence', player: true },

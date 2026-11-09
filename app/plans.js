@@ -1,7 +1,7 @@
 /* Practice Pilot — practice plans (R2 Plan Builder deep-dive). Pure functions on plain plan objects:
    blocks (drill, stations, activity), timing and the ice-time budget, the equipment list, copies and search.
    Edits return a new plan and never change their input. */
-import { fold } from './drills.js?v=1.5.1';
+import { fold } from './drills.js?v=1.5.2';
 
 export const DEFAULT_DRILL_MINUTES = 8;
 export const MAX_STATIONS = 4;

@@ -1,13 +1,14 @@
 /* Help: the standard Bench Boss Labs Help screen. */
 import { renderHelp } from '../../vendor/bbl-kit/1.0.1/bbl-help.js';
-import { APP_NAME, APP_VERSION } from '../version.js?v=1.5.1';
-import { el } from '../ui.js?v=1.5.1';
+import { APP_NAME, APP_VERSION } from '../version.js?v=1.5.2';
+import { el } from '../ui.js?v=1.5.2';
+import { GUIDES } from '../guides.js?v=1.5.2';
 
 export function renderHelpScreen(app) {
   const b = t => el('b', {}, t);
   const p = (...k) => el('span', {}, ...k);
   return renderHelp({
-    app: APP_NAME, version: APP_VERSION, releases: app.notes, guideUrl: 'guide/',
+    app: APP_NAME, version: APP_VERSION, releases: app.notes, guideUrl: GUIDES.coachManual,
     intro: 'Practice Pilot is for building hockey drills that move and turning them into practice plans. Build drills on a tablet or PC; play them anywhere.',
     tasks: [
       { title: 'Plan a practice', text: p('Tap ', b('Plans'), ', then ', b('+ New plan'), '. Add drills, stations and activities; the bar at the top shows the ice time left. ', b('Print'), ' gives a run sheet and a card for each drill, or a PDF.') },

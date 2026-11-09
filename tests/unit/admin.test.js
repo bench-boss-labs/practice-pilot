@@ -81,6 +81,7 @@ test('new team: folder in Practice Pilot, library and shared-plans files side by
   await A.addCoach(a, e, ' Scalisec@Gmail.com ');
   assert.equal(folder.shared[COACH], 'writer');
   assert.match(fake.mail.at(-1).message, new RegExp(`#team/${e.libraryId}/${e.folderId}/U13B%20Barracudas`));
+  assert.match(fake.mail.at(-1).message, /Quick start guide: https:\/\/docs\.google\.com\/document\/d\/1NW37Sl3s/, 'the coach quick start is in the invitation');
   assert.deepEqual((await A.coachesOf(a, e)).map(c => c.email), [COACH]);
   // the coach joins: picks both files in one go; picking another team's library is refused
   const c = await device(fake, COACH, { pickQueue: [[{ id: e.libraryId }, { id: plans.id }]] });

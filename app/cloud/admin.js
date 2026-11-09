@@ -1,11 +1,12 @@
 /* Practice Pilot — Admin (1.5.0, design deep-dive Nov 8): the Bench Boss Labs account sets teams up end to end.
    One admin file lists the teams; each team is a folder with its library file and shared-plans file side by side.
    Coaches are Editors on the team folder and pick both files once; helpers are Viewers on the shared-plans file. */
-import { APP_VERSION } from '../version.js?v=1.5.1';
-import { FOLDER } from './drive.js?v=1.5.1';
-import { cloudState, setState, applyLibrary } from './team.js?v=1.5.1';
+import { APP_VERSION } from '../version.js?v=1.5.2';
+import { FOLDER } from './drive.js?v=1.5.2';
+import { GUIDES } from '../guides.js?v=1.5.2';
+import { cloudState, setState, applyLibrary } from './team.js?v=1.5.2';
 import { ADMIN_FILE, ROOT_FOLDER, newAdmin, checkAdmin, putTeam, peopleOf, validEmail, isAdmin, libraryName, sharedName,
-  newLibrary, newShared, checkLibrary, checkShared, publish, teamLook, SHARED_FOLDER } from './library.js?v=1.5.1';
+  newLibrary, newShared, checkLibrary, checkShared, publish, teamLook, SHARED_FOLDER } from './library.js?v=1.5.2';
 
 const err = (words, status) => Object.assign(new Error(words), { status, words });
 const now = () => new Date().toISOString();
@@ -146,7 +147,7 @@ export async function addCoach(app, entry, email) {
   await mustBeAdmin(app);
   const e = String(email || '').trim().toLowerCase();
   if (!validEmail(e)) throw err('Type the coach’s Google email address.');
-  await app.drive.share(entry.folderId, e, 'writer', `You’re a coach on ${entry.name} in Practice Pilot. On your phone or tablet, open ${coachLink(entry)} and sign in with this Google account.`);
+  await app.drive.share(entry.folderId, e, 'writer', `You’re a coach on ${entry.name} in Practice Pilot. On your phone or tablet, open ${coachLink(entry)} and sign in with this Google account. Quick start guide: ${GUIDES.coachQuickStart}`);
   // the club library (1.5.1): Viewer on its file, no second email
   const { doc: admin } = await loadAdmin(app);
   if (admin.clubFileId && await reach(app, admin.clubFileId)) {

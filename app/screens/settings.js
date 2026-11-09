@@ -1,14 +1,14 @@
 /* Settings › About and Settings › This device. */
-import { APP, APP_NAME, APP_VERSION, KIT_VERSION, SCHEMA_VERSION } from '../version.js?v=1.5.1';
-import { DATA_STORES, describeCounts, daysSince, newTeam } from '../schema.js?v=1.5.1';
-import { restoreSamples } from './library.js?v=1.5.1';
+import { APP, APP_NAME, APP_VERSION, KIT_VERSION, SCHEMA_VERSION } from '../version.js?v=1.5.2';
+import { DATA_STORES, describeCounts, daysSince, newTeam } from '../schema.js?v=1.5.2';
+import { restoreSamples } from './library.js?v=1.5.2';
 import { newId, makeBackup, backupFileName, validateBackup, restoreBackup, storageStatus, formatBytes } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
 import { formatDate } from '../../vendor/bbl-kit/1.0.1/bbl-updates.js';
 import { renderInstallCard } from '../../vendor/bbl-kit/1.0.1/bbl-install.js';
-import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.5.1';
-import { renderTeamCard } from './teamcard.js?v=1.5.1';
-import { renderHelpersCard } from './helperscard.js?v=1.5.1';
-import { pushChanges } from '../cloud/team.js?v=1.5.1';
+import { el, toast, dialog, download, shortDate } from '../ui.js?v=1.5.2';
+import { renderTeamCard } from './teamcard.js?v=1.5.2';
+import { renderHelpersCard } from './helperscard.js?v=1.5.2';
+import { pushChanges } from '../cloud/team.js?v=1.5.2';
 
 export function renderSettings(app, sub) {
   const tab = sub === 'device' || sub === 'helpers' ? 'device' : 'about';

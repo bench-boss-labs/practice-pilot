@@ -1,13 +1,13 @@
 /* Admin (1.5.0): the Bench Boss Labs account sets up teams — name, logo, colours, coaches — and keeps their
    sharing right. #admin (teams), #admin/new, #admin/team/<library id>. Coaches join from #team/<lib>/<folder>/<name>. */
-import { el, fill, toast, dialog } from '../ui.js?v=1.5.1';
-import { cloudState, signIn, signedIn, joinTeam } from '../cloud/team.js?v=1.5.1';
-import { isAdmin, validEmail } from '../cloud/library.js?v=1.5.1';
-import * as A from '../cloud/admin.js?v=1.5.1';
-import * as C from '../cloud/club.js?v=1.5.1';
-import { thumbnailSVG } from '../engine/render.js?v=1.5.1';
-import { frame } from '../engine/model.js?v=1.5.1';
-import { Player } from '../engine/player.js?v=1.5.1';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.2';
+import { cloudState, signIn, signedIn, joinTeam } from '../cloud/team.js?v=1.5.2';
+import { isAdmin, validEmail } from '../cloud/library.js?v=1.5.2';
+import * as A from '../cloud/admin.js?v=1.5.2';
+import * as C from '../cloud/club.js?v=1.5.2';
+import { thumbnailSVG } from '../engine/render.js?v=1.5.2';
+import { frame } from '../engine/model.js?v=1.5.2';
+import { Player } from '../engine/player.js?v=1.5.2';
 
 const problem = e => (e && e.words) || (e && e.message) || 'Something went wrong.';
 const when = iso => (iso ? new Date(iso).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');

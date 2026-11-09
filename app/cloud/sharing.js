@@ -1,9 +1,10 @@
 /* Practice Pilot — sharing plans with helpers (1.4.1 deep-dive, decided Nov 6; reworked in 1.5.0).
    One shared-plans file beside the team's library file holds each shared plan with copies of its drills.
    Helpers are Viewers on that file (not a folder: the Nov 8 trial), and pick it once on their phone. */
-import { peopleOf, validEmail, newShared, checkShared, shareInto, unshareFrom, staleShared, planDrillIds, sharedName } from './library.js?v=1.5.1';
-import { cloudState, setState, signedIn, pushChanges } from './team.js?v=1.5.1';
-import { publishItems, unpublished } from './sync.js?v=1.5.1';
+import { peopleOf, validEmail, newShared, checkShared, shareInto, unshareFrom, staleShared, planDrillIds, sharedName } from './library.js?v=1.5.2';
+import { cloudState, setState, signedIn, pushChanges } from './team.js?v=1.5.2';
+import { GUIDES } from '../guides.js?v=1.5.2';
+import { publishItems, unpublished } from './sync.js?v=1.5.2';
 
 const CACHE = 'shared-cache';
 export const HELPER = 'helper';
@@ -136,7 +137,7 @@ export async function addHelper(app, email) {
   const ids = await ensureShared(app);
   if (!ids) return null;
   const st = await cloudState(app);
-  await app.drive.share(ids.fileId, e, 'reader', `${MESSAGE(st.teamName)} ${helperLink(st, ids)}`);
+  await app.drive.share(ids.fileId, e, 'reader', `${MESSAGE(st.teamName)} ${helperLink(st, ids)} Quick start guide: ${GUIDES.helperQuickStart}`);
   return e;
 }
 export async function removeHelper(app, permissionId) {

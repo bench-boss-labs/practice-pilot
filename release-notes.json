@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.5.2",
+    "date": "2026-11-08",
+    "title": "Guides",
+    "notes": [
+      {
+        "type": "new",
+        "text": "Help › Open the full guide opens the Coach’s Manual, a searchable guide to every feature."
+      },
+      {
+        "type": "new",
+        "text": "Invitations now include a quick start guide: coaches get the Coach Quick Start, helpers the Helper Quick Start."
+      }
+    ]
+  },
+  {
     "version": "1.5.1",
     "date": "2026-11-08",
     "title": "Club library",

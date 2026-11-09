@@ -1,6 +1,6 @@
 /* Publish, Discard changes and the Draft badges, shared by the Library, Plans, the editor and the planner (R3). */
-import { el, toast, dialog } from '../ui.js?v=1.5.1';
-import { pubState, publishItems, discardChanges, othersMark, refreshMarks } from '../cloud/sync.js?v=1.5.1';
+import { el, toast, dialog } from '../ui.js?v=1.5.2';
+import { pubState, publishItems, discardChanges, othersMark, refreshMarks } from '../cloud/sync.js?v=1.5.2';
 
 export const inTeam = app => !!(app.cloudState && app.cloudState.libraryId);
 const state = (app, r) => (inTeam(app) ? pubState(r) : null);

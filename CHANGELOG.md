@@ -1,5 +1,10 @@
 # Practice Pilot — changelog
 
+## 1.5.2 — 2026-11-08 (Guides)
+
+- **New:** Help › Open the full guide opens the Coach’s Manual, a searchable guide to every feature.
+- **New:** Invitations now include a quick start guide: coaches get the Coach Quick Start, helpers the Helper Quick Start.
+
 ## 1.5.1 — 2026-11-08 (Club library)
 
 - **New:** Club library: drills every team can import. In the Library, Show › Club library; Import to my team makes your own draft copy.

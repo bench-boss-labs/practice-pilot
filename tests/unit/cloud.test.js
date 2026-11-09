@@ -379,6 +379,7 @@ test('helpers: add by email (Google emails them), list, remove; any coach can, a
   assert.match(fake.mail.at(-1).message, /helper for Bulldogs/);
   assert.equal(fake.file(plansFile.id).shared['helper@example.com'], 'reader', 'a Viewer on the file itself, not a folder');
   assert.match(fake.mail.at(-1).message, /#join\//, 'the email carries the link');
+  assert.match(fake.mail.at(-1).message, /Quick start guide: https:\/\/docs\.google\.com\/document\/d\/1EGIkRT0o/, 'and the helper quick start');
   // the second coach: their app can't open the file until they pick it (picking the folder isn't enough: Nov 8 trial)
   await S.syncNow(b, { force: true });
   b.pickQueue.push({ id: fake.find('Bulldogs').id });

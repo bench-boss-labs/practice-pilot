@@ -1,12 +1,12 @@
 /* Plans (R2 Plan Builder deep-dive): the list of practice plans, a preview, and the read-only plan view
    (used by the preview and on phones). */
-import { el, fill, toast, dialog } from '../ui.js?v=1.5.1';
+import { el, fill, toast, dialog } from '../ui.js?v=1.5.2';
 import { newId } from '../../vendor/bbl-kit/1.0.1/bbl-store.js';
-import * as P from '../plans.js?v=1.5.1';
-import { reviewOnly } from './editor.js?v=1.5.1';
-import { pubBadge, publishButtons, inTeam } from './publishui.js?v=1.5.1';
-import { openShare } from './share.js?v=1.5.1';
-import { sharedIds } from '../cloud/sharing.js?v=1.5.1';
+import * as P from '../plans.js?v=1.5.2';
+import { reviewOnly } from './editor.js?v=1.5.2';
+import { pubBadge, publishButtons, inTeam } from './publishui.js?v=1.5.2';
+import { openShare } from './share.js?v=1.5.2';
+import { sharedIds } from '../cloud/sharing.js?v=1.5.2';
 
 export const KIND_NAMES = { drill: 'Drill', stations: 'Stations', activity: 'Activity' };
 
